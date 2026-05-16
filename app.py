@@ -131,65 +131,65 @@ section[data-testid="stSidebarNav"] + div {
 TEAM_INFO = {
     # FIFA 世界排名（2026年4月 / 資料來源：FIFA官網）
     # === GROUP A ===
-    'Mexico':         {'flag': '🇲🇽', 'cn': '墨西哥',         'en': 'Mexico',          'fifa_rank': 15, 'fifa_pts': 1701},
-    'Czechia':        {'flag': '🇨🇿', 'cn': '捷克',           'en': 'Czechia',         'fifa_rank': 50, 'fifa_pts': 1402},
-    'South Korea':    {'flag': '🇰🇷', 'cn': '南韓',           'en': 'South Korea',     'fifa_rank': 24, 'fifa_pts': 1569},
-    'South Africa':   {'flag': '🇿🇦', 'cn': '南非',           'en': 'South Africa',     'fifa_rank': 59, 'fifa_pts': 1385},
+    'Mexico':         {'flag': '🇲🇽', 'iso': 'mx', 'cn': '墨西哥',         'en': 'Mexico',          'fifa_rank': 15, 'fifa_pts': 1701},
+    'Czechia':        {'flag': '🇨🇿', 'iso': 'cz', 'cn': '捷克',           'en': 'Czechia',         'fifa_rank': 50, 'fifa_pts': 1402},
+    'South Korea':    {'flag': '🇰🇷', 'iso': 'kr', 'cn': '南韓',           'en': 'South Korea',     'fifa_rank': 24, 'fifa_pts': 1569},
+    'South Africa':   {'flag': '🇿🇦', 'iso': 'za', 'cn': '南非',           'en': 'South Africa',    'fifa_rank': 59, 'fifa_pts': 1385},
     # === GROUP B ===
-    'Canada':         {'flag': '🇨🇦', 'cn': '加拿大',         'en': 'Canada',          'fifa_rank': 38, 'fifa_pts': 1502},
-    'Switzerland':    {'flag': '🇨🇭', 'cn': '瑞士',           'en': 'Switzerland',      'fifa_rank': 14, 'fifa_pts': 1712},
-    'Qatar':          {'flag': '🇶🇦', 'cn': '卡達',           'en': 'Qatar',           'fifa_rank': 44, 'fifa_pts': 1482},
-    'Bosnia and Herzegovina': {'flag': '🇧🇦', 'cn': '波赫',     'en': 'Bosnia',           'fifa_rank': 50, 'fifa_pts': 1402},
+    'Canada':         {'flag': '🇨🇦', 'iso': 'ca', 'cn': '加拿大',         'en': 'Canada',          'fifa_rank': 38, 'fifa_pts': 1502},
+    'Switzerland':    {'flag': '🇨🇭', 'iso': 'ch', 'cn': '瑞士',           'en': 'Switzerland',     'fifa_rank': 14, 'fifa_pts': 1712},
+    'Qatar':          {'flag': '🇶🇦', 'iso': 'qa', 'cn': '卡達',           'en': 'Qatar',           'fifa_rank': 44, 'fifa_pts': 1482},
+    'Bosnia and Herzegovina': {'flag': '🇧🇦', 'iso': 'ba', 'cn': '波赫',   'en': 'Bosnia',          'fifa_rank': 50, 'fifa_pts': 1402},
     # === GROUP C ===
-    'Brazil':         {'flag': '🇧🇷', 'cn': '巴西',           'en': 'Brazil',          'fifa_rank': 5,  'fifa_pts': 1819},
-    'Morocco':        {'flag': '🇲🇦', 'cn': '摩洛哥',         'en': 'Morocco',          'fifa_rank': 11, 'fifa_pts': 1735},
-    'Scotland':       {'flag': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'cn': '蘇格蘭',    'en': 'Scotland',         'fifa_rank': 52, 'fifa_pts': 1390},
-    'Haiti':          {'flag': '🇭🇹', 'cn': '海地',           'en': 'Haiti',           'fifa_rank': 86, 'fifa_pts': 1279},
+    'Brazil':         {'flag': '🇧🇷', 'iso': 'br', 'cn': '巴西',           'en': 'Brazil',          'fifa_rank': 5,  'fifa_pts': 1819},
+    'Morocco':        {'flag': '🇲🇦', 'iso': 'ma', 'cn': '摩洛哥',         'en': 'Morocco',         'fifa_rank': 11, 'fifa_pts': 1735},
+    'Scotland':       {'flag': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'iso': 'gb-sct', 'cn': '蘇格蘭', 'en': 'Scotland',      'fifa_rank': 52, 'fifa_pts': 1390},
+    'Haiti':          {'flag': '🇭🇹', 'iso': 'ht', 'cn': '海地',           'en': 'Haiti',           'fifa_rank': 86, 'fifa_pts': 1279},
     # === GROUP D ===
-    'USA':            {'flag': '🇺🇸', 'cn': '美國',           'en': 'USA',             'fifa_rank': 17, 'fifa_pts': 1635},
-    'Paraguay':       {'flag': '🇵🇾', 'cn': '巴拉圭',         'en': 'Paraguay',        'fifa_rank': 57, 'fifa_pts': 1424},
-    'Australia':      {'flag': '🇦🇺', 'cn': '澳洲',           'en': 'Australia',        'fifa_rank': 25, 'fifa_pts': 1544},
-    'Turkiye':        {'flag': '🇹🇷', 'cn': '土耳其',         'en': 'Turkiye',         'fifa_rank': 18, 'fifa_pts': 1623},
+    'USA':            {'flag': '🇺🇸', 'iso': 'us', 'cn': '美國',           'en': 'USA',             'fifa_rank': 17, 'fifa_pts': 1635},
+    'Paraguay':       {'flag': '🇵🇾', 'iso': 'py', 'cn': '巴拉圭',         'en': 'Paraguay',        'fifa_rank': 57, 'fifa_pts': 1424},
+    'Australia':      {'flag': '🇦🇺', 'iso': 'au', 'cn': '澳洲',           'en': 'Australia',       'fifa_rank': 25, 'fifa_pts': 1544},
+    'Turkiye':        {'flag': '🇹🇷', 'iso': 'tr', 'cn': '土耳其',         'en': 'Turkiye',         'fifa_rank': 18, 'fifa_pts': 1623},
     # === GROUP E ===
-    'Germany':        {'flag': '🇩🇪', 'cn': '德國',           'en': 'Germany',          'fifa_rank': 13, 'fifa_pts': 1692},
-    'Ecuador':        {'flag': '🇪🇨', 'cn': '厄瓜多',         'en': 'Ecuador',         'fifa_rank': 27, 'fifa_pts': 1535},
-    'Ivory Coast':    {'flag': '🇨🇮', 'cn': '象牙海岸',       'en': 'Ivory Coast',     'fifa_rank': 39, 'fifa_pts': 1448},
-    'Curacao':        {'flag': '🇨🇼', 'cn': '庫拉索',         'en': 'Curacao',          'fifa_rank': 79, 'fifa_pts': 1293},
+    'Germany':        {'flag': '🇩🇪', 'iso': 'de', 'cn': '德國',           'en': 'Germany',         'fifa_rank': 13, 'fifa_pts': 1692},
+    'Ecuador':        {'flag': '🇪🇨', 'iso': 'ec', 'cn': '厄瓜多',         'en': 'Ecuador',         'fifa_rank': 27, 'fifa_pts': 1535},
+    'Ivory Coast':    {'flag': '🇨🇮', 'iso': 'ci', 'cn': '象牙海岸',       'en': 'Ivory Coast',     'fifa_rank': 39, 'fifa_pts': 1448},
+    'Curacao':        {'flag': '🇨🇼', 'iso': 'cw', 'cn': '庫拉索',         'en': 'Curacao',         'fifa_rank': 79, 'fifa_pts': 1293},
     # === GROUP F ===
-    'Netherlands':    {'flag': '🇳🇱', 'cn': '荷蘭',           'en': 'Netherlands',      'fifa_rank': 7,  'fifa_pts': 1760},
-    'Japan':          {'flag': '🇯🇵', 'cn': '日本',           'en': 'Japan',            'fifa_rank': 16, 'fifa_pts': 1640},
-    'Tunisia':        {'flag': '🇹🇳', 'cn': '突尼斯',         'en': 'Tunisia',          'fifa_rank': 36, 'fifa_pts': 1505},
-    'Sweden':         {'flag': '🇸🇪', 'cn': '瑞典',           'en': 'Sweden',           'fifa_rank': 33, 'fifa_pts': 1518},
+    'Netherlands':    {'flag': '🇳🇱', 'iso': 'nl', 'cn': '荷蘭',           'en': 'Netherlands',     'fifa_rank': 7,  'fifa_pts': 1760},
+    'Japan':          {'flag': '🇯🇵', 'iso': 'jp', 'cn': '日本',           'en': 'Japan',           'fifa_rank': 16, 'fifa_pts': 1640},
+    'Tunisia':        {'flag': '🇹🇳', 'iso': 'tn', 'cn': '突尼斯',         'en': 'Tunisia',         'fifa_rank': 36, 'fifa_pts': 1505},
+    'Sweden':         {'flag': '🇸🇪', 'iso': 'se', 'cn': '瑞典',           'en': 'Sweden',          'fifa_rank': 33, 'fifa_pts': 1518},
     # === GROUP G ===
-    'Belgium':        {'flag': '🇧🇪', 'cn': '比利時',         'en': 'Belgium',          'fifa_rank': 6,  'fifa_pts': 1768},
-    'Iran':           {'flag': '🇮🇷', 'cn': '伊朗',           'en': 'Iran',             'fifa_rank': 19, 'fifa_pts': 1623},
-    'Egypt':          {'flag': '🇪🇬', 'cn': '埃及',           'en': 'Egypt',            'fifa_rank': 31, 'fifa_pts': 1516},
-    'New Zealand':    {'flag': '🇳🇿', 'cn': '紐西蘭',         'en': 'New Zealand',      'fifa_rank': 95, 'fifa_pts': 1247},
+    'Belgium':        {'flag': '🇧🇪', 'iso': 'be', 'cn': '比利時',         'en': 'Belgium',         'fifa_rank': 6,  'fifa_pts': 1768},
+    'Iran':           {'flag': '🇮🇷', 'iso': 'ir', 'cn': '伊朗',           'en': 'Iran',            'fifa_rank': 19, 'fifa_pts': 1623},
+    'Egypt':          {'flag': '🇪🇬', 'iso': 'eg', 'cn': '埃及',           'en': 'Egypt',           'fifa_rank': 31, 'fifa_pts': 1516},
+    'New Zealand':    {'flag': '🇳🇿', 'iso': 'nz', 'cn': '紐西蘭',         'en': 'New Zealand',     'fifa_rank': 95, 'fifa_pts': 1247},
     # === GROUP H ===
-    'Spain':          {'flag': '🇪🇸', 'cn': '西班牙',         'en': 'Spain',            'fifa_rank': 2,  'fifa_pts': 1876},
-    'Uruguay':        {'flag': '🇺🇾', 'cn': '烏拉圭',         'en': 'Uruguay',          'fifa_rank': 11, 'fifa_pts': 1701},
-    'Saudi Arabia':   {'flag': '🇸🇦', 'cn': '沙烏地阿拉伯',   'en': 'Saudi Arabia',     'fifa_rank': 56, 'fifa_pts': 1433},
-    'Cape Verde':     {'flag': '🇨🇻', 'cn': '維德角',         'en': 'Cape Verde',       'fifa_rank': 88, 'fifa_pts': 1265},
+    'Spain':          {'flag': '🇪🇸', 'iso': 'es', 'cn': '西班牙',         'en': 'Spain',           'fifa_rank': 2,  'fifa_pts': 1876},
+    'Uruguay':        {'flag': '🇺🇾', 'iso': 'uy', 'cn': '烏拉圭',         'en': 'Uruguay',         'fifa_rank': 11, 'fifa_pts': 1701},
+    'Saudi Arabia':   {'flag': '🇸🇦', 'iso': 'sa', 'cn': '沙烏地阿拉伯',   'en': 'Saudi Arabia',    'fifa_rank': 56, 'fifa_pts': 1433},
+    'Cape Verde':     {'flag': '🇨🇻', 'iso': 'cv', 'cn': '維德角',         'en': 'Cape Verde',      'fifa_rank': 88, 'fifa_pts': 1265},
     # === GROUP I ===
-    'France':         {'flag': '🇫🇷', 'cn': '法國',           'en': 'France',           'fifa_rank': 1,  'fifa_pts': 1877},
-    'Senegal':        {'flag': '🇸🇳', 'cn': '塞內加爾',       'en': 'Senegal',          'fifa_rank': 21, 'fifa_pts': 1621},
-    'Norway':         {'flag': '🇳🇴', 'cn': '挪威',           'en': 'Norway',           'fifa_rank': 47, 'fifa_pts': 1472},
-    'Iraq':           {'flag': '🇮🇶', 'cn': '伊拉克',         'en': 'Iraq',             'fifa_rank': 55, 'fifa_pts': 1436},
+    'France':         {'flag': '🇫🇷', 'iso': 'fr', 'cn': '法國',           'en': 'France',          'fifa_rank': 1,  'fifa_pts': 1877},
+    'Senegal':        {'flag': '🇸🇳', 'iso': 'sn', 'cn': '塞內加爾',       'en': 'Senegal',         'fifa_rank': 21, 'fifa_pts': 1621},
+    'Norway':         {'flag': '🇳🇴', 'iso': 'no', 'cn': '挪威',           'en': 'Norway',          'fifa_rank': 47, 'fifa_pts': 1472},
+    'Iraq':           {'flag': '🇮🇶', 'iso': 'iq', 'cn': '伊拉克',         'en': 'Iraq',            'fifa_rank': 55, 'fifa_pts': 1436},
     # === GROUP J ===
-    'Argentina':      {'flag': '🇦🇷', 'cn': '阿根廷',         'en': 'Argentina',        'fifa_rank': 3,  'fifa_pts': 1874},
-    'Austria':        {'flag': '🇦🇹', 'cn': '奧地利',         'en': 'Austria',          'fifa_rank': 22, 'fifa_pts': 1580},
-    'Algeria':        {'flag': '🇩🇿', 'cn': '阿爾及利亞',     'en': 'Algeria',          'fifa_rank': 41, 'fifa_pts': 1486},
-    'Jordan':         {'flag': '🇯🇴', 'cn': '約旦',           'en': 'Jordan',           'fifa_rank': 68, 'fifa_pts': 1378},
+    'Argentina':      {'flag': '🇦🇷', 'iso': 'ar', 'cn': '阿根廷',         'en': 'Argentina',       'fifa_rank': 3,  'fifa_pts': 1874},
+    'Austria':        {'flag': '🇦🇹', 'iso': 'at', 'cn': '奧地利',         'en': 'Austria',         'fifa_rank': 22, 'fifa_pts': 1580},
+    'Algeria':        {'flag': '🇩🇿', 'iso': 'dz', 'cn': '阿爾及利亞',     'en': 'Algeria',         'fifa_rank': 41, 'fifa_pts': 1486},
+    'Jordan':         {'flag': '🇯🇴', 'iso': 'jo', 'cn': '約旦',           'en': 'Jordan',          'fifa_rank': 68, 'fifa_pts': 1378},
     # === GROUP K ===
-    'Portugal':       {'flag': '🇵🇹', 'cn': '葡萄牙',         'en': 'Portugal',         'fifa_rank': 8,  'fifa_pts': 1752},
-    'Colombia':       {'flag': '🇨🇴', 'cn': '哥倫比亞',       'en': 'Colombia',         'fifa_rank': 9,  'fifa_pts': 1739},
-    'Uzbekistan':     {'flag': '🇺🇿', 'cn': '烏茲別克',       'en': 'Uzbekistan',       'fifa_rank': 59, 'fifa_pts': 1414},
-    'DR Congo':       {'flag': '🇨🇩', 'cn': '民主剛果',       'en': 'DR Congo',         'fifa_rank': 61, 'fifa_pts': 1359},
+    'Portugal':       {'flag': '🇵🇹', 'iso': 'pt', 'cn': '葡萄牙',         'en': 'Portugal',        'fifa_rank': 8,  'fifa_pts': 1752},
+    'Colombia':       {'flag': '🇨🇴', 'iso': 'co', 'cn': '哥倫比亞',       'en': 'Colombia',        'fifa_rank': 9,  'fifa_pts': 1739},
+    'Uzbekistan':     {'flag': '🇺🇿', 'iso': 'uz', 'cn': '烏茲別克',       'en': 'Uzbekistan',      'fifa_rank': 59, 'fifa_pts': 1414},
+    'DR Congo':       {'flag': '🇨🇩', 'iso': 'cd', 'cn': '民主剛果',       'en': 'DR Congo',        'fifa_rank': 61, 'fifa_pts': 1359},
     # === GROUP L ===
-    'England':        {'flag': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'cn': '英格蘭',   'en': 'England',          'fifa_rank': 4,  'fifa_pts': 1825},
-    'Croatia':        {'flag': '🇭🇷', 'cn': '克羅埃西亞',     'en': 'Croatia',          'fifa_rank': 12, 'fifa_pts': 1700},
-    'Panama':         {'flag': '🇵🇦', 'cn': '巴拿馬',         'en': 'Panama',           'fifa_rank': 37, 'fifa_pts': 1503},
-    'Ghana':          {'flag': '🇬🇭', 'cn': '迦納',           'en': 'Ghana',            'fifa_rank': 70, 'fifa_pts': 1360},
+    'England':        {'flag': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'iso': 'gb-eng', 'cn': '英格蘭', 'en': 'England',      'fifa_rank': 4,  'fifa_pts': 1825},
+    'Croatia':        {'flag': '🇭🇷', 'iso': 'hr', 'cn': '克羅埃西亞',     'en': 'Croatia',         'fifa_rank': 12, 'fifa_pts': 1700},
+    'Panama':         {'flag': '🇵🇦', 'iso': 'pa', 'cn': '巴拿馬',         'en': 'Panama',          'fifa_rank': 37, 'fifa_pts': 1503},
+    'Ghana':          {'flag': '🇬🇭', 'iso': 'gh', 'cn': '迦納',           'en': 'Ghana',           'fifa_rank': 70, 'fifa_pts': 1360},
 }
 
 
@@ -895,7 +895,7 @@ if page == "📊 專題總覽":
         min-height: 42px;
     }
     .grp-row:last-child { border-bottom: none; }
-    .grp-flag { font-size: 1.15rem; margin-right: 8px; flex-shrink: 0; }
+    .grp-flag { width: 28px; height: 21px; margin-right: 8px; flex-shrink: 0; object-fit: cover; border-radius: 2px; vertical-align: middle; }
     .grp-nm {
         font-size: 0.82rem;
         font-weight: 600;
@@ -938,9 +938,11 @@ if page == "📊 專題總覽":
     for g, teams in WC_2026_GROUPS.items():
         rows_html = ""
         for t in teams:
-            info = TEAM_INFO.get(t, {'flag': '🏳️', 'cn': t, 'en': t, 'fifa_rank': 99})
+            info = TEAM_INFO.get(t, {'flag': '🏳️', 'iso': 'un', 'cn': t, 'en': t, 'fifa_rank': 99})
+            iso = info.get('iso', 'un')
+            flag_url = f"https://flagcdn.com/28x21/{iso}.png"
             rows_html += f"""<div class="grp-row">
-                <span class="grp-flag">{info['flag']}</span>
+                <img class="grp-flag" src="{flag_url}" alt="{info['en']}" onerror="this.style.display='none'">
                 <span class="grp-nm">{info['cn']}</span>
                 <span class="grp-en">({info['en']})</span>
                 <span class="grp-rank">#{info['fifa_rank']}</span>
