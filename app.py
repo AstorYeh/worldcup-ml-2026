@@ -5,6 +5,7 @@ World Cup 2026 — ML Win Probability & Score Prediction
 真實資料：49,328場國際賽事 + 67,894筆FIFA排名
 """
 
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
