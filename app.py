@@ -1416,42 +1416,51 @@ elif page == "🌍 各國分析":
             st.info("此隊球員資料尚未收錄")
         else:
             st.markdown(f"##### {info['cn']} 出賽球員能力卡（共 {len(players)} 人）")
+            import streamlit.components.v1 as _components
+
             ATTR_COLORS = {
                 'pac': '#00d4ff', 'sho': '#e94560', 'pas': '#26de81',
                 'dri': '#f7c948', 'def': '#a29bfe', 'phy': '#fd9644',
             }
             ATTR_LABELS = {'pac':'PAC','sho':'SHO','pas':'PAS','dri':'DRI','def':'DEF','phy':'PHY'}
 
-            cols = st.columns(min(len(players), 5))
-            for idx, p in enumerate(players):
-                with cols[idx % len(cols)]:
-                    ovr = p['ovr']
-                    ovr_color = '#f7c948' if ovr >= 85 else ('#00d4ff' if ovr >= 78 else '#aabbcc')
-                    attrs_html = ""
-                    for attr_key in ['pac','sho','pas','dri','def','phy']:
-                        val = p[attr_key]
-                        bar_color = ATTR_COLORS[attr_key]
-                        label = ATTR_LABELS[attr_key]
-                        attrs_html += f"""
-                        <div class="pc-attr-row">
-                          <span class="pc-attr-label">{label}</span>
-                          <div class="pc-attr-bar-wrap">
-                            <div class="pc-attr-bar" style="width:{val}%;background:{bar_color};"></div>
-                          </div>
-                          <span style="color:#e8e8e8;font-weight:700;min-width:26px;">{val}</span>
-                        </div>"""
-                    st.markdown(f"""
-                    <div class="player-card">
-                      <div class="pc-flag"><img src="https://flagcdn.com/32x24/{iso}.png" style="border-radius:2px;"></div>
-                      <div class="pc-ovr" style="color:{ovr_color};">{ovr}</div>
-                      <div class="pc-pos">{p['pos']}</div>
-                      <hr class="divider">
-                      <div class="pc-name">{p['name']}</div>
-                      <div class="pc-club">{p['club']} · {p['age']}歲</div>
-                      <hr class="divider">
-                      {attrs_html}
-                    </div>
-                    """, unsafe_allow_html=True)
+            # 整批建一個 HTML，用 CSS Grid 排列，交給 components.html 完整渲染
+            cards_html = ""
+            for p in players:
+                ovr = p['ovr']
+                ovr_color = '#f7c948' if ovr >= 85 else ('#00d4ff' if ovr >= 78 else '#aaaacc')
+                attrs_rows = ""
+                for attr_key in ['pac','sho','pas','dri','def','phy']:
+                    val = p[attr_key]
+                    bc  = ATTR_COLORS[attr_key]
+                    lbl = ATTR_LABELS[attr_key]
+                    attrs_rows += (
+                        f'<div style="display:flex;align-items:center;margin:3px 0;font-size:0.7rem;">'
+                        f'<span style="color:#8899aa;font-weight:700;width:28px;">{lbl}</span>'
+                        f'<div style="flex:1;background:rgba(255,255,255,0.1);border-radius:4px;height:7px;margin:0 6px;">'
+                        f'<div style="width:{val}%;height:7px;border-radius:4px;background:{bc};"></div></div>'
+                        f'<span style="color:#e8e8e8;font-weight:700;width:22px;text-align:right;">{val}</span>'
+                        f'</div>'
+                    )
+                cards_html += (
+                    f'<div style="background:linear-gradient(145deg,#1a2a4a,#0d1b2e);border:1px solid rgba(255,255,255,0.1);'
+                    f'border-radius:14px;padding:16px 14px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,0.4);">'
+                    f'<img src="https://flagcdn.com/32x24/{iso}.png" style="border-radius:2px;margin-bottom:4px;">'
+                    f'<div style="font-size:2.2rem;font-weight:900;color:{ovr_color};line-height:1.1;">{ovr}</div>'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#aabbcc;letter-spacing:1px;">{p["pos"]}</div>'
+                    f'<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:8px 0;">'
+                    f'<div style="font-size:0.88rem;font-weight:700;color:#fff;">{p["name"]}</div>'
+                    f'<div style="font-size:0.7rem;color:#7a9ab5;margin-bottom:10px;">{p["club"]} · {p["age"]}歲</div>'
+                    f'<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:8px 0;">'
+                    f'{attrs_rows}'
+                    f'</div>'
+                )
+
+            full_html = (
+                f'<div style="display:grid;grid-template-columns:repeat({min(len(players),5)},1fr);gap:12px;">'
+                f'{cards_html}</div>'
+            )
+            _components.html(full_html, height=360, scrolling=False)
 
 # ============================================================
 # PAGE 5: 球隊風格分群（v2.2 新增 — 滿足課程「分群」任務）
