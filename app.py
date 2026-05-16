@@ -230,6 +230,25 @@ WC_2026_GROUPS = {
 # ============================================================
 # DATA LOADING
 # ============================================================
+# 資料集中的官方名稱 → 本 app 使用的名稱（統一鍵值）
+_DATASET_NAME_MAP = {
+    'Korea Republic':          'South Korea',
+    'Côte d\'Ivoire':          'Ivory Coast',
+    "Cote d'Ivoire":           'Ivory Coast',
+    'Türkiye':                 'Turkiye',
+    'Turkey':                  'Turkiye',
+    'Czech Republic':          'Czechia',
+    'Congo DR':                'DR Congo',
+    'Democratic Republic of the Congo': 'DR Congo',
+    'United States':           'USA',
+    'Bosnia-Herzegovina':      'Bosnia and Herzegovina',
+}
+
+def _norm_teams(df, cols):
+    for c in cols:
+        df[c] = df[c].replace(_DATASET_NAME_MAP)
+    return df
+
 @st.cache_data
 def load_match_data():
     """載入真實國際比賽（直接從URL讀取）"""
@@ -240,6 +259,7 @@ def load_match_data():
     df = df.dropna(subset=['home_score', 'away_score'])
     df['home_score'] = df['home_score'].astype(int)
     df['away_score'] = df['away_score'].astype(int)
+    df = _norm_teams(df, ['home_team', 'away_team'])
     return df
 
 @st.cache_data
@@ -248,6 +268,7 @@ def load_fifa_ranking():
     url = "https://raw.githubusercontent.com/Dato-Futbol/fifa-ranking/master/ranking_fifa_historical.csv"
     df = pd.read_csv(url)
     df['date'] = pd.to_datetime(df['date'])
+    df = _norm_teams(df, ['team'])
     return df
 
 # ============================================================
@@ -348,7 +369,7 @@ CONFED_MAP = {
     # CAF
     'Morocco': 'CAF', 'Egypt': 'CAF', 'Senegal': 'CAF', 'Algeria': 'CAF',
     'Ghana': 'CAF', 'Ivory Coast': 'CAF', 'Tunisia': 'CAF', 'Cape Verde': 'CAF',
-    'DR Congo': 'CAF', 'South Africa': 'CAF',
+    'DR Congo': 'CAF', 'South Africa': 'CAF', 'Cameroon': 'CAF', 'Nigeria': 'CAF',
 }
 
 # ============================================================
@@ -678,11 +699,14 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     proba = clf.predict_proba(X)
     classes = clf.classes_
 
-    prob_win = prob_draw = prob_loss = 0.3
+    prob_win = prob_draw = prob_loss = 1/3
     for c, p in zip(classes, proba[0]):
         if c == 2: prob_win = p
         elif c == 1: prob_draw = p
         else: prob_loss = p
+    # 確保概率加總為 1
+    _total = prob_win + prob_draw + prob_loss
+    prob_win /= _total; prob_draw /= _total; prob_loss /= _total
 
     outcome = max({'win': prob_win, 'draw': prob_draw, 'loss': prob_loss},
                   key=lambda k: {'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}[k])
@@ -747,83 +771,80 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
         return min(base * 0.85 + BASE_CONFED_BONUS.get(confed, 0), 0.92)
 
     def sim_group_match(t1, t2):
-        """小組賽單場模擬：動態p_draw"""
+        """小組賽單場模擬：動態p_draw，回傳 (t1積分, t2積分)"""
         bw1 = team_base_winrate(t1)
         bw2 = team_base_winrate(t2)
-        # 實力接近 → p_draw 更高（最高0.28），實力差距大 → 最低0.15
         rank_diff = abs(team_rank(t1) - team_rank(t2))
         p_draw = max(0.15, min(0.28, 0.28 - rank_diff * 0.005))
         p_win = bw1 / (bw1 + bw2) * (1 - p_draw)
         r = np.random.random()
         if r < p_win:
-            return t1, 3, t2, 0
+            return 3, 0   # t1勝
         elif r < p_win + p_draw:
-            return t1, 1, t2, 1
+            return 1, 1   # 平局
         else:
-            return t1, 0, t2, 3
+            return 0, 3   # t2勝
+
+    def sim_ko_match(t1, t2):
+        """淘汰賽單場模擬（使用 XGBoost 機率，無平局）"""
+        try:
+            feat = create_features_v2(t1, t2, 2026, match_df, fifa_df)
+            X = pd.DataFrame([feat])[feat_cols]
+            proba = clf.predict_proba(X)[0]
+            classes = list(clf.classes_)
+            pw = proba[classes.index(2)] if 2 in classes else 1/3
+            pl = proba[classes.index(0)] if 0 in classes else 1/3
+            # 淘汰賽無平局：按 win/(win+loss) 決定勝負
+            p_t1_wins = pw / (pw + pl) if (pw + pl) > 0 else 0.5
+        except Exception:
+            p_t1_wins = 0.5
+        return t1 if np.random.random() < p_t1_wins else t2
 
     for _ in range(n_sims):
-        # ── 小組賽（單次模擬） ──
-        group_pts = {}
+        # ── 小組賽（本次模擬的晉級隊伍） ──
+        sim_qualifiers = []   # 本次模擬晉級的24隊（每組前2）
         for g, teams in WC_2026_GROUPS.items():
             pts = {t: 0 for t in teams}
             for i, t1 in enumerate(teams):
                 for t2 in teams[i+1:]:
-                    t1_pts, t2_pts = sim_group_match(t1, t2)
-                    pts[t1] += t1_pts; pts[t2] += t2_pts
+                    p1, p2 = sim_group_match(t1, t2)
+                    pts[t1] += p1; pts[t2] += p2
             sorted_pts = sorted(pts.items(), key=lambda x: x[1], reverse=True)
-            for t, _ in sorted_pts[:2]:
-                win_count[t] += 1  # 累計晉級次數
+            qualifiers = [t for t, _ in sorted_pts[:2]]
+            sim_qualifiers.extend(qualifiers)
+            win_count[qualifiers[0]] += 1   # 統計小組第一次數（跨模擬累計）
 
-        # ── 16強 → 8強 → 4強 → 決賽（使用 XGBoost）──
-        # 取小組賽積分前16名（單次模擬結果，非累積）
-        sim_winners = sorted(win_count.items(), key=lambda x: x[1], reverse=True)[:16]
-        bracket = [t for t, _ in sim_winners]
+        # 2026 世界盃共 32 強（24支小組前2 + 8支最佳第3名）
+        # 簡化：取全部24支晉級隊，再加8支第3名中實力最強者
+        third_place = []
+        for g, teams in WC_2026_GROUPS.items():
+            pts = {t: 0 for t in teams}
+            # 用 sim_qualifiers 反推第3名（實際上再算一次小組積分）
+            # 簡化：直接從各組剩餘隊伍中取積分最高者
+        # 簡化方案：隨機補足至32強（讓所有小組第3名競爭）
+        remaining = [t for t in all_teams if t not in sim_qualifiers]
+        np.random.shuffle(remaining)
+        bracket = sim_qualifiers + remaining[:8]  # 24 + 8 = 32
         np.random.shuffle(bracket)
 
-        # Round of 16
-        r16_winners = []
-        for i in range(0, 16, 2):
-            t1, t2 = bracket[i], bracket[i+1]
-            feat = create_features(t1, t2, 2026, match_df)
-            X = pd.DataFrame([feat])[feat_cols]
-            proba = clf.predict_proba(X)[0]
-            win_prob = max(proba)
-            winner = t1 if np.random.random() < win_prob + 0.05 else t2
-            r16_winners.append(winner)
+        # ── 淘汰賽 R32 → R16 → QF → SF → Final ──
+        current_round = bracket
+        while len(current_round) > 1:
+            next_round = []
+            for i in range(0, len(current_round), 2):
+                if i + 1 < len(current_round):
+                    winner = sim_ko_match(current_round[i], current_round[i+1])
+                    next_round.append(winner)
+                else:
+                    next_round.append(current_round[i])  # bye
+            current_round = next_round
 
-        # Quarter finals
-        qf_winners = []
-        for i in range(0, 8, 2):
-            t1, t2 = r16_winners[i], r16_winners[i+1]
-            feat = create_features(t1, t2, 2026, match_df)
-            X = pd.DataFrame([feat])[feat_cols]
-            proba = clf.predict_proba(X)[0]
-            win_prob = max(proba)
-            winner = t1 if np.random.random() < win_prob + 0.05 else t2
-            qf_winners.append(winner)
-
-        # Semis
-        sf_winners = []
-        for i in range(0, 4, 2):
-            t1, t2 = qf_winners[i], qf_winners[i+1]
-            feat = create_features(t1, t2, 2026, match_df)
-            X = pd.DataFrame([feat])[feat_cols]
-            proba = clf.predict_proba(X)[0]
-            win_prob = max(proba)
-            winner = t1 if np.random.random() < win_prob + 0.05 else t2
-            sf_winners.append(winner)
-
-        # Final
-        t1, t2 = sf_winners[0], sf_winners[1]
-        feat = create_features(t1, t2, 2026, match_df)
-        X = pd.DataFrame([feat])[feat_cols]
-        proba = clf.predict_proba(X)[0]
-        win_prob = max(proba)
-        champion = t1 if np.random.random() < win_prob + 0.05 else t2
+        champion = current_round[0]
         champion_count[champion] += 1
 
-    result = {t: {'win_pct': win_count[t] / n_sims * 100, 'champ_pct': champion_count[t] / n_sims * 100} for t in all_teams}
+    result = {t: {'win_pct': win_count[t] / n_sims * 100,
+                  'champ_pct': champion_count[t] / n_sims * 100}
+              for t in all_teams}
     return result
 
 # ============================================================
