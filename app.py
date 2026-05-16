@@ -704,19 +704,16 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
         t = pw + pd_ + pl
         return pw/t, pd_/t, pl/t
 
-    # 正向＋反向平均，消除主場偏差（世界盃為中性場）
+    # ── 第一層：XGBoost（正向+反向對稱平均，消除主場偏差）──
     pw_f, pd_f, pl_f = _probs(team1, team2)
     pw_r, pd_r, pl_r = _probs(team2, team1)
-    prob_win  = (pw_f + pl_r) / 2
-    prob_draw = (pd_f + pd_r) / 2
-    prob_loss = (pl_f + pw_r) / 2
-    _tot = prob_win + prob_draw + prob_loss
-    prob_win /= _tot; prob_draw /= _tot; prob_loss /= _tot
+    clf_win  = (pw_f + pl_r) / 2
+    clf_draw = (pd_f + pd_r) / 2
+    clf_loss = (pl_f + pw_r) / 2
+    _t = clf_win + clf_draw + clf_loss
+    clf_win /= _t; clf_draw /= _t; clf_loss /= _t
 
-    outcome = max({'win': prob_win, 'draw': prob_draw, 'loss': prob_loss},
-                  key=lambda k: {'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}[k])
-
-    # Dixon-Coles 期望進球（足聯品質校正 + FIFA積分調整）
+    # ── 第二層：Dixon-Coles 期望進球（足聯品質校正 + FIFA積分調整）──
     s1 = compute_team_strength(match_df, team1, year)
     s2 = compute_team_strength(match_df, team2, year)
     LEAGUE_AVG = 1.35
@@ -725,47 +722,66 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     cs1 = CONFED_SCALE.get(CONFED_MAP.get(team1, 'CAF'), 0.84)
     cs2 = CONFED_SCALE.get(CONFED_MAP.get(team2, 'CAF'), 0.84)
 
-    # 攻擊用足聯係數縮放；防守只做輕度調整（避免過度懲罰強防守隊）
     atk1 = min(2.0, s1['avg_goals'] * cs1)
     atk2 = min(2.0, s2['avg_goals'] * cs2)
-    # 防守：用 cs 的平方根（0.84→0.917）避免 AFC/CAF 隊防守被嚴重低估
     def2 = max(0.75, s2['avg_conceded'] * (cs2 ** 0.5))
     def1 = max(0.75, s1['avg_conceded'] * (cs1 ** 0.5))
     lam1_dc = min(2.2, max(0.4, atk1 * LEAGUE_AVG / def2))
     lam2_dc = min(2.2, max(0.3, atk2 * LEAGUE_AVG / def1))
 
     pts1, pts2 = team_pts(team1), team_pts(team2)
-    rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.20   # 溫和縮放，避免過度拉大差距
+    rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.20
     lam1 = min(2.2, max(0.4, lam1_dc * rank_factor))
     lam2 = min(2.2, max(0.3, lam2_dc / rank_factor))
 
-    # ── 比分：純 Poisson MAP — 直接找全域最高聯合機率的比分 ──
-    # 不用分類器方向約束，讓 λ 自然決定比分與勝負，避免兩模型互相矛盾
-    # 規範化到字母序確保同場比賽比分一致（與呼叫順序無關）
+    # 從 λ 積分出 Poisson 勝/平/負機率（0~7 進球範圍涵蓋 99.9%+ 機率）
+    poi_win = poi_draw = poi_loss = 0.0
+    for g1 in range(8):
+        for g2 in range(8):
+            p = poisson.pmf(g1, lam1) * poisson.pmf(g2, lam2)
+            if g1 > g2:
+                poi_win += p
+            elif g1 == g2:
+                poi_draw += p
+            else:
+                poi_loss += p
+    _t2 = poi_win + poi_draw + poi_loss
+    poi_win /= _t2; poi_draw /= _t2; poi_loss /= _t2
+
+    # ── 第三層：加權融合（XGBoost 40% + Poisson 60%）──
+    # Poisson 權重較高，因其直接反映兩隊攻防期望值，內部一致性更強
+    W_CLF, W_POI = 0.40, 0.60
+    prob_win  = W_CLF * clf_win  + W_POI * poi_win
+    prob_draw = W_CLF * clf_draw + W_POI * poi_draw
+    prob_loss = W_CLF * clf_loss + W_POI * poi_loss
+    _t3 = prob_win + prob_draw + prob_loss
+    prob_win /= _t3; prob_draw /= _t3; prob_loss /= _t3
+
+    # 融合後的勝負方向
+    outcome = max({'win': prob_win, 'draw': prob_draw, 'loss': prob_loss},
+                  key=lambda k: {'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}[k])
+
+    # ── MAP 比分：在融合勝負方向約束下找最高 Poisson 機率比分 ──
+    # 規範化到字母序，確保同場比賽比分不因呼叫順序而改變
     t_can1, t_can2 = sorted([team1, team2])
     is_canonical = (team1 == t_can1)
     lam_c1 = lam1 if is_canonical else lam2
     lam_c2 = lam2 if is_canonical else lam1
+    out_c = outcome if is_canonical else (
+        'loss' if outcome == 'win' else ('win' if outcome == 'loss' else 'draw'))
 
-    # 窮舉 0-7，取聯合機率最高的比分（無勝負方向約束）
     best_prob, gc1, gc2 = -1.0, 0, 0
     for g1 in range(8):
         for g2 in range(8):
+            so = 'win' if g1 > g2 else ('draw' if g1 == g2 else 'loss')
+            if so != out_c:
+                continue
             p = poisson.pmf(g1, lam_c1) * poisson.pmf(g2, lam_c2)
             if p > best_prob:
                 best_prob, gc1, gc2 = p, g1, g2
 
-    # 轉回呼叫者的 team1/team2 視角
     goal1 = gc1 if is_canonical else gc2
     goal2 = gc2 if is_canonical else gc1
-
-    # 以比分重新確定勝負，覆蓋分類器結果（確保比分與勝負一致）
-    if goal1 > goal2:
-        outcome = 'win'
-    elif goal1 < goal2:
-        outcome = 'loss'
-    else:
-        outcome = 'draw'
     r1, r2 = team_pts(team1), team_pts(team2)
     rank1, rank2 = team_rank(team1), team_rank(team2)
     info1 = TEAM_INFO.get(team1, {'flag': '🏳️', 'cn': team1, 'en': team1})
