@@ -672,30 +672,39 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     feat = create_features_v2(team1, team2, year, match_df, fifa_df)
     X = pd.DataFrame([feat])[feat_cols]
 
-    g1_raw = max(0, int(round(float(poisson1.predict(X)[0]))))
-    g2_raw = max(0, int(round(float(poisson2.predict(X)[0]))))
+    lam1 = max(0.5, float(poisson1.predict(X)[0]))
+    lam2 = max(0.5, float(poisson2.predict(X)[0]))
 
     proba = clf.predict_proba(X)
     classes = clf.classes_
 
-    # 類別對照：0=輸(loss), 1=平(draw), 2=贏(win)
     prob_win = prob_draw = prob_loss = 0.3
     for c, p in zip(classes, proba[0]):
         if c == 2: prob_win = p
         elif c == 1: prob_draw = p
         else: prob_loss = p
 
-    # 以分類器機率決定勝負結果，再讓 Poisson 比分與之一致
-    outcome = max({'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}, key=lambda k: {'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}[k])
-    goal1, goal2 = g1_raw, g2_raw
-    if outcome == 'win' and goal1 <= goal2:
-        goal1 = goal2 + 1          # 確保 team1 勝
-    elif outcome == 'loss' and goal2 <= goal1:
-        goal2 = goal1 + 1          # 確保 team2 勝
-    elif outcome == 'draw':
-        avg = (goal1 + goal2) // 2
-        goal1 = goal2 = avg        # 確保平局比分相同
+    outcome = max({'win': prob_win, 'draw': prob_draw, 'loss': prob_loss},
+                  key=lambda k: {'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}[k])
 
+    # 以確定性種子抽樣 Poisson 分佈，產生自然多樣的比分
+    seed = abs(hash(f"{team1}|{team2}|{year}")) % (2 ** 31)
+    rng = np.random.RandomState(seed)
+    goal1, goal2 = None, None
+    for _ in range(300):
+        g1, g2 = rng.poisson(lam1), rng.poisson(lam2)
+        so = 'win' if g1 > g2 else ('draw' if g1 == g2 else 'loss')
+        if so == outcome:
+            goal1, goal2 = g1, g2
+            break
+    if goal1 is None:          # 保底：強制最小修正
+        goal1, goal2 = int(lam1), int(lam2)
+        if outcome == 'win' and goal1 <= goal2:   goal1 = goal2 + 1
+        elif outcome == 'loss' and goal2 <= goal1: goal2 = goal1 + 1
+        elif outcome == 'draw':                    goal1 = goal2 = (goal1 + goal2) // 2
+
+    s1 = compute_team_strength(match_df, team1, year)
+    s2 = compute_team_strength(match_df, team2, year)
     r1, r2 = team_pts(team1), team_pts(team2)
     rank1, rank2 = team_rank(team1), team_rank(team2)
     info1 = TEAM_INFO.get(team1, {'flag': '🏳️', 'cn': team1, 'en': team1})
@@ -710,6 +719,8 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
         'loss_prob': float(prob_loss),
         'goal1': goal1, 'goal2': goal2,
         'rank1': rank1, 'rank2': rank2,
+        'lam1': lam1, 'lam2': lam2,
+        's1': s1, 's2': s2,
     }
 
 # ============================================================
@@ -1040,51 +1051,136 @@ elif page == "🔮 2026 預測":
         results.sort(key=lambda x: x['win_prob'], reverse=True)
 
         for r in results:
-            # 用分類器機率決定標籤（主要依據），Poisson 進球只當比分參考
             info1 = TEAM_INFO.get(r['team1'], {'iso': 'un', 'cn': r['team1']})
             info2 = TEAM_INFO.get(r['team2'], {'iso': 'un', 'cn': r['team2']})
             iso1 = info1.get('iso', 'un')
             iso2 = info2.get('iso', 'un')
-            flag1_html = f'<img src="https://flagcdn.com/40x30/{iso1}.png" style="height:36px;border-radius:3px;vertical-align:middle;">'
-            flag2_html = f'<img src="https://flagcdn.com/40x30/{iso2}.png" style="height:36px;border-radius:3px;vertical-align:middle;">'
 
-            # 以機率最大值決定結果標籤
             probs = {'win': r['win_prob'], 'draw': r['draw_prob'], 'loss': r['loss_prob']}
             outcome = max(probs, key=probs.get)
-            if outcome == 'win':
-                label_html = f"🏆 <b>{info1['cn']} 勝</b>"
-                label_color = "#f7c948"
-            elif outcome == 'loss':
-                label_html = f"🏆 <b>{info2['cn']} 勝</b>"
-                label_color = "#f7c948"
-            else:
-                label_html = "⚖️ <b>和局</b>"
-                label_color = "#aabbcc"
 
-            st.markdown(f"""
-            <div class="pred-card">
-              <div style="display:flex; align-items:center; gap:14px; margin-bottom:10px;">
-                {flag1_html}
-                <span style="font-size:1.1rem; color:#8899aa; font-weight:600;">VS</span>
-                {flag2_html}
-              </div>
-              <div style="font-size:1.05rem; font-weight:600; color:{label_color}; margin-bottom:6px;">
-                {label_html}
-              </div>
-              <div style="color:#00d4ff; font-size:1.2rem; font-weight:700;">
-                比分預測：{r['goal1']} - {r['goal2']}
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # ── 單場摘要列 ──
+            col_flag, col_score, col_prob = st.columns([3, 1, 3])
+            with col_flag:
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:10px;padding:6px 0">'
+                    f'<img src="https://flagcdn.com/40x30/{iso1}.png" style="height:28px;border-radius:3px;">'
+                    f'<b style="font-size:1rem">{info1["cn"]}</b>'
+                    f'<span style="color:#8899aa;margin:0 6px">VS</span>'
+                    f'<img src="https://flagcdn.com/40x30/{iso2}.png" style="height:28px;border-radius:3px;">'
+                    f'<b style="font-size:1rem">{info2["cn"]}</b>'
+                    f'</div>', unsafe_allow_html=True)
+            with col_score:
+                score_color = "#00d4ff"
+                st.markdown(
+                    f'<div style="font-size:1.4rem;font-weight:800;color:{score_color};text-align:center;padding:4px 0">'
+                    f'{r["goal1"]} - {r["goal2"]}</div>', unsafe_allow_html=True)
+            with col_prob:
+                win_lbl = info1['cn'] if outcome == 'win' else (info2['cn'] if outcome == 'loss' else '平局')
+                st.markdown(
+                    f'<div style="font-size:0.9rem;padding:4px 0;color:#ccc">'
+                    f'<span style="color:#f7c948;font-weight:700">勝 {r["win_prob"]:.0%}</span>'
+                    f'&nbsp;&nbsp;平 {r["draw_prob"]:.0%}'
+                    f'&nbsp;&nbsp;負 {r["loss_prob"]:.0%}</div>', unsafe_allow_html=True)
 
-            # Progress bars（三欄：team1勝 / 和局 / team2勝）
-            c1p, c2p, c3p = st.columns(3)
-            with c1p:
-                st.progress(r['win_prob'], text=f"{info1['cn']} 勝 {r['win_prob']:.0%}")
-            with c2p:
-                st.progress(r['draw_prob'], text=f"和局 {r['draw_prob']:.0%}")
-            with c3p:
-                st.progress(r['loss_prob'], text=f"{info2['cn']} 勝 {r['loss_prob']:.0%}")
+            # ── 詳細數據展開 ──
+            with st.expander(f"🔍 詳細分析 — {info1['cn']} vs {info2['cn']}"):
+                det_c1, det_c2 = st.columns(2)
+
+                # 球隊實力對比
+                with det_c1:
+                    st.markdown("**⚔️ 球隊實力對比（近8年）**")
+                    s1, s2 = r['s1'], r['s2']
+                    metrics = {
+                        '勝率': (s1['win_rate'], s2['win_rate'], '{:.1%}'),
+                        '場均進球': (s1['avg_goals'], s2['avg_goals'], '{:.2f}'),
+                        '場均失球': (s1['avg_conceded'], s2['avg_conceded'], '{:.2f}'),
+                        '平局率': (s1['draw_rate'], s2['draw_rate'], '{:.1%}'),
+                    }
+                    fig_bar = go.Figure()
+                    cats = list(metrics.keys())
+                    # normalize to 0-1 per metric for radar-like bar
+                    v1s = [metrics[c][0] for c in cats]
+                    v2s = [metrics[c][1] for c in cats]
+                    fig_bar.add_trace(go.Bar(name=info1['cn'], x=cats, y=v1s,
+                                             marker_color='#e94560', opacity=0.85))
+                    fig_bar.add_trace(go.Bar(name=info2['cn'], x=cats, y=v2s,
+                                             marker_color='#0099cc', opacity=0.85))
+                    fig_bar.update_layout(
+                        barmode='group', height=260,
+                        margin=dict(l=0, r=0, t=20, b=0),
+                        legend=dict(orientation='h', y=1.1),
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='#ccc'),
+                        yaxis=dict(gridcolor='rgba(255,255,255,0.08)')
+                    )
+                    st.plotly_chart(fig_bar, use_container_width=True)
+                    # 數字表
+                    for label, (v1, v2, fmt) in metrics.items():
+                        better = info1['cn'] if v1 >= v2 else info2['cn']
+                        st.markdown(
+                            f"<div style='display:flex;justify-content:space-between;font-size:0.85rem;"
+                            f"padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.06)'>"
+                            f"<span style='color:#aaa'>{label}</span>"
+                            f"<span><b style='color:#e94560'>{fmt.format(v1)}</b>"
+                            f" &nbsp;/&nbsp; <b style='color:#0099cc'>{fmt.format(v2)}</b></span>"
+                            f"</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size:0.75rem;color:#666;margin-top:4px'>"
+                                f"{info1['cn']} 樣本 {s1['matches']} 場 / {info2['cn']} 樣本 {s2['matches']} 場</div>",
+                                unsafe_allow_html=True)
+
+                # Poisson 比分機率熱圖
+                with det_c2:
+                    st.markdown("**📊 比分機率矩陣（Poisson）**")
+                    lam1, lam2 = r['lam1'], r['lam2']
+                    mg = 6
+                    z = [[float(poisson.pmf(i, lam1) * poisson.pmf(j, lam2)) for j in range(mg)]
+                         for i in range(mg)]
+                    # highlight predicted score
+                    g1p, g2p = min(r['goal1'], mg-1), min(r['goal2'], mg-1)
+                    text_z = [[f"{z[i][j]*100:.1f}%{'★' if (i==g1p and j==g2p) else ''}"
+                               for j in range(mg)] for i in range(mg)]
+                    fig_h = go.Figure(go.Heatmap(
+                        z=z, x=[str(j) for j in range(mg)], y=[str(i) for i in range(mg)],
+                        colorscale='Blues', showscale=False,
+                        text=text_z, texttemplate='%{text}', textfont=dict(size=10),
+                    ))
+                    fig_h.update_layout(
+                        xaxis_title=f'{info2["cn"]} 進球', yaxis_title=f'{info1["cn"]} 進球',
+                        height=280, margin=dict(l=40, r=0, t=10, b=40),
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='#ccc'),
+                    )
+                    st.plotly_chart(fig_h, use_container_width=True)
+                    st.caption(f"★ = 預測最可能比分 {r['goal1']}-{r['goal2']}　λ₁={lam1:.2f} λ₂={lam2:.2f}")
+
+                # 歷史對戰記錄
+                st.markdown("**📋 歷史對戰紀錄**")
+                h2h = match_df[
+                    ((match_df['home_team'] == r['team1']) & (match_df['away_team'] == r['team2'])) |
+                    ((match_df['home_team'] == r['team2']) & (match_df['away_team'] == r['team1']))
+                ].sort_values('date', ascending=False).head(8)
+                if len(h2h) == 0:
+                    st.info("查無歷史對戰紀錄")
+                else:
+                    h2h_rows = []
+                    for _, row in h2h.iterrows():
+                        if row['home_team'] == r['team1']:
+                            sc = f"{int(row['home_score'])} - {int(row['away_score'])}"
+                            winner = info1['cn'] if row['home_score'] > row['away_score'] else (
+                                info2['cn'] if row['away_score'] > row['home_score'] else '平局')
+                        else:
+                            sc = f"{int(row['away_score'])} - {int(row['home_score'])}"
+                            winner = info1['cn'] if row['away_score'] > row['home_score'] else (
+                                info2['cn'] if row['home_score'] > row['away_score'] else '平局')
+                        h2h_rows.append({
+                            '日期': str(row['date'])[:10],
+                            '賽事': str(row.get('tournament', ''))[:30],
+                            f'{info1["cn"]} vs {info2["cn"]}': sc,
+                            '勝者': winner,
+                        })
+                    st.dataframe(pd.DataFrame(h2h_rows), use_container_width=True, hide_index=True)
+
             st.markdown("---")
 
 # ============================================================
