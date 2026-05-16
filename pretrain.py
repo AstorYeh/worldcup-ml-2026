@@ -305,32 +305,28 @@ def make_intl_dataset(match_df, fifa_df, year, years_back=36):
 
 
 def make_wc_dataset(match_df, fifa_df, year):
-    """指定年世界盃小組賽作驗證集"""
+    """指定年世界盃小組賽作驗證集（用當年實際 WC 隊伍，不限 2026 分組）"""
     samples = []
     strength_cache, form_cache, ko_cache = {}, {}, {}
-    for g, teams in WC_2026_GROUPS.items():
-        for i, t1 in enumerate(teams):
-            for t2 in teams[i+1:]:
-                try:
-                    feat = create_features_v2(t1, t2, year, match_df, fifa_df,
-                                              strength_cache, form_cache, ko_cache)
-                    m = match_df[(((match_df['home_team']==t1)&(match_df['away_team']==t2)) |
-                                  ((match_df['home_team']==t2)&(match_df['away_team']==t1))) &
-                                 (match_df['year']==year) &
-                                 (match_df['tournament'].str.contains('World Cup', na=False))]
-                    if len(m) == 0:
-                        continue
-                    row = m.iloc[0]
-                    gf = row['home_score'] if row['home_team']==t1 else row['away_score']
-                    ga = row['away_score'] if row['home_team']==t1 else row['home_score']
-                    samples.append({
-                        'feat': feat,
-                        'label': 0 if gf < ga else (1 if gf == ga else 2),
-                        'gf': int(gf), 'ga': int(ga),
-                        'team1': t1, 'team2': t2, 'year': year,
-                    })
-                except Exception:
-                    continue
+    wc = match_df[
+        (match_df['year'] == year) &
+        (match_df['tournament'].str.contains('World Cup', na=False)) &
+        (~match_df['tournament'].str.contains('qualif', case=False, na=False))
+    ]
+    for _, row in wc.iterrows():
+        t1, t2 = row['home_team'], row['away_team']
+        try:
+            feat = create_features_v2(t1, t2, year, match_df, fifa_df,
+                                      strength_cache, form_cache, ko_cache)
+            gf, ga = int(row['home_score']), int(row['away_score'])
+            samples.append({
+                'feat': feat,
+                'label': 0 if gf < ga else (1 if gf == ga else 2),
+                'gf': gf, 'ga': ga,
+                'team1': t1, 'team2': t2, 'year': year,
+            })
+        except Exception:
+            continue
     return samples
 
 
@@ -810,45 +806,4 @@ if __name__ == '__main__':
     cluster_out = run_clustering(match_df)
     mc = run_monte_carlo(match_df, fifa_df, clf, p1, p2, fc, n_sims=5000)
     print("\n" + "="*60)
-   label_binarize(yv, classes=[0, 1, 2])
-    for c, name in enumerate(labels_name):
-        if y_bin_save[:, c].sum() == 0:
-            continue
-        fpr_c, tpr_c, _ = roc_curve(y_bin_save[:, c], yp_proba[:, c])
-        roc_data[name] = {
-            'fpr': fpr_c.tolist(),
-            'tpr': tpr_c.tolist(),
-            'auc': float(auc(fpr_c, tpr_c)),
-        }
-
-    eval_metrics = {
-        'cm': cm.tolist(),
-        'labels_name': labels_name,
-        'accuracy': float(accuracy_score(yv, yp)),
-        'roc': roc_data,
-        'calibration': {
-            'prob_true': prob_true.tolist(),
-            'prob_pred': prob_pred.tolist(),
-        },
-        'feature_importance': {
-            'features': imp.index.tolist(),
-            'values': imp.values.tolist(),
-        },
-        'n_test': int(len(yv)),
-    }
-    eval_path = os.path.join(MODEL_DIR, 'eval_metrics.pkl')
-    with open(eval_path, 'wb') as f:
-        pickle.dump(eval_metrics, f)
-    print(f"  ✅ models/eval_metrics.pkl 存好了（test n={len(yv)}, acc={eval_metrics['accuracy']:.3f}）")
-
-
-if __name__ == '__main__':
-    print("="*60)
-    print("世界盃 ML 2026 — Pretrain Script")
-    print("="*60)
-    match_df, fifa_df = load_data()
-    clf, p1, p2, fc, va = train_models(match_df, fifa_df)
-    eval_visualizations(match_df, fifa_df, clf, fc)
-    cluster_out = run_clustering(match_df)
-    mc = run_monte_carlo(match_df, fifa_df, clf, p1, p2, fc, n_sims=5000)
-    print("\n" + "="*60)
+    print("✅ 全部完成！models/ 已更新")
