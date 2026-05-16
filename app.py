@@ -1281,6 +1281,9 @@ elif page == "🔮 2026 預測":
                 p2_list = SQUAD_DATA.get(r['team2'], [])
                 _pos_order = {'GK': 0, 'CB': 1, 'LB': 1, 'RB': 1, 'CDM': 2, 'CM': 2,
                               'CAM': 3, 'LW': 3, 'RW': 3, 'ST': 4}
+                _pos_cn = {'GK': '門將', 'CB': '中後衛', 'LB': '左後衛', 'RB': '右後衛',
+                           'CDM': '守備中場', 'CM': '中場', 'CAM': '攻擊中場',
+                           'LW': '左翼', 'RW': '右翼', 'ST': '前鋒'}
                 p1_list = sorted(p1_list, key=lambda p: _pos_order.get(p['pos'], 5))[:5]
                 p2_list = sorted(p2_list, key=lambda p: _pos_order.get(p['pos'], 5))[:5]
                 _attr_labels = {'ovr': '綜合', 'pac': '速度', 'sho': '射門',
@@ -1306,7 +1309,7 @@ elif page == "🔮 2026 預測":
                                 f"border-left:3px solid {color}'>"
                                 f"<div style='display:flex;justify-content:space-between;align-items:center'>"
                                 f"<span style='font-weight:600;font-size:0.88rem'>{p['name']}"
-                                f" <span style='color:#888;font-size:0.75rem'>{p['pos']}</span></span>"
+                                f" <span style='color:#888;font-size:0.75rem'>{_pos_cn.get(p['pos'], p['pos'])}</span></span>"
                                 f"<span style='font-size:1rem;font-weight:900;color:{color}'>{ovr}</span></div>"
                                 f"<div style='background:rgba(255,255,255,0.08);border-radius:3px;height:4px;margin:4px 0'>"
                                 f"<div style='width:{bar_w}%;height:4px;background:{color};border-radius:3px'></div></div>"
