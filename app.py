@@ -672,24 +672,29 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     feat = create_features_v2(team1, team2, year, match_df, fifa_df)
     X = pd.DataFrame([feat])[feat_cols]
 
-    goal1 = max(0, int(round(float(poisson1.predict(X)[0]))))
-    goal2 = max(0, int(round(float(poisson2.predict(X)[0]))))
+    g1_raw = max(0, int(round(float(poisson1.predict(X)[0]))))
+    g2_raw = max(0, int(round(float(poisson2.predict(X)[0]))))
 
     proba = clf.predict_proba(X)
     classes = clf.classes_
 
-    # 類別對照：0=輸( loss), 1=平( draw), 2=贏( win)
+    # 類別對照：0=輸(loss), 1=平(draw), 2=贏(win)
     prob_win = prob_draw = prob_loss = 0.3
     for c, p in zip(classes, proba[0]):
         if c == 2: prob_win = p
         elif c == 1: prob_draw = p
         else: prob_loss = p
 
-    # Poisson 交叉修正
-    if goal1 > goal2 + 1:
-        prob_win = max(prob_win, 0.50)
-    elif goal2 > goal1 + 1:
-        prob_loss = max(prob_loss, 0.50)
+    # 以分類器機率決定勝負結果，再讓 Poisson 比分與之一致
+    outcome = max({'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}, key=lambda k: {'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}[k])
+    goal1, goal2 = g1_raw, g2_raw
+    if outcome == 'win' and goal1 <= goal2:
+        goal1 = goal2 + 1          # 確保 team1 勝
+    elif outcome == 'loss' and goal2 <= goal1:
+        goal2 = goal1 + 1          # 確保 team2 勝
+    elif outcome == 'draw':
+        avg = (goal1 + goal2) // 2
+        goal1 = goal2 = avg        # 確保平局比分相同
 
     r1, r2 = team_pts(team1), team_pts(team2)
     rank1, rank2 = team_rank(team1), team_rank(team2)
