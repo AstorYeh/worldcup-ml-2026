@@ -1825,6 +1825,12 @@ elif page == "🎯 球隊風格分群":
         team_b = sel_b.split('(')[-1].rstrip(')')
 
         feat_cols_radar = [c for c in df_c.columns if c not in ('cluster', 'pca1', 'pca2')]
+        _radar_label_map = {
+            'win_rate': '勝率', 'avg_goals': '場均進球', 'avg_conceded': '場均失球',
+            'goal_diff': '淨勝球', 'matches': '出賽場數',
+            'knockout_exp': '淘汰賽經驗', 'fifa_pts': 'FIFA積分',
+        }
+        radar_labels = [_radar_label_map.get(c, c) for c in feat_cols_radar]
         if feat_cols_radar and team_a in df_c.index and team_b in df_c.index:
             row_a = df_c.loc[team_a, feat_cols_radar]
             row_b = df_c.loc[team_b, feat_cols_radar]
@@ -1836,12 +1842,12 @@ elif page == "🎯 球隊風格分群":
             import plotly.graph_objects as _go_r
             fig_radar = _go_r.Figure()
             fig_radar.add_trace(_go_r.Scatterpolar(
-                r=norm_a + [norm_a[0]], theta=feat_cols_radar + [feat_cols_radar[0]],
+                r=norm_a + [norm_a[0]], theta=radar_labels + [radar_labels[0]],
                 fill='toself', name=TEAM_INFO.get(team_a, {'cn': team_a})['cn'],
                 line_color='#e94560',
             ))
             fig_radar.add_trace(_go_r.Scatterpolar(
-                r=norm_b + [norm_b[0]], theta=feat_cols_radar + [feat_cols_radar[0]],
+                r=norm_b + [norm_b[0]], theta=radar_labels + [radar_labels[0]],
                 fill='toself', name=TEAM_INFO.get(team_b, {'cn': team_b})['cn'],
                 line_color='#3366cc', opacity=0.7,
             ))
