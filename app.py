@@ -1009,8 +1009,12 @@ elif page == "🔮 2026 預測":
                     st.metric(f"{yr} WC", "N/A")
 
         st.markdown("---")
-        st.metric("平均驗證準確率", f"{avg_val_acc:.1%}")
-        st.caption("以歷史國際賽（1990-含預測年前）訓練，預測該屆世界盃小組賽")
+        col_acc, col_base = st.columns(2)
+        with col_acc:
+            st.metric("平均驗證準確率", f"{avg_val_acc:.1%}", delta=f"+{avg_val_acc-0.333:.1%} vs 隨機基準")
+        with col_base:
+            st.metric("隨機猜測基準", "33.3%", help="三分類（勝/平/負）隨機猜測的理論準確率")
+        st.caption("以歷史國際賽（1990-含預測年前）訓練，預測該屆世界盃小組賽 · 三分類隨機基準 = 33.3%")
 
         selected_group = st.selectbox("🏟️ 選擇小組", list(WC_2026_GROUPS.keys()))
         teams = WC_2026_GROUPS[selected_group]
@@ -1030,38 +1034,51 @@ elif page == "🔮 2026 預測":
         results.sort(key=lambda x: x['win_prob'], reverse=True)
 
         for r in results:
-            # 國旗放大 2x，預測卡片加 CSS class
-            t1_flag = r['team1_display'].split()[0]
-            t2_flag = r['team2_display'].split()[0]
-            if r['goal1'] > r['goal2']:
-                label = f"🏆 **{r['team1_display'].split(')')[0]}) 勝**"
-            elif r['goal1'] < r['goal2']:
-                label = f"🏆 **{r['team2_display'].split(')')[0]}) 勝**"
+            # 用分類器機率決定標籤（主要依據），Poisson 進球只當比分參考
+            info1 = TEAM_INFO.get(r['team1'], {'iso': 'un', 'cn': r['team1']})
+            info2 = TEAM_INFO.get(r['team2'], {'iso': 'un', 'cn': r['team2']})
+            iso1 = info1.get('iso', 'un')
+            iso2 = info2.get('iso', 'un')
+            flag1_html = f'<img src="https://flagcdn.com/40x30/{iso1}.png" style="height:36px;border-radius:3px;vertical-align:middle;">'
+            flag2_html = f'<img src="https://flagcdn.com/40x30/{iso2}.png" style="height:36px;border-radius:3px;vertical-align:middle;">'
+
+            # 以機率最大值決定結果標籤
+            probs = {'win': r['win_prob'], 'draw': r['draw_prob'], 'loss': r['loss_prob']}
+            outcome = max(probs, key=probs.get)
+            if outcome == 'win':
+                label_html = f"🏆 <b>{info1['cn']} 勝</b>"
+                label_color = "#f7c948"
+            elif outcome == 'loss':
+                label_html = f"🏆 <b>{info2['cn']} 勝</b>"
+                label_color = "#f7c948"
             else:
-                label = "⚖️ **和局**"
+                label_html = "⚖️ <b>和局</b>"
+                label_color = "#aabbcc"
 
             st.markdown(f"""
             <div class="pred-card">
-              <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
-                <span style="font-size:2.8rem;">{t1_flag}</span>
-                <span style="font-size:1.4rem; color:#8899aa; font-weight:600;">VS</span>
-                <span style="font-size:2.8rem;">{t2_flag}</span>
+              <div style="display:flex; align-items:center; gap:14px; margin-bottom:10px;">
+                {flag1_html}
+                <span style="font-size:1.1rem; color:#8899aa; font-weight:600;">VS</span>
+                {flag2_html}
               </div>
-              <div style="font-size:1.1rem; font-weight:600; color:#f0f0f0; margin-bottom:6px;">
-                {label}
+              <div style="font-size:1.05rem; font-weight:600; color:{label_color}; margin-bottom:6px;">
+                {label_html}
               </div>
-              <div style="color:#00d4ff; font-size:1.3rem; font-weight:700;">
+              <div style="color:#00d4ff; font-size:1.2rem; font-weight:700;">
                 比分預測：{r['goal1']} - {r['goal2']}
               </div>
             </div>
             """, unsafe_allow_html=True)
 
-            # Progress bars
-            c1p, c2p = st.columns(2)
+            # Progress bars（三欄：team1勝 / 和局 / team2勝）
+            c1p, c2p, c3p = st.columns(3)
             with c1p:
-                st.progress(r['win_prob'], text=f"{r['team1']} 勝 {r['win_prob']:.0%}")
+                st.progress(r['win_prob'], text=f"{info1['cn']} 勝 {r['win_prob']:.0%}")
             with c2p:
                 st.progress(r['draw_prob'], text=f"和局 {r['draw_prob']:.0%}")
+            with c3p:
+                st.progress(r['loss_prob'], text=f"{info2['cn']} 勝 {r['loss_prob']:.0%}")
             st.markdown("---")
 
 # ============================================================
