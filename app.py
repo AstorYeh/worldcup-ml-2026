@@ -1693,183 +1693,144 @@ elif page == "🏅 奪冠預測":
 # ============================================================
 elif page == "📅 完整賽程":
     st.title("📅 2026 世界盃淘汰賽對陣圖")
-    st.caption("48 隊 · 32強→16強→八強→四強→決賽 · 時間為台灣時間（UTC+8）· 2026年7月")
+    st.caption("48 隊 · 🏆決賽（頂端）向下展開至32強 · 時間為台灣時間（UTC+8）· 2026年7月")
 
     import streamlit.components.v1 as _c
 
-    # ── 版面常數 ──
-    BH      = 520    # bracket 高度 px
-    CW      = 114    # 每欄 match box 寬度
-    GAP     = 10     # 欄間空白（走線用）
-    MB_H    = 40     # match box 高度
-    FW      = 130    # 決賽框寬度
-    SC      = 'rgba(80,140,210,0.55)'   # 連接線顏色
-    HDR_H   = 24     # 標題列高度
+    # ── 版面參數（由上而下樹狀圖：決賽在頂，32強在底）──
+    BW    = 86     # match box 寬度
+    BHB   = 46     # match box 高度
+    UNIT  = 100    # BW + 14px 間距
+    N32   = 16     # 32強場數
+    LM    = 54     # 左邊留給輪次標籤的空間
+    SC    = 'rgba(100,160,220,0.7)'   # 連接線顏色
+    RSTEP = 100    # 各輪 Y 中心間距
 
-    # ── 欄 X 起始位置 ──
-    X32L = 0
-    X16L = X32L + CW + GAP        # 124
-    XQF_L = X16L + CW + GAP       # 248
-    XSF_L = XQF_L + CW + GAP      # 372
-    XFIN  = XSF_L + CW + GAP      # 496
-    XSF_R = XFIN  + FW  + GAP     # 636
-    XQF_R = XSF_R + CW + GAP      # 760
-    X16R  = XQF_R + CW + GAP      # 884
-    X32R  = X16R  + CW + GAP      # 1008
-    TW    = X32R  + CW             # 1122 total width
+    # ── 各輪 X 中心（由底部 32強 往上推算）──
+    xc5 = [LM + i * UNIT + BW // 2 for i in range(N32)]
+    xc4 = [(xc5[i*2] + xc5[i*2+1]) // 2 for i in range(8)]
+    xc3 = [(xc4[i*2] + xc4[i*2+1]) // 2 for i in range(4)]
+    xc2 = [(xc3[i*2] + xc3[i*2+1]) // 2 for i in range(2)]
+    xc1 = [(xc2[0] + xc2[1]) // 2]
+    TW   = LM + (N32 - 1) * UNIT + BW + 4
 
-    # ── Y 中心（各輪 slot 等分 BH）──
-    def yc(n: int):
-        sh = BH // n
-        return [i * sh + sh // 2 for i in range(n)]
+    # ── 各輪 Y 中心（頂→底：決賽→四強→八強→16強→32強）──
+    YC = [BHB // 2 + i * RSTEP for i in range(5)]
+    # YC = [23, 123, 223, 323, 423]
+    CANVAS_H = YC[4] + BHB // 2 + 14
 
-    y32 = yc(8)   # [32,97,162,227,292,357,422,487]
-    y16 = yc(4)   # [65,195,325,455]
-    yqf = yc(2)   # [130,390]
-    ysf = [BH // 2]  # [260]
+    # ── 連接點 Y（兩輪中間）──
+    JY = [(YC[i] + YC[i+1]) // 2 for i in range(4)]
+    # JY = [73, 173, 273, 373]
 
-    # ── match box HTML（絕對定位）──
-    def mb(x: int, yct: int, ts: str, t1: str, t2: str, w: int = CW) -> str:
-        top = yct - MB_H // 2
+    # ── Match box HTML（絕對定位）──
+    def mb(xc: int, yc: int, ts: str, t1: str, t2: str, highlight: bool = False) -> str:
+        x   = xc - BW // 2
+        y   = yc - BHB // 2
+        bg  = 'rgba(247,201,72,0.12)' if highlight else '#0c1c30'
+        bdr = 'rgba(247,201,72,0.7)'  if highlight else 'rgba(100,150,200,0.28)'
         return (
-            f'<div style="position:absolute;left:{x}px;top:{top}px;width:{w}px;height:{MB_H}px;'
-            f'border:1px solid rgba(100,150,200,0.3);border-radius:4px;background:#0c1c30;'
-            f'padding:2px 7px;box-sizing:border-box;overflow:hidden;">'
-            f'<div style="color:#4a80a8;font-size:0.57rem;line-height:1.5;">{ts}</div>'
-            f'<div style="color:#c8e0f4;font-weight:600;font-size:0.63rem;white-space:nowrap;'
-            f'overflow:hidden;text-overflow:ellipsis;">{t1} VS {t2}</div>'
+            f'<div style="position:absolute;left:{x}px;top:{y}px;width:{BW}px;height:{BHB}px;'
+            f'border:1px solid {bdr};border-radius:4px;background:{bg};'
+            f'padding:3px 5px;box-sizing:border-box;overflow:hidden;">'
+            f'<div style="color:#4a7ea8;font-size:0.5rem;line-height:1.4;">{ts}</div>'
+            f'<div style="color:#c8e0f4;font-weight:700;font-size:0.57rem;white-space:nowrap;'
+            f'overflow:hidden;text-overflow:ellipsis;">{t1}</div>'
+            f'<div style="color:#c8e0f4;font-weight:700;font-size:0.57rem;white-space:nowrap;'
+            f'overflow:hidden;text-overflow:ellipsis;">VS {t2}</div>'
             f'</div>'
         )
 
-    # ── SVG 線段工具 ──
-    def vl(x: int, y1: int, y2: int) -> str:
-        return f'<line x1="{x}" y1="{y1}" x2="{x}" y2="{y2}" stroke="{SC}" stroke-width="1.5"/>'
+    # ── SVG 線段 ──
+    def vl(x, y1, y2): return f'<line x1="{x}" y1="{y1}" x2="{x}" y2="{y2}" stroke="{SC}" stroke-width="1.5"/>'
+    def hl(x1, x2, y): return f'<line x1="{x1}" y1="{y}" x2="{x2}" y2="{y}" stroke="{SC}" stroke-width="1.5"/>'
 
-    def hl(x1: int, x2: int, y: int) -> str:
-        return f'<line x1="{x1}" y1="{y}" x2="{x2}" y2="{y}" stroke="{SC}" stroke-width="1.5"/>'
+    def connect(par_xcs, chi_xcs, par_lvl):
+        """由父輪往下連接到子輪（頂→底方向）"""
+        lines = ""
+        j = JY[par_lvl]
+        yp = YC[par_lvl]
+        yc = YC[par_lvl + 1]
+        for pi, px in enumerate(par_xcs):
+            cl, cr = chi_xcs[pi * 2], chi_xcs[pi * 2 + 1]
+            lines += vl(px, yp + BHB // 2, j)      # 父底部 → 連接點
+            lines += hl(cl, cr, j)                   # 橫槓連左右子
+            lines += vl(cl, j, yc - BHB // 2)        # 連接點 → 左子頂部
+            lines += vl(cr, j, yc - BHB // 2)        # 連接點 → 右子頂部
+        return lines
 
-    # ── 比賽資料 ──
-    r32L_d = [
-        ("7/4 09:00",  "A組1", "B組2"),  ("7/4 22:00",  "C組1", "D組2"),
-        ("7/5 09:00",  "E組1", "F組2"),  ("7/5 22:00",  "G組1", "H組2"),
-        ("7/6 09:00",  "I組1",  "J組2"), ("7/6 22:00",  "K組1", "L組2"),
-        ("7/7 09:00",  "最佳3rd①", "最佳3rd②"), ("7/7 22:00", "最佳3rd③", "最佳3rd④"),
+    # ── 比賽資料（32強：8場左 + 8場右，共16場；各輪配對往下對應）──
+    r32_all = [
+        ("7/4 09:00","A組1","B組2"),    ("7/4 22:00","C組1","D組2"),
+        ("7/5 09:00","E組1","F組2"),    ("7/5 22:00","G組1","H組2"),
+        ("7/6 09:00","I組1","J組2"),    ("7/6 22:00","K組1","L組2"),
+        ("7/7 09:00","最佳3rd①","最佳3rd②"), ("7/7 22:00","最佳3rd③","最佳3rd④"),
+        ("7/4 13:00","B組1","A組2"),    ("7/4 16:00","D組1","C組2"),
+        ("7/5 13:00","F組1","E組2"),    ("7/5 16:00","H組1","G組2"),
+        ("7/6 13:00","J組1","I組2"),    ("7/6 16:00","L組1","K組2"),
+        ("7/7 13:00","最佳3rd⑤","最佳3rd⑥"), ("7/7 16:00","最佳3rd⑦","最佳3rd⑧"),
     ]
-    r16L_d = [
-        ("7/9 09:00",  "R32①勝", "R32②勝"), ("7/9 22:00",  "R32③勝", "R32④勝"),
-        ("7/10 09:00", "R32⑤勝", "R32⑥勝"), ("7/10 22:00", "R32⑦勝", "R32⑧勝"),
+    r16_all = [
+        ("7/9 09:00","R32①勝","R32②勝"),  ("7/9 22:00","R32③勝","R32④勝"),
+        ("7/10 09:00","R32⑤勝","R32⑥勝"), ("7/10 22:00","R32⑦勝","R32⑧勝"),
+        ("7/11 09:00","R32⑨勝","R32⑩勝"), ("7/11 22:00","R32⑪勝","R32⑫勝"),
+        ("7/12 09:00","R32⑬勝","R32⑭勝"), ("7/12 22:00","R32⑮勝","R32⑯勝"),
     ]
-    qfL_d  = [("7/14 09:00", "16強①勝", "16強②勝"), ("7/14 22:00", "16強③勝", "16強④勝")]
-    sfL_d  = [("7/18 22:00", "八強①勝", "八強②勝")]
-
-    r32R_d = [
-        ("7/4 13:00",  "B組1", "A組2"),  ("7/4 16:00",  "D組1", "C組2"),
-        ("7/5 13:00",  "F組1",  "E組2"), ("7/5 16:00",  "H組1", "G組2"),
-        ("7/6 13:00",  "J組1",  "I組2"), ("7/6 16:00",  "L組1",  "K組2"),
-        ("7/7 13:00",  "最佳3rd⑤", "最佳3rd⑥"), ("7/7 16:00", "最佳3rd⑦", "最佳3rd⑧"),
+    qf_all = [
+        ("7/14 09:00","16強①勝","16強②勝"), ("7/14 22:00","16強③勝","16強④勝"),
+        ("7/15 09:00","16強⑤勝","16強⑥勝"), ("7/15 22:00","16強⑦勝","16強⑧勝"),
     ]
-    r16R_d = [
-        ("7/11 09:00", "R32⑨勝",  "R32⑩勝"), ("7/11 22:00", "R32⑪勝", "R32⑫勝"),
-        ("7/12 09:00", "R32⑬勝", "R32⑭勝"), ("7/12 22:00", "R32⑮勝", "R32⑯勝"),
+    sf_all = [
+        ("7/18 22:00","八強①勝","八強②勝"),
+        ("7/19 22:00","八強③勝","八強④勝"),
     ]
-    qfR_d  = [("7/15 09:00", "16強⑤勝", "16強⑥勝"), ("7/15 22:00", "16強⑦勝", "16強⑧勝")]
-    sfR_d  = [("7/19 22:00", "八強③勝", "八強④勝")]
+    fin_d = ("7/22 21:00", "四強①勝", "四強②勝")
 
-    # ── 標題列 ──
-    hdr_items = [
-        (X32L, CW, "32強（左）"), (X16L, CW, "16強（左）"),
-        (XQF_L, CW, "八強（左）"), (XSF_L, CW, "四強"),
-        (XFIN, FW, "🏆 決賽"), (XSF_R, CW, "四強"),
-        (XQF_R, CW, "八強（右）"), (X16R, CW, "16強（右）"),
-        (X32R, CW, "32強（右）"),
-    ]
-    hdr_html = f'<div style="position:relative;width:{TW}px;height:{HDR_H}px;margin-bottom:4px;">'
-    for (x, w, lbl) in hdr_items:
-        hdr_html += (f'<div style="position:absolute;left:{x}px;top:0;width:{w}px;text-align:center;'
-                     f'color:#f7c948;font-weight:700;font-size:0.67rem;">{lbl}</div>')
-    hdr_html += '</div>'
+    # ── 組合 HTML ──
+    body = f'<div style="position:relative;width:{TW}px;height:{CANVAS_H}px;">'
 
-    # ── Bracket body（絕對定位容器）──
-    body = f'<div style="position:relative;width:{TW}px;height:{BH}px;">'
+    for i, m in enumerate(r32_all): body += mb(xc5[i], YC[4], m[0], m[1], m[2])
+    for i, m in enumerate(r16_all): body += mb(xc4[i], YC[3], m[0], m[1], m[2])
+    for i, m in enumerate(qf_all):  body += mb(xc3[i], YC[2], m[0], m[1], m[2])
+    for i, m in enumerate(sf_all):  body += mb(xc2[i], YC[1], m[0], m[1], m[2])
+    body += mb(xc1[0], YC[0], fin_d[0], fin_d[1], fin_d[2], highlight=True)
 
-    # 所有 match boxes
-    for i, m in enumerate(r32L_d): body += mb(X32L,  y32[i], m[0], m[1], m[2])
-    for i, m in enumerate(r16L_d): body += mb(X16L,  y16[i], m[0], m[1], m[2])
-    for i, m in enumerate(qfL_d):  body += mb(XQF_L, yqf[i], m[0], m[1], m[2])
-    for i, m in enumerate(sfL_d):  body += mb(XSF_L, ysf[i], m[0], m[1], m[2])
+    # SVG（連接線 + 輪次標籤）
+    svg = (f'<svg style="position:absolute;top:0;left:0;width:{TW}px;height:{CANVAS_H}px;'
+           f'pointer-events:none;" xmlns="http://www.w3.org/2000/svg">')
+    svg += connect(xc1, xc2, 0)   # 決賽 → 四強
+    svg += connect(xc2, xc3, 1)   # 四強 → 八強
+    svg += connect(xc3, xc4, 2)   # 八強 → 16強
+    svg += connect(xc4, xc5, 3)   # 16強 → 32強
 
-    # 決賽框（特殊樣式）
-    fyt = BH // 2 - 52
-    body += (
-        f'<div style="position:absolute;left:{XFIN}px;top:{fyt}px;width:{FW}px;height:104px;'
-        f'border:2px solid rgba(247,201,72,0.65);border-radius:8px;background:rgba(247,201,72,0.07);'
-        f'padding:6px 10px;box-sizing:border-box;text-align:center;">'
-        f'<div style="color:#99b5cc;font-size:0.58rem;">7/22 21:00</div>'
-        f'<div style="color:#b0c8dd;font-size:0.55rem;margin-bottom:5px;">📍MetLife, 紐約</div>'
-        f'<div style="color:#fff;font-weight:700;font-size:0.7rem;padding:3px 0;'
-        f'border-top:1px solid rgba(255,255,255,0.15);border-bottom:1px solid rgba(255,255,255,0.15);">'
-        f'四強①勝</div>'
-        f'<div style="color:#aaa;font-size:0.58rem;padding:1px 0;">VS</div>'
-        f'<div style="color:#fff;font-weight:700;font-size:0.7rem;padding:3px 0;">四強②勝</div>'
-        f'</div>'
-    )
-
-    for i, m in enumerate(sfR_d):  body += mb(XSF_R, ysf[i], m[0], m[1], m[2])
-    for i, m in enumerate(qfR_d):  body += mb(XQF_R, yqf[i], m[0], m[1], m[2])
-    for i, m in enumerate(r16R_d): body += mb(X16R,  y16[i], m[0], m[1], m[2])
-    for i, m in enumerate(r32R_d): body += mb(X32R,  y32[i], m[0], m[1], m[2])
-
-    # ── SVG 連接線（疊在 match boxes 上方）──
-    svg = (f'<svg style="position:absolute;top:0;left:0;width:{TW}px;height:{BH}px;pointer-events:none;" '
-           f'xmlns="http://www.w3.org/2000/svg">')
-
-    # 左半區（線在 match box 右側延伸向中心）
-    for i in range(4):   # R32L → R16L
-        xr = X32L + CW
-        svg += vl(xr, y32[i*2], y32[i*2+1])
-        svg += hl(xr, X16L, y16[i])
-    for i in range(2):   # R16L → QFL
-        xr = X16L + CW
-        svg += vl(xr, y16[i*2], y16[i*2+1])
-        svg += hl(xr, XQF_L, yqf[i])
-    xr = XQF_L + CW     # QFL → SFL
-    svg += vl(xr, yqf[0], yqf[1])
-    svg += hl(xr, XSF_L, ysf[0])
-    svg += hl(XSF_L + CW, XFIN, ysf[0])   # SFL → 決賽
-
-    # 右半區（線在 match box 左側延伸向中心）
-    for i in range(4):   # R32R → R16R
-        xl = X32R
-        svg += vl(xl, y32[i*2], y32[i*2+1])
-        svg += hl(X16R + CW, xl, y16[i])
-    for i in range(2):   # R16R → QFR
-        xl = X16R
-        svg += vl(xl, y16[i*2], y16[i*2+1])
-        svg += hl(XQF_R + CW, xl, yqf[i])
-    xl = XQF_R           # QFR → SFR
-    svg += vl(xl, yqf[0], yqf[1])
-    svg += hl(XSF_R + CW, xl, ysf[0])
-    svg += hl(XFIN + FW, XSF_R, ysf[0])   # SFR → 決賽
+    # 輪次標籤（SVG text，靠左對齊）
+    for lvl_i, (label, color) in enumerate([
+        ("🏆決賽", "#f7c948"), ("四強", "#c8e0f4"),
+        ("八強",   "#c8e0f4"), ("16強", "#c8e0f4"), ("32強", "#c8e0f4"),
+    ]):
+        svg += (f'<text x="{LM - 4}" y="{YC[lvl_i] + 5}" text-anchor="end" '
+                f'font-size="11" font-weight="bold" fill="{color}" '
+                f'font-family="Noto Sans TC,sans-serif">{label}</text>')
 
     svg += '</svg>'
     body += svg + '</div>'
 
-    # 季軍賽說明列
     third_bar = (
-        f'<div style="margin-top:8px;padding:6px 10px;border:1px solid rgba(200,170,60,0.3);'
-        f'border-radius:6px;background:rgba(200,170,60,0.04);display:flex;align-items:center;gap:12px;">'
-        f'<span style="color:#c8a850;font-weight:700;font-size:0.72rem;">🥉 季軍賽</span>'
-        f'<span style="color:#8aa5be;font-size:0.68rem;">7/22 04:00 · 四強負方① VS 四強負方②</span>'
+        f'<div style="margin-top:8px;padding:5px 10px;border:1px solid rgba(200,170,60,0.28);'
+        f'border-radius:5px;background:rgba(200,170,60,0.04);">'
+        f'<span style="color:#c8a850;font-weight:700;font-size:0.68rem;">🥉 季軍賽</span>'
+        f'<span style="color:#6a8fb0;font-size:0.63rem;margin-left:10px;">'
+        f'7/22 04:00 · 四強負方① VS 四強負方②</span>'
         f'</div>'
     )
 
     full_html = (
-        f'<div style="background:#091525;border-radius:12px;padding:14px 16px;'
+        f'<div style="background:#091525;border-radius:12px;padding:12px 14px;'
         f'font-family:\'Noto Sans TC\',sans-serif;overflow-x:auto;">'
-        f'{hdr_html}{body}{third_bar}'
-        f'<div style="text-align:center;color:#2a4060;font-size:0.58rem;margin-top:6px;">'
+        f'{body}{third_bar}'
+        f'<div style="text-align:center;color:#1a3050;font-size:0.55rem;margin-top:5px;">'
         f'※ 對陣組合以 FIFA 官方公布為準 · 時間為台灣時間（UTC+8）</div>'
         f'</div>'
     )
 
-    _c.html(full_html, height=BH + HDR_H + 80, scrolling=False)
+    _c.html(full_html, height=CANVAS_H + 80, scrolling=False)
