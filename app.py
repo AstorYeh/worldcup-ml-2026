@@ -689,29 +689,51 @@ def train_models_walkforward(match_df, fifa_df):
 # PREDICTION
 # ============================================================
 def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2, feat_cols):
-    """預測單場（使用歷史 FIFA 排名）"""
-    feat = create_features_v2(team1, team2, year, match_df, fifa_df)
-    X = pd.DataFrame([feat])[feat_cols]
+    """預測單場（中性場地對稱修正 + Dixon-Coles 期望進球）"""
 
-    lam1 = max(0.5, float(poisson1.predict(X)[0]))
-    lam2 = max(0.5, float(poisson2.predict(X)[0]))
+    def _probs(t1, t2):
+        feat = create_features_v2(t1, t2, year, match_df, fifa_df)
+        X = pd.DataFrame([feat])[feat_cols]
+        proba = clf.predict_proba(X)[0]
+        pw = pd_ = pl = 1/3
+        for c, p in zip(clf.classes_, proba):
+            if c == 2: pw = p
+            elif c == 1: pd_ = p
+            else: pl = p
+        t = pw + pd_ + pl
+        return pw/t, pd_/t, pl/t
 
-    proba = clf.predict_proba(X)
-    classes = clf.classes_
-
-    prob_win = prob_draw = prob_loss = 1/3
-    for c, p in zip(classes, proba[0]):
-        if c == 2: prob_win = p
-        elif c == 1: prob_draw = p
-        else: prob_loss = p
-    # 確保概率加總為 1
-    _total = prob_win + prob_draw + prob_loss
-    prob_win /= _total; prob_draw /= _total; prob_loss /= _total
+    # 正向＋反向平均，消除主場偏差（世界盃為中性場）
+    pw_f, pd_f, pl_f = _probs(team1, team2)
+    pw_r, pd_r, pl_r = _probs(team2, team1)
+    prob_win  = (pw_f + pl_r) / 2
+    prob_draw = (pd_f + pd_r) / 2
+    prob_loss = (pl_f + pw_r) / 2
+    _tot = prob_win + prob_draw + prob_loss
+    prob_win /= _tot; prob_draw /= _tot; prob_loss /= _tot
 
     outcome = max({'win': prob_win, 'draw': prob_draw, 'loss': prob_loss},
                   key=lambda k: {'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}[k])
 
-    # 以確定性種子抽樣 Poisson 分佈，產生自然多樣的比分
+    # Dixon-Coles 期望進球：攻擊力 × 聯賽均值 / 對手防守 × 足聯品質調整
+    s1 = compute_team_strength(match_df, team1, year)
+    s2 = compute_team_strength(match_df, team2, year)
+    LEAGUE_AVG = 1.35
+    CONFED_SCALE = {'UEFA': 0.96, 'CONMEBOL': 1.00, 'CONCACAF': 0.88,
+                    'AFC': 0.84, 'CAF': 0.78, 'OFC': 0.72}
+    cs1 = CONFED_SCALE.get(CONFED_MAP.get(team1, 'CAF'), 0.84)
+    cs2 = CONFED_SCALE.get(CONFED_MAP.get(team2, 'CAF'), 0.84)
+
+    lam1_dc = max(0.4, s1['avg_goals'] * cs1 * (LEAGUE_AVG / max(s2['avg_conceded'] * cs2, 0.55)))
+    lam2_dc = max(0.4, s2['avg_goals'] * cs2 * (LEAGUE_AVG / max(s1['avg_conceded'] * cs1, 0.55)))
+
+    # FIFA 積分加成：拉大強弱差距
+    pts1, pts2 = team_pts(team1), team_pts(team2)
+    rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.35
+    lam1 = max(0.4, lam1_dc * rank_factor)
+    lam2 = max(0.3, lam2_dc / rank_factor)
+
+    # 確定性 Poisson 採樣，產生多樣比分
     seed = abs(hash(f"{team1}|{team2}|{year}")) % (2 ** 31)
     rng = np.random.RandomState(seed)
     goal1, goal2 = None, None
@@ -721,14 +743,11 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
         if so == outcome:
             goal1, goal2 = g1, g2
             break
-    if goal1 is None:          # 保底：強制最小修正
-        goal1, goal2 = int(lam1), int(lam2)
-        if outcome == 'win' and goal1 <= goal2:   goal1 = goal2 + 1
+    if goal1 is None:
+        goal1, goal2 = max(0, int(lam1)), max(0, int(lam2))
+        if outcome == 'win' and goal1 <= goal2:    goal1 = goal2 + 1
         elif outcome == 'loss' and goal2 <= goal1: goal2 = goal1 + 1
         elif outcome == 'draw':                    goal1 = goal2 = (goal1 + goal2) // 2
-
-    s1 = compute_team_strength(match_df, team1, year)
-    s2 = compute_team_strength(match_df, team2, year)
     r1, r2 = team_pts(team1), team_pts(team2)
     rank1, rank2 = team_rank(team1), team_rank(team2)
     info1 = TEAM_INFO.get(team1, {'flag': '🏳️', 'cn': team1, 'en': team1})
