@@ -1698,13 +1698,13 @@ elif page == "📅 完整賽程":
     import streamlit.components.v1 as _c
 
     # ── 版面參數（由上而下樹狀圖：決賽在頂，32強在底）──
-    BW    = 86     # match box 寬度
-    BHB   = 46     # match box 高度
-    UNIT  = 100    # BW + 14px 間距
+    BW    = 62     # match box 寬度
+    BHB   = 42     # match box 高度
+    UNIT  = 68     # BW + 6px 間距
     N32   = 16     # 32強場數
-    LM    = 54     # 左邊留給輪次標籤的空間
+    LM    = 44     # 左邊留給輪次標籤的空間
     SC    = 'rgba(100,160,220,0.7)'   # 連接線顏色
-    RSTEP = 100    # 各輪 Y 中心間距
+    RSTEP = 88     # 各輪 Y 中心間距
 
     # ── 各輪 X 中心（由底部 32強 往上推算）──
     xc5 = [LM + i * UNIT + BW // 2 for i in range(N32)]
