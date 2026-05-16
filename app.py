@@ -516,6 +516,73 @@ def create_features(team1, team2, year, match_df, fifa_df=None):
     }
 
 # ============================================================
+# 預訓練 pkl 載入（v2.2 新增：解決 Streamlit Cloud 冷啟動延遲）
+# ============================================================
+@st.cache_resource
+def load_pretrained():
+    """嘗試從 models/ 載入預訓練模型；找不到回 None。"""
+    import os as _os, pickle as _pickle
+    base = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'models')
+    paths = {
+        'clf': _os.path.join(base, 'clf.pkl'),
+        'poisson1': _os.path.join(base, 'poisson1.pkl'),
+        'poisson2': _os.path.join(base, 'poisson2.pkl'),
+        'feat_cols': _os.path.join(base, 'feat_cols.pkl'),
+        'val_accs': _os.path.join(base, 'val_accs.pkl'),
+    }
+    if not all(_os.path.exists(p) for p in paths.values()):
+        return None
+    out = {}
+    try:
+        for k, p in paths.items():
+            with open(p, 'rb') as _f:
+                out[k] = _pickle.load(_f)
+        return out
+    except Exception:
+        return None
+
+@st.cache_resource
+def load_mc_results():
+    """嘗試從 models/mc_results.pkl 載入；找不到回 None。"""
+    import os as _os, pickle as _pickle
+    p = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'models', 'mc_results.pkl')
+    if not _os.path.exists(p):
+        return None
+    try:
+        with open(p, 'rb') as _f:
+            return _pickle.load(_f)
+    except Exception:
+        return None
+
+@st.cache_resource
+def load_team_clusters():
+    """嘗試從 models/team_clusters.pkl 載入。"""
+    import os as _os, pickle as _pickle
+    p = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'models', 'team_clusters.pkl')
+    if not _os.path.exists(p):
+        return None
+    try:
+        with open(p, 'rb') as _f:
+            return _pickle.load(_f)
+    except Exception:
+        return None
+
+
+@st.cache_resource
+def load_eval_metrics():
+    """嘗試從 models/eval_metrics.pkl 載入模型評估數據。"""
+    import os as _os, pickle as _pickle
+    p = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'models', 'eval_metrics.pkl')
+    if not _os.path.exists(p):
+        return None
+    try:
+        with open(p, 'rb') as _f:
+            return _pickle.load(_f)
+    except Exception:
+        return None
+
+
+# ============================================================
 # WALK-FORWARD MODEL TRAINING
 # ============================================================
 @st.cache_resource
@@ -751,6 +818,7 @@ page = st.sidebar.radio("選擇頁面", [
     "📊 專題總覽",
     "🔮 2026 預測",
     "📈 數據分析",
+    "🎯 球隊風格分群",
     "🏅 奪冠預測",
     "📅 完整賽程",
 ])
@@ -905,7 +973,21 @@ elif page == "🔮 2026 預測":
 
     match_df = load_match_data()
     fifa_df  = load_fifa_ranking()
-    result = train_models_walkforward(match_df, fifa_df)
+
+    # v2.2：先試讀預訓練 pkl，0.5 秒搞定；否則 fallback 即時訓練
+    pre = load_pretrained()
+    if pre is not None:
+        st.caption("⚡ 使用預訓練模型（models/*.pkl）— 跳過冷啟動")
+        clf = pre['clf']
+        poisson1 = pre['poisson1']
+        poisson2 = pre['poisson2']
+        feat_cols = pre['feat_cols']
+        val_accs = pre['val_accs']
+        avg_val_acc = np.mean([v for v in val_accs.values() if v is not None]) if val_accs else 0.5
+        test_acc = val_accs.get(2022) if val_accs else None
+        result = (clf, avg_val_acc, test_acc, poisson1, poisson2, feat_cols, val_accs)
+    else:
+        result = train_models_walkforward(match_df, fifa_df)
 
     if result[0] is None:
         st.warning("⚠️ 訓練資料不足，請確認網路連線後重試")
@@ -1034,118 +1116,364 @@ elif page == "📈 數據分析":
     hist_df = pd.DataFrame(team_hist).sort_values(['Group', 'Win Rate'], ascending=[True, False])
     st.dataframe(hist_df, use_container_width=True, hide_index=True)
 
+    # ── 模型評估區塊（v2.3 新增）──
+    st.markdown("---")
+    st.subheader("🎯 XGBoost 模型評估（2022 WC 測試集）")
+    em = load_eval_metrics()
+    if em is None:
+        st.info("⚠️ 找不到 models/eval_metrics.pkl，請先在本機跑 `python pretrain.py` 產生評估數據。")
+    else:
+        _acc = em['accuracy']
+        _n = em['n_test']
+        st.markdown(
+            f"測試集：**2022 世界盃小組賽** · 共 **{_n}** 場 · "
+            f"整體準確率 **{_acc:.1%}**（三向分類：主隊勝 / 平 / 主隊負）"
+        )
+        tab_cm, tab_roc, tab_cal, tab_fi = st.tabs(
+            ["📊 Confusion Matrix", "📈 ROC 曲線", "🎚 Calibration", "🔍 特徵重要性"]
+        )
+
+        # ── Tab 1: Confusion Matrix ──
+        with tab_cm:
+            cm_data = em['cm']
+            lbls = em['labels_name']
+            import plotly.graph_objects as _go
+            # 標準化為百分比（row-wise）
+            cm_norm = [[round(v / max(sum(row), 1) * 100, 1) for v in row] for row in cm_data]
+            text_vals = [
+                [f"{cm_data[i][j]}<br>({cm_norm[i][j]}%)" for j in range(3)]
+                for i in range(3)
+            ]
+            fig_cm = _go.Figure(data=_go.Heatmap(
+                z=[[cm_data[i][j] for j in range(3)] for i in range(3)],
+                x=lbls, y=lbls,
+                colorscale='Reds',
+                text=text_vals,
+                texttemplate="%{text}",
+                textfont={"size": 14},
+                showscale=True,
+            ))
+            fig_cm.update_layout(
+                title=f"Confusion Matrix — 2022 WC (acc={_acc:.2f})",
+                xaxis_title="Predicted", yaxis_title="Actual",
+                height=420,
+            )
+            st.plotly_chart(fig_cm, use_container_width=True)
+            st.caption("格子內：場數（列百分比）。對角線為預測正確；主要誤差在平局辨識。")
+
+        # ── Tab 2: ROC 曲線 ──
+        with tab_roc:
+            import plotly.graph_objects as _go2
+            fig_roc = _go2.Figure()
+            colors_roc = ['#e94560', '#0f6e6e', '#3366cc']
+            for idx, (name, rd) in enumerate(em['roc'].items()):
+                fig_roc.add_trace(_go2.Scatter(
+                    x=rd['fpr'], y=rd['tpr'],
+                    mode='lines',
+                    name=f"{name} (AUC = {rd['auc']:.2f})",
+                    line=dict(width=2.5, color=colors_roc[idx % 3]),
+                ))
+            fig_roc.add_trace(_go2.Scatter(
+                x=[0, 1], y=[0, 1], mode='lines',
+                line=dict(dash='dash', color='gray', width=1),
+                showlegend=False,
+            ))
+            fig_roc.update_layout(
+                title="ROC Curves — One-vs-Rest（2022 WC 測試集）",
+                xaxis_title="False Positive Rate",
+                yaxis_title="True Positive Rate",
+                height=420,
+                legend=dict(x=0.62, y=0.08),
+            )
+            st.plotly_chart(fig_roc, use_container_width=True)
+            st.caption("AUC > 0.7 表示模型對各類別有明顯鑑別力；平局（Draw）AUC 最低，符合足球平局難預測的直覺。")
+
+        # ── Tab 3: Calibration ──
+        with tab_cal:
+            import plotly.graph_objects as _go3
+            cal = em['calibration']
+            fig_cal = _go3.Figure()
+            fig_cal.add_trace(_go3.Scatter(
+                x=cal['prob_pred'], y=cal['prob_true'],
+                mode='lines+markers',
+                name='XGBoost（勝）',
+                line=dict(color='#e94560', width=2.5),
+                marker=dict(size=8),
+            ))
+            fig_cal.add_trace(_go3.Scatter(
+                x=[0, 1], y=[0, 1], mode='lines',
+                line=dict(dash='dash', color='gray', width=1),
+                name='完美校準',
+            ))
+            fig_cal.update_layout(
+                title="Calibration Curve — 主隊勝（Win）類別",
+                xaxis_title="預測機率",
+                yaxis_title="實際頻率",
+                height=420,
+                xaxis=dict(range=[0, 1]),
+                yaxis=dict(range=[0, 1]),
+            )
+            st.plotly_chart(fig_cal, use_container_width=True)
+            st.caption("點越靠近對角虛線，機率預測越可靠。偏上方表示模型預測偏保守（低估勝率），偏下方則過度自信。")
+
+        # ── Tab 4: Feature Importance ──
+        with tab_fi:
+            import plotly.graph_objects as _go4
+            fi = em['feature_importance']
+            fig_fi = _go4.Figure(_go4.Bar(
+                x=fi['values'], y=fi['features'],
+                orientation='h',
+                marker_color='#3366cc',
+            ))
+            fig_fi.update_layout(
+                title="Feature Importance（XGBoost gain）",
+                xaxis_title="Importance",
+                height=max(350, len(fi['features']) * 28),
+                margin=dict(l=160),
+            )
+            st.plotly_chart(fig_fi, use_container_width=True)
+            st.caption("數值越高代表該特徵對模型決策影響越大。FIFA 排名差距（rank_diff）通常是最強預測因子。")
+
 # ============================================================
-# PAGE 4: 奪冠預測
+# PAGE 4: 球隊風格分群（v2.2 新增 — 滿足課程「分群」任務）
+# ============================================================
+elif page == "🎯 球隊風格分群":
+    st.title("🎯 球隊風格分群")
+    st.markdown("**K-Means + PCA 二維投影 · 對 48 支 2026 參賽國的攻守風格做非監督式分群**")
+    st.markdown("---")
+
+    clusters = load_team_clusters()
+    if clusters is None:
+        st.warning("⚠️ 找不到 models/team_clusters.pkl，請先在本機跑 `python pretrain.py`。")
+    else:
+        df_c = clusters['df']
+        cluster_names = clusters['cluster_names']
+        centers = clusters['centers']
+        sil = clusters['silhouette']
+        k = clusters['k']
+
+        # ── 概覽指標 ──
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.markdown(f'<div class="metric-card"><h2>{k}</h2><p>分群數 (k)</p></div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown(f'<div class="metric-card"><h2>{sil:.2f}</h2><p>Silhouette 分數</p></div>', unsafe_allow_html=True)
+        with c3:
+            st.markdown(f'<div class="metric-card"><h2>48</h2><p>球隊樣本</p></div>', unsafe_allow_html=True)
+        with c4:
+            st.markdown(f'<div class="metric-card"><h2>7</h2><p>輸入特徵</p></div>', unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.markdown("### 🗺️ PCA 2D 投影（每個點 = 一支球隊）")
+
+        # ── Plotly PCA 散點 ──
+        plot_df = df_c.reset_index()
+        plot_df['cluster_label'] = plot_df['cluster'].map(cluster_names)
+        plot_df['team_cn'] = plot_df['team'].apply(lambda t: TEAM_INFO.get(t, {'cn': t})['cn'])
+        plot_df['flag'] = plot_df['team'].apply(lambda t: TEAM_INFO.get(t, {'flag': '🏳️'})['flag'])
+        plot_df['hover_name'] = plot_df['flag'] + ' ' + plot_df['team_cn']
+
+        fig_pca = px.scatter(
+            plot_df, x='PC1', y='PC2',
+            color='cluster_label',
+            hover_name='hover_name',
+            text='flag',
+            title=f'球隊風格 PCA 分群（k={k}，Silhouette={sil:.2f}）',
+            color_discrete_sequence=['#e94560', '#0f6e6e', '#3366cc', '#f5a623'],
+            height=520,
+        )
+        fig_pca.update_traces(textposition='top center', marker=dict(size=12))
+        fig_pca.update_layout(legend_title_text='風格群')
+        st.plotly_chart(fig_pca, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("### 📡 分群靜態雷達圖")
+        radar_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures', '14_cluster_radar.png')
+        pca_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures', '15_cluster_pca.png')
+        col_r, col_p = st.columns(2)
+        with col_r:
+            if os.path.exists(radar_path):
+                st.image(radar_path, caption='各群風格雷達圖（攻守特徵）', use_column_width=True)
+        with col_p:
+            if os.path.exists(pca_path):
+                st.image(pca_path, caption='PCA 靜態散點（含球隊標籤）', use_column_width=True)
+
+        st.markdown("---")
+        st.markdown("### 📋 各群球隊列表")
+        for cid, cname in cluster_names.items():
+            teams_in_c = plot_df[plot_df['cluster'] == cid]['team'].tolist()
+            team_labels = []
+            for t in sorted(teams_in_c):
+                info = TEAM_INFO.get(t, {'flag': '🏳️', 'cn': t})
+                team_labels.append(f"{info['flag']} {info['cn']}")
+            with st.expander(f"**{cname}**（{len(teams_in_c)} 支球隊）"):
+                st.write(' · '.join(team_labels))
+
+        st.markdown("---")
+        st.markdown("### 🔍 兩隊風格比較")
+        all_teams_sorted = sorted(plot_df['team'].tolist())
+        team_options = [f"{TEAM_INFO.get(t,{'flag':'🏳️'})['flag']} {TEAM_INFO.get(t,{'cn':t})['cn']} ({t})" for t in all_teams_sorted]
+        col_a, col_b = st.columns(2)
+        with col_a:
+            sel_a = st.selectbox("選擇球隊 A", team_options, index=0, key='cluster_team_a')
+        with col_b:
+            sel_b = st.selectbox("選擇球隊 B", team_options, index=1, key='cluster_team_b')
+
+        team_a = sel_a.split('(')[-1].rstrip(')')
+        team_b = sel_b.split('(')[-1].rstrip(')')
+
+        feat_cols_radar = [c for c in df_c.columns if c not in ('cluster', 'PC1', 'PC2')]
+        if feat_cols_radar and team_a in df_c.index and team_b in df_c.index:
+            row_a = df_c.loc[team_a, feat_cols_radar]
+            row_b = df_c.loc[team_b, feat_cols_radar]
+            # 正規化到 0-1
+            col_min = df_c[feat_cols_radar].min()
+            col_max = df_c[feat_cols_radar].max()
+            norm_a = ((row_a - col_min) / (col_max - col_min + 1e-9)).tolist()
+            norm_b = ((row_b - col_min) / (col_max - col_min + 1e-9)).tolist()
+            import plotly.graph_objects as _go_r
+            fig_radar = _go_r.Figure()
+            fig_radar.add_trace(_go_r.Scatterpolar(
+                r=norm_a + [norm_a[0]], theta=feat_cols_radar + [feat_cols_radar[0]],
+                fill='toself', name=TEAM_INFO.get(team_a, {'cn': team_a})['cn'],
+                line_color='#e94560',
+            ))
+            fig_radar.add_trace(_go_r.Scatterpolar(
+                r=norm_b + [norm_b[0]], theta=feat_cols_radar + [feat_cols_radar[0]],
+                fill='toself', name=TEAM_INFO.get(team_b, {'cn': team_b})['cn'],
+                line_color='#3366cc', opacity=0.7,
+            ))
+            fig_radar.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+                showlegend=True, height=450,
+                title='兩隊攻守風格雷達比較（正規化）',
+            )
+            st.plotly_chart(fig_radar, use_container_width=True)
+
+# ============================================================
+# PAGE 5: 奪冠預測（Monte Carlo）
 # ============================================================
 elif page == "🏅 奪冠預測":
-    st.title("🏅 2026 奪冠機率預測")
-    st.markdown("**Monte Carlo 10,000 次模擬**")
+    st.title("🏅 Monte Carlo 奪冠機率預測")
+    st.markdown("**模擬 2026 世界盃整個賽程，含小組賽 → 32 強 → 16 強 → 8 強 → 4 強 → 決賽**")
     st.markdown("---")
 
-    match_df = load_match_data()
-    fifa_df  = load_fifa_ranking()
-    result   = train_models_walkforward(match_df, fifa_df)
-
-    if result[0] is None:
-        st.warning("⚠️ 訓練資料不足")
+    mc = load_mc_results()
+    if mc is None:
+        st.warning("⚠️ 找不到 models/mc_results.pkl，請先在本機跑 `python pretrain.py`。")
     else:
-        clf, avg_val_acc, _, poisson1, poisson2, feat_cols, _ = result
+        n_sims = mc.get('n_sims', 5000)
+        results = mc.get('results', mc)  # 相容兩種格式
 
-        with st.spinner("🎲 模擬中，請稍候..."):
-            mc = monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10000)
+        rows = []
+        for team, d in results.items():
+            if team == 'n_sims':
+                continue
+            info = TEAM_INFO.get(team, {'flag': '🏳️', 'cn': team})
+            rows.append({
+                'flag_cn': f"{info['flag']} {info['cn']}",
+                'team': team,
+                'champ_pct': d.get('champ_pct', 0),
+                'final_pct': d.get('final_pct', 0),
+                'semi_pct': d.get('semi_pct', 0),
+            })
 
-    sorted_mc = sorted(mc.items(), key=lambda x: x[1]['champ_pct'], reverse=True)
-    top20 = sorted_mc[:20]
+        mc_df = pd.DataFrame(rows).sort_values('champ_pct', ascending=False).reset_index(drop=True)
+        mc_df.index += 1
 
-    teams_disp = []
-    probs = []
-    for t, data in top20:
-        info = TEAM_INFO.get(t, {'flag': '🏳️', 'cn': t})
-        teams_disp.append(f"{info['flag']} {info['cn']}")
-        probs.append(data['champ_pct'])
+        st.markdown(f"*模擬次數：{n_sims:,} 次*")
+        c1, c2, c3 = st.columns(3)
+        if len(mc_df) > 0:
+            top = mc_df.iloc[0]
+            with c1:
+                st.markdown(f'<div class="metric-card"><h2>{top["flag_cn"]}</h2><p>奪冠熱門 {top["champ_pct"]:.1%}</p></div>', unsafe_allow_html=True)
+            if len(mc_df) > 1:
+                with c2:
+                    t2 = mc_df.iloc[1]
+                    st.markdown(f'<div class="metric-card"><h2>{t2["flag_cn"]}</h2><p>第二熱門 {t2["champ_pct"]:.1%}</p></div>', unsafe_allow_html=True)
+            if len(mc_df) > 2:
+                with c3:
+                    t3 = mc_df.iloc[2]
+                    st.markdown(f'<div class="metric-card"><h2>{t3["flag_cn"]}</h2><p>第三熱門 {t3["champ_pct"]:.1%}</p></div>', unsafe_allow_html=True)
 
-    fig = px.bar(
-        x=teams_disp, y=probs,
-        title="🏆 奪冠機率排名（Monte Carlo 10,000次）",
-        labels={'x': '', 'y': '奪冠機率 (%)'},
-        color=probs, color_continuous_scale='Redor',
-        text=[f"{p:.1f}%" for p in probs]
-    )
-    fig.update_layout(
-        xaxis_tickangle=-45,
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font_color='#f0f0f0',
-        title_font_color='#f0f0f0',
-    )
-    fig.update_traces(textposition='outside', marker_color='#e94560')
-    st.plotly_chart(fig, use_container_width=True)
+        st.markdown("---")
+        top20 = mc_df.head(20)
+        fig_mc = px.bar(
+            top20, x='champ_pct', y='flag_cn',
+            orientation='h',
+            title=f'奪冠機率 Top 20（Monte Carlo {n_sims:,} 次模擬）',
+            labels={'champ_pct': '奪冠機率', 'flag_cn': '球隊'},
+            color='champ_pct',
+            color_continuous_scale='Reds',
+            text=top20['champ_pct'].apply(lambda x: f'{x:.1%}'),
+        )
+        fig_mc.update_layout(
+            yaxis={'categoryorder': 'total ascending'},
+            coloraxis_showscale=False,
+            height=600,
+        )
+        fig_mc.update_traces(textposition='outside')
+        st.plotly_chart(fig_mc, use_container_width=True)
 
-    st.markdown("---")
-    st.subheader("📋 Top 20 奪冠機率")
-
-    rows = []
-    for i, (t, data) in enumerate(sorted_mc[:20]):
-        p = data['champ_pct']
-        info = TEAM_INFO.get(t, {'flag': '🏳️', 'cn': t})
-        rating = '🔥 熱門' if p > 8 else ('⚡ 中熱門' if p > 3 else ('🌙 黑馬' if p > 1 else '🔮 長串'))
-        rows.append({
-            '排名': i+1,
-            '球隊': f"{info['flag']} {info['cn']}",
-            '晉級16強': f"{data['win_pct']:.1f}%",
-            '奪冠機率': f"{p:.2f}%",
-            '評級': rating
-        })
-
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-
-    st.markdown("---")
-    st.subheader("🔮 冠軍預測")
-    for i, (t, data) in enumerate(sorted_mc[:3]):
-        p = data['champ_pct']
-        info = TEAM_INFO.get(t, {'flag': '🏳️', 'cn': t})
-        medal = ["🥇", "🥈", "🥉"][i]
-        st.markdown(f"{medal} **{info['flag']} {info['cn']}** — 奪冠 {p:.2f}% | 晉級 {data['win_pct']:.1f}%")
+        st.markdown("---")
+        st.markdown("### 📊 各階段晉級機率")
+        display_df = mc_df[['flag_cn', 'champ_pct', 'final_pct', 'semi_pct']].copy()
+        display_df.columns = ['球隊', '奪冠', '進決賽', '進四強']
+        for col in ['奪冠', '進決賽', '進四強']:
+            display_df[col] = display_df[col].apply(lambda x: f'{x:.1%}')
+        st.dataframe(display_df, use_container_width=True)
 
 # ============================================================
-# PAGE 5: 完整賽程（HTML 整合）
+# PAGE 6: 完整賽程
 # ============================================================
 elif page == "📅 完整賽程":
     st.title("📅 2026 世界盃完整賽程")
-    st.markdown("**含小組賽程 · 積分表 · 淘汰賽 · 主辦城市**")
+    st.markdown("**含 12 個小組分組 · 48 支球隊 · 小組賽 + 淘汰賽路徑**")
     st.markdown("---")
 
-    html_path = "2026-worldcup-schedule.html"
-    try:
-        with open(html_path, 'r', encoding='utf-8') as f:
-            html_content = f.read()
-        # Extract body content (strip head/body/wrapper tags for Streamlit embedding)
-        import re
-        body_match = re.search(r'<body[^>]*>(.*)</body>', html_content, re.DOTALL)
-        if body_match:
-            embed_html = body_match.group(1)
-        else:
-            embed_html = html_content
-        # Wrap in a full HTML document
-        full_html = f"""<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body {{ background: #0d1526; color: #e0e0e0; padding: 0; margin: 0; }}
-</style>
-</head>
-<body>{embed_html}</body>
-</html>"""
-        st.components.v1.html(full_html, height=900, scrolling=True)
-        st.success("✅ 賽程頁已載入（桌面版）")
-    except FileNotFoundError:
-        st.error(f"⚠️ 找不到賽程檔案：{html_path}")
-        st.info("請確認 HTML 檔案存在，或手動開啟：\n" + html_path)
+    pre = load_pretrained()
 
-# ============================================================
-# FOOTER
-# ============================================================
-st.markdown("---")
-st.caption("🏆 2026 世界盃 ML 預測系統 | XGBoost + Poisson + Monte Carlo | 資料：1872-2026")
+    st.markdown("## 🏟️ 小組賽分組")
+    for group, teams in WC_2026_GROUPS.items():
+        with st.expander(f"**第 {group} 組**（{' vs '.join([TEAM_INFO.get(t,{'cn':t})['cn'] for t in teams])}）"):
+            match_df_g = load_match_data()
+            group_rows = []
+            for i, t1 in enumerate(teams):
+                for t2 in teams[i+1:]:
+                    info1 = TEAM_INFO.get(t1, {'flag': '🏳️', 'cn': t1})
+                    info2 = TEAM_INFO.get(t2, {'flag': '🏳️', 'cn': t2})
+                    if pre:
+                        try:
+                            feat = create_features(t1, t2, 2026, match_df_g, load_fifa_ranking(),
+                                                   pre['feat_cols'])
+                            X = pd.DataFrame([feat])[pre['feat_cols']]
+                            prob = pre['clf'].predict_proba(X)[0]
+                            lam1 = max(0.1, float(pre['poisson1'].predict(X)[0]))
+                            lam2 = max(0.1, float(pre['poisson2'].predict(X)[0]))
+                            score1 = round(lam1, 1)
+                            score2 = round(lam2, 1)
+                            result_str = f"{score1:.1f} - {score2:.1f}"
+                        except Exception:
+                            prob = [0.33, 0.33, 0.34]
+                            result_str = "N/A"
+                    else:
+                        prob = [0.33, 0.33, 0.34]
+                        result_str = "需先跑 pretrain.py"
+                    group_rows.append({
+                        '對戰': f"{info1['flag']} {info1['cn']} vs {info2['flag']} {info2['cn']}",
+                        '預測比分': result_str,
+                        '主勝%': f"{prob[2]:.0%}",
+                        '平%': f"{prob[1]:.0%}",
+                        '主負%': f"{prob[0]:.0%}",
+                    })
+            if group_rows:
+                st.dataframe(pd.DataFrame(group_rows), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.markdown("## 🏆 淘汰賽路徑說明")
+    st.markdown("""
+    2026 世界盃採 48 隊制：
+    - **小組賽**：12 組，每組 4 隊，取前 2 名 + 8 支最佳第三名 → 共 32 強
+    - **32 強淘汰賽** → **16 強** → **8 強（四分之一決賽）** → **四強（半決賽）** → **決賽**
+    - 奪冠機率請參考「🏅 奪冠預測」頁的 Monte Carlo 結果
+    """)
