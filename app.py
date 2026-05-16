@@ -1692,162 +1692,141 @@ elif page == "🏅 奪冠預測":
 # PAGE 6: 完整賽程
 # ============================================================
 elif page == "📅 完整賽程":
-    st.title("📅 2026 世界盃完整賽程")
-    st.markdown("**含 12 個小組分組 · 48 支球隊 · 小組賽 + 淘汰賽路徑**")
-    st.markdown("---")
+    st.title("📅 2026 世界盃淘汰賽對陣圖")
+    st.caption("48 隊 · 32強→16強→八強→四強→決賽 · 時間為台灣時間（UTC+8）· 7月")
 
-    pre = load_pretrained()
+    # ── bracket 資料 ──
+    # 格式: (時間, 隊1, 隊2)   高度總量 = 560px  每輪 slot 數翻倍
+    BH = 560  # 總高度 px
 
-    st.markdown("## 🏟️ 小組賽分組")
-    for group, teams in WC_2026_GROUPS.items():
-        with st.expander(f"**第 {group} 組**（{' vs '.join([TEAM_INFO.get(t,{'cn':t})['cn'] for t in teams])}）"):
-            match_df_g = load_match_data()
-            group_rows = []
-            for i, t1 in enumerate(teams):
-                for t2 in teams[i+1:]:
-                    info1 = TEAM_INFO.get(t1, {'flag': '🏳️', 'cn': t1})
-                    info2 = TEAM_INFO.get(t2, {'flag': '🏳️', 'cn': t2})
-                    if pre:
-                        try:
-                            feat = create_features(t1, t2, 2026, match_df_g, load_fifa_ranking(),
-                                                   pre['feat_cols'])
-                            X = pd.DataFrame([feat])[pre['feat_cols']]
-                            prob = pre['clf'].predict_proba(X)[0]
-                            lam1 = max(0.1, float(pre['poisson1'].predict(X)[0]))
-                            lam2 = max(0.1, float(pre['poisson2'].predict(X)[0]))
-                            score1 = round(lam1, 1)
-                            score2 = round(lam2, 1)
-                            result_str = f"{score1:.1f} - {score2:.1f}"
-                        except Exception:
-                            prob = [0.33, 0.33, 0.34]
-                            result_str = "N/A"
-                    else:
-                        prob = [0.33, 0.33, 0.34]
-                        result_str = "需先跑 pretrain.py"
-                    group_rows.append({
-                        '對戰': f"{info1['flag']} {info1['cn']} vs {info2['flag']} {info2['cn']}",
-                        '預測比分': result_str,
-                        '主勝%': f"{prob[2]:.0%}",
-                        '平%': f"{prob[1]:.0%}",
-                        '主負%': f"{prob[0]:.0%}",
-                    })
-            if group_rows:
-                st.dataframe(pd.DataFrame(group_rows), use_container_width=True, hide_index=True)
-
-    st.markdown("---")
-    st.markdown("## 🏆 淘汰賽對陣圖")
-    st.caption("48 隊制 · 32 強 → 16 強 → 八強 → 四強 → 決賽 · 所有時間為台灣時間（UTC+8）")
-
-    # ── 淘汰賽 bracket 資料 ──
-    # 左半區（L48场 → 決賽左側）
-    r32_left = [
-        ("7/4 09:00", "A組1", "B組2"),
-        ("7/4 22:00", "C組1", "D組2"),
-        ("7/5 09:00", "E組1", "F組2"),
-        ("7/5 22:00", "G組1", "H組2"),
-        ("7/6 09:00", "I組1", "J組2"),
-        ("7/6 22:00", "K組1", "L組2"),
-        ("7/7 09:00", "最佳3rd(1)", "最佳3rd(2)"),
-        ("7/7 22:00", "最佳3rd(3)", "最佳3rd(4)"),
+    r32L = [
+        ("7/4 09:00",  "A組1", "B組2"),
+        ("7/4 22:00",  "C組1", "D組2"),
+        ("7/5 09:00",  "E組1", "F組2"),
+        ("7/5 22:00",  "G組1", "H組2"),
+        ("7/6 09:00",  "I組1",  "J組2"),
+        ("7/6 22:00",  "K組1", "L組2"),
+        ("7/7 09:00",  "最佳3rd①", "最佳3rd②"),
+        ("7/7 22:00",  "最佳3rd③", "最佳3rd④"),
     ]
-    r16_left = [
+    r16L = [
         ("7/9 09:00",  "R32-①勝", "R32-②勝"),
         ("7/9 22:00",  "R32-③勝", "R32-④勝"),
         ("7/10 09:00", "R32-⑤勝", "R32-⑥勝"),
         ("7/10 22:00", "R32-⑦勝", "R32-⑧勝"),
     ]
-    qf_left = [
+    qfL = [
         ("7/14 09:00", "16強-①勝", "16強-②勝"),
         ("7/14 22:00", "16強-③勝", "16強-④勝"),
     ]
-    sf_left = [("7/18 22:00", "八強-①勝", "八強-②勝")]
+    sfL = [("7/18 22:00", "八強-①勝", "八強-②勝")]
 
-    # 右半區
-    r32_right = [
-        ("7/4 13:00", "B組1", "A組2"),
-        ("7/4 16:00", "D組1", "C組2"),
-        ("7/5 13:00", "F組1", "E組2"),
-        ("7/5 16:00", "H組1", "G組2"),
-        ("7/6 13:00", "J組1", "I組2"),
-        ("7/6 16:00", "L組1", "K組2"),
-        ("7/7 13:00", "最佳3rd(5)", "最佳3rd(6)"),
-        ("7/7 16:00", "最佳3rd(7)", "最佳3rd(8)"),
+    r32R = [
+        ("7/4 13:00",  "B組1", "A組2"),
+        ("7/4 16:00",  "D組1", "C組2"),
+        ("7/5 13:00",  "F組1",  "E組2"),
+        ("7/5 16:00",  "H組1", "G組2"),
+        ("7/6 13:00",  "J組1",  "I組2"),
+        ("7/6 16:00",  "L組1",  "K組2"),
+        ("7/7 13:00",  "最佳3rd⑤", "最佳3rd⑥"),
+        ("7/7 16:00",  "最佳3rd⑦", "最佳3rd⑧"),
     ]
-    r16_right = [
+    r16R = [
         ("7/11 09:00", "R32-⑨勝",  "R32-⑩勝"),
         ("7/11 22:00", "R32-⑪勝", "R32-⑫勝"),
         ("7/12 09:00", "R32-⑬勝", "R32-⑭勝"),
         ("7/12 22:00", "R32-⑮勝", "R32-⑯勝"),
     ]
-    qf_right = [
+    qfR = [
         ("7/15 09:00", "16強-⑤勝", "16強-⑥勝"),
         ("7/15 22:00", "16強-⑦勝", "16強-⑧勝"),
     ]
-    sf_right = [("7/19 22:00", "八強-③勝", "八強-④勝")]
+    sfR = [("7/19 22:00", "八強-③勝", "八強-④勝")]
 
-    final = ("7/22 21:00", "MetLife Stadium, 紐約", "美聯冠軍", "國聯冠軍")
-    third = ("7/22 04:00", "四強負方-左", "四強負方-右")
+    def make_col(matches: list, n_slots: int, w: int) -> str:
+        slot_h = BH // n_slots
+        mh = min(slot_h - 8, 62)  # match box height
+        blocks = ""
+        for m in matches:
+            blocks += f"""
+            <div style="height:{slot_h}px;display:flex;align-items:center;justify-content:center;">
+              <div style="width:{w-8}px;border:1px solid rgba(255,255,255,0.18);border-radius:6px;
+                          background:rgba(255,255,255,0.04);padding:4px 7px;font-size:0.7rem;">
+                <div style="color:#6a9ab5;font-size:0.62rem;margin-bottom:2px;">⏰ {m[0]}</div>
+                <div style="color:#ddeeff;font-weight:600;white-space:nowrap;overflow:hidden;
+                            text-overflow:ellipsis;border-bottom:1px solid rgba(255,255,255,0.1);
+                            padding-bottom:2px;">{m[1]}</div>
+                <div style="color:#ddeeff;font-weight:600;white-space:nowrap;overflow:hidden;
+                            text-overflow:ellipsis;padding-top:2px;">vs {m[2]}</div>
+              </div>
+            </div>"""
+        return f'<div style="width:{w}px;height:{BH}px;flex-shrink:0;">{blocks}</div>'
 
-    def match_block(time: str, t1: str, t2: str, highlight: bool = False) -> str:
-        bg = "rgba(247,201,72,0.08)" if highlight else "rgba(255,255,255,0.04)"
-        border = "rgba(247,201,72,0.5)" if highlight else "rgba(255,255,255,0.15)"
-        return f"""
-        <div style="border:1px solid {border};border-radius:8px;padding:7px 10px;
-                    margin:4px 0;background:{bg};min-width:160px;font-size:0.78rem;">
-          <div style="color:#7a9ab5;font-size:0.68rem;margin-bottom:3px;">⏰ {time}</div>
-          <div style="color:#fff;font-weight:600;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.1);">{t1}</div>
-          <div style="color:#fff;font-weight:600;padding:2px 0;">vs  {t2}</div>
-        </div>"""
+    # 分隔線（縱向）
+    sep = f'<div style="width:2px;height:{BH}px;background:rgba(255,255,255,0.06);flex-shrink:0;"></div>'
 
-    def col_block(title: str, matches: list, width: str = "190px") -> str:
-        inner = "".join(match_block(m[0], m[1], m[2]) for m in matches)
-        return f"""
-        <div style="min-width:{width};max-width:{width};padding:0 6px;">
-          <div style="color:#f7c948;font-weight:700;font-size:0.82rem;
-                      text-align:center;margin-bottom:8px;letter-spacing:1px;">{title}</div>
-          {inner}
-        </div>"""
-
-    final_html = f"""
-    <div style="min-width:260px;max-width:280px;padding:0 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-      <div style="color:#f7c948;font-weight:700;font-size:0.9rem;text-align:center;margin-bottom:10px;letter-spacing:2px;">🏆 決賽</div>
-      <div style="border:2px solid rgba(247,201,72,0.7);border-radius:10px;padding:12px 16px;
-                  background:rgba(247,201,72,0.1);text-align:center;width:100%;">
-        <div style="color:#aac;font-size:0.7rem;margin-bottom:4px;">⏰ {final[0]}</div>
-        <div style="color:#cde;font-size:0.68rem;margin-bottom:8px;">📍 {final[1]}</div>
-        <div style="color:#fff;font-size:1rem;font-weight:700;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.2);">
-          {final[2]}
-        </div>
-        <div style="color:#ccc;font-size:0.75rem;padding:4px 0;">vs</div>
-        <div style="color:#fff;font-size:1rem;font-weight:700;padding:4px 0;">
-          {final[3]}
+    # 決賽 + 季軍賽中心欄
+    final_col = f"""
+    <div style="width:148px;height:{BH}px;flex-shrink:0;display:flex;flex-direction:column;
+                align-items:center;justify-content:center;gap:12px;">
+      <div style="text-align:center;">
+        <div style="color:#f7c948;font-weight:700;font-size:0.8rem;letter-spacing:1px;margin-bottom:6px;">🏆 決賽</div>
+        <div style="border:2px solid rgba(247,201,72,0.65);border-radius:9px;padding:10px 12px;
+                    background:rgba(247,201,72,0.08);width:136px;">
+          <div style="color:#99b5cc;font-size:0.62rem;margin-bottom:3px;">7/22 21:00</div>
+          <div style="color:#cde;font-size:0.6rem;margin-bottom:6px;">📍 MetLife, 紐約</div>
+          <div style="color:#fff;font-weight:700;font-size:0.82rem;padding:3px 0;
+                      border-bottom:1px solid rgba(255,255,255,0.15);">四強①勝</div>
+          <div style="color:#aaa;font-size:0.65rem;padding:2px 0;">vs</div>
+          <div style="color:#fff;font-weight:700;font-size:0.82rem;padding:3px 0;">四強②勝</div>
         </div>
       </div>
-      <div style="color:#f7c948;font-weight:700;font-size:0.82rem;text-align:center;margin-top:18px;margin-bottom:8px;letter-spacing:1px;">🥉 季軍賽</div>
-      <div style="border:1px solid rgba(200,180,80,0.4);border-radius:8px;padding:8px 12px;
-                  background:rgba(200,180,80,0.06);text-align:center;width:100%;">
-        <div style="color:#aac;font-size:0.7rem;margin-bottom:4px;">⏰ {third[0]}</div>
-        <div style="color:#ccc;font-size:0.82rem;">{third[1]} vs {third[2]}</div>
+      <div style="text-align:center;">
+        <div style="color:#c8a850;font-weight:700;font-size:0.72rem;margin-bottom:4px;">🥉 季軍賽</div>
+        <div style="border:1px solid rgba(200,170,60,0.35);border-radius:7px;padding:7px 10px;
+                    background:rgba(200,170,60,0.05);width:136px;">
+          <div style="color:#99b5cc;font-size:0.62rem;margin-bottom:3px;">7/22 04:00</div>
+          <div style="color:#ccc;font-size:0.7rem;">四強負方①<br>vs 四強負方②</div>
+        </div>
       </div>
     </div>"""
 
-    bracket_html = f"""
-    <div style="background:#0d1b2e;border-radius:14px;padding:20px;overflow-x:auto;">
-      <div style="display:flex;align-items:flex-start;justify-content:center;gap:0;min-width:1200px;">
-        {col_block("🔵 32強（左半區）", r32_left, "190px")}
-        {col_block("16強（左）", r16_left, "175px")}
-        {col_block("八強（左）", qf_left, "175px")}
-        {col_block("四強", sf_left, "175px")}
-        {final_html}
-        {col_block("四強", sf_right, "175px")}
-        {col_block("八強（右）", qf_right, "175px")}
-        {col_block("16強（右）", r16_right, "175px")}
-        {col_block("🔴 32強（右半區）", r32_right, "190px")}
-      </div>
-      <div style="text-align:center;color:#4a6a8a;font-size:0.7rem;margin-top:16px;">
-        ※ 對陣組合以 FIFA 官方公布為準 · 時間為台灣時間（UTC+8）· 日期為 2026 年 7 月
+    # 欄位標題列
+    def hdr(text: str, w: int) -> str:
+        return f'<div style="width:{w}px;text-align:center;color:#f7c948;font-weight:700;font-size:0.72rem;flex-shrink:0;">{text}</div>'
+
+    W32, W16, WQF, WSF, WF = 128, 118, 112, 108, 148
+    header_row = f"""
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:4px;">
+      {hdr("32強（左）", W32)}{hdr("", 2)}{hdr("16強（左）", W16)}{hdr("", 2)}
+      {hdr("八強（左）", WQF)}{hdr("", 2)}{hdr("四強", WSF)}{hdr("", 2)}
+      {hdr("🏆 決賽 / 🥉季軍", WF)}{hdr("", 2)}
+      {hdr("四強", WSF)}{hdr("", 2)}{hdr("八強（右）", WQF)}{hdr("", 2)}
+      {hdr("16強（右）", W16)}{hdr("", 2)}{hdr("32強（右）", W32)}
+    </div>"""
+
+    bracket_row = f"""
+    <div style="display:flex;align-items:stretch;gap:0;">
+      {make_col(r32L, 8, W32)}{sep}
+      {make_col(r16L, 4, W16)}{sep}
+      {make_col(qfL,  2, WQF)}{sep}
+      {make_col(sfL,  1, WSF)}{sep}
+      {final_col}{sep}
+      {make_col(sfR,  1, WSF)}{sep}
+      {make_col(qfR,  2, WQF)}{sep}
+      {make_col(r16R, 4, W16)}{sep}
+      {make_col(r32R, 8, W32)}
+    </div>"""
+
+    full_html = f"""
+    <div style="background:#0a1628;border-radius:12px;padding:14px 16px;
+                font-family:'Noto Sans TC',sans-serif;">
+      {header_row}
+      {bracket_row}
+      <div style="text-align:center;color:#3a5a7a;font-size:0.62rem;margin-top:10px;">
+        ※ 對陣組合以 FIFA 官方公布為準 · 時間為台灣時間（UTC+8）
       </div>
     </div>"""
 
     import streamlit.components.v1 as _c
-    _c.html(bracket_html, height=700, scrolling=True)
+    _c.html(full_html, height=BH + 80, scrolling=False)
