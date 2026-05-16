@@ -810,3 +810,45 @@ if __name__ == '__main__':
     cluster_out = run_clustering(match_df)
     mc = run_monte_carlo(match_df, fifa_df, clf, p1, p2, fc, n_sims=5000)
     print("\n" + "="*60)
+   label_binarize(yv, classes=[0, 1, 2])
+    for c, name in enumerate(labels_name):
+        if y_bin_save[:, c].sum() == 0:
+            continue
+        fpr_c, tpr_c, _ = roc_curve(y_bin_save[:, c], yp_proba[:, c])
+        roc_data[name] = {
+            'fpr': fpr_c.tolist(),
+            'tpr': tpr_c.tolist(),
+            'auc': float(auc(fpr_c, tpr_c)),
+        }
+
+    eval_metrics = {
+        'cm': cm.tolist(),
+        'labels_name': labels_name,
+        'accuracy': float(accuracy_score(yv, yp)),
+        'roc': roc_data,
+        'calibration': {
+            'prob_true': prob_true.tolist(),
+            'prob_pred': prob_pred.tolist(),
+        },
+        'feature_importance': {
+            'features': imp.index.tolist(),
+            'values': imp.values.tolist(),
+        },
+        'n_test': int(len(yv)),
+    }
+    eval_path = os.path.join(MODEL_DIR, 'eval_metrics.pkl')
+    with open(eval_path, 'wb') as f:
+        pickle.dump(eval_metrics, f)
+    print(f"  ✅ models/eval_metrics.pkl 存好了（test n={len(yv)}, acc={eval_metrics['accuracy']:.3f}）")
+
+
+if __name__ == '__main__':
+    print("="*60)
+    print("世界盃 ML 2026 — Pretrain Script")
+    print("="*60)
+    match_df, fifa_df = load_data()
+    clf, p1, p2, fc, va = train_models(match_df, fifa_df)
+    eval_visualizations(match_df, fifa_df, clf, fc)
+    cluster_out = run_clustering(match_df)
+    mc = run_monte_carlo(match_df, fifa_df, clf, p1, p2, fc, n_sims=5000)
+    print("\n" + "="*60)
