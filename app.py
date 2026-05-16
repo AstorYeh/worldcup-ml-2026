@@ -1233,7 +1233,7 @@ elif page == "🔮 2026 預測":
                 h2h = match_df[
                     ((match_df['home_team'] == r['team1']) & (match_df['away_team'] == r['team2'])) |
                     ((match_df['home_team'] == r['team2']) & (match_df['away_team'] == r['team1']))
-                ].sort_values('date', ascending=False).head(8)
+                ].sort_values('date', ascending=False).head(8).reset_index(drop=True)
                 if len(h2h) == 0:
                     st.info("查無歷史對戰紀錄")
                 else:
