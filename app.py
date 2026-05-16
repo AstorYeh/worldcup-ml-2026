@@ -1050,18 +1050,18 @@ if page == "📊 專題總覽":
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.info("🤖 **分類模型**\n\nXGBoost — 勝/平/負\n\n• 時間衰減權重\n• FIFA排名差異\n• 球隊狀態指標")
+        st.info("🤖 **第一層：XGBoost 分類**\n\n勝/平/負機率（佔 40%）\n\n• 時間衰減權重\n• FIFA 排名差異\n• 球隊近期狀態\n• 正向＋反向對稱平均，消除主場偏差")
     with col2:
-        st.info("📊 **進球預測**\n\nPoisson 迴歸\n\n• 平均進球率\n• 對手防守能力\n• 歷史進球分佈")
+        st.info("📊 **第二層：Dixon-Coles 進球模型**\n\nPoisson 期望進球（佔 60%）\n\n• 足聯品質係數校正（UEFA/CONMEBOL/AFC…）\n• FIFA 積分排名加權\n• 從 λ 積分算勝/平/負機率")
     with col3:
-        st.info("🎲 **Monte Carlo**\n\n10,000次奪冠模擬\n\n• 小組賽積分制\n• 淘汰賽隨機模擬\n• 排名加權概率")
+        st.info("🎲 **第三層：融合 + Monte Carlo**\n\n兩層加權融合後統一預測\n\n• 勝負方向與比分完全一致\n• MAP 最高機率比分\n• 10,000 次全賽程模擬奪冠機率")
 
 # ============================================================
 # PAGE 2: 2026 預測
 # ============================================================
 elif page == "🔮 2026 預測":
     st.title("🔮 2026 世界盃比分預測")
-    st.markdown("**XGBoost + Poisson 迴歸 · Walk-Forward 驗證**")
+    st.markdown("**XGBoost（40%）＋ Dixon-Coles Poisson（60%）三層融合模型 · Walk-Forward 驗證**")
     st.markdown("---")
 
     match_df = load_match_data()
