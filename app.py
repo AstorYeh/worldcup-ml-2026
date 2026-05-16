@@ -573,7 +573,7 @@ def load_pretrained():
     except Exception:
         return None
 
-@st.cache_resource
+@st.cache_resource(ttl=600)
 def load_mc_results():
     """嘗試從 models/mc_results.pkl 載入；找不到回 None。"""
     import os as _os, pickle as _pickle
@@ -1916,7 +1916,7 @@ elif page == "🏅 奪冠預測":
     if mc is None:
         st.warning("⚠️ 找不到 models/mc_results.pkl，請先在本機跑 `python pretrain.py`。")
     else:
-        n_sims = mc.get('n_sims', 5000)
+        n_sims = mc.get('n_sims', 10000)
         results = mc.get('results', mc)  # 相容兩種格式
 
         rows = []
