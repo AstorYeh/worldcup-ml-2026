@@ -1274,6 +1274,49 @@ elif page == "🔮 2026 預測":
                         })
                     st.dataframe(pd.DataFrame(h2h_rows), use_container_width=True, hide_index=True)
 
+                # ── TOP5 主將對比 ──
+                st.markdown("---")
+                st.markdown("**⭐ TOP5 主將能力對比**")
+                p1_list = SQUAD_DATA.get(r['team1'], [])
+                p2_list = SQUAD_DATA.get(r['team2'], [])
+                _pos_order = {'GK': 0, 'CB': 1, 'LB': 1, 'RB': 1, 'CDM': 2, 'CM': 2,
+                              'CAM': 3, 'LW': 3, 'RW': 3, 'ST': 4}
+                p1_list = sorted(p1_list, key=lambda p: _pos_order.get(p['pos'], 5))[:5]
+                p2_list = sorted(p2_list, key=lambda p: _pos_order.get(p['pos'], 5))[:5]
+                _attr_labels = {'ovr': '綜合', 'pac': '速度', 'sho': '射門',
+                                'pas': '傳球', 'dri': '盤帶', 'def': '防守', 'phy': '體能'}
+                pc1, pc2 = st.columns(2)
+                for col, plist, color, tinfo in [
+                    (pc1, p1_list, '#e94560', info1),
+                    (pc2, p2_list, '#0099cc', info2),
+                ]:
+                    with col:
+                        st.markdown(f"<b style='color:{color}'>{tinfo['flag']} {tinfo['cn']}</b>",
+                                    unsafe_allow_html=True)
+                        for p in plist:
+                            ovr = p.get('ovr', 0)
+                            bar_w = int(ovr)
+                            attrs = ' · '.join(
+                                f"{lbl}<b>{p.get(k,0)}</b>"
+                                for k, lbl in _attr_labels.items() if k != 'ovr'
+                            )
+                            st.markdown(
+                                f"<div style='margin:5px 0;padding:8px 10px;"
+                                f"background:rgba(255,255,255,0.04);border-radius:6px;"
+                                f"border-left:3px solid {color}'>"
+                                f"<div style='display:flex;justify-content:space-between;align-items:center'>"
+                                f"<span style='font-weight:600;font-size:0.88rem'>{p['name']}"
+                                f" <span style='color:#888;font-size:0.75rem'>{p['pos']}</span></span>"
+                                f"<span style='font-size:1rem;font-weight:900;color:{color}'>{ovr}</span></div>"
+                                f"<div style='background:rgba(255,255,255,0.08);border-radius:3px;height:4px;margin:4px 0'>"
+                                f"<div style='width:{bar_w}%;height:4px;background:{color};border-radius:3px'></div></div>"
+                                f"<div style='font-size:0.72rem;color:#999'>{attrs}</div>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        if not plist:
+                            st.info("暫無球員資料")
+
             st.markdown("---")
 
 # ============================================================
