@@ -1113,29 +1113,31 @@ elif page == "🔮 2026 預測":
             probs = {'win': r['win_prob'], 'draw': r['draw_prob'], 'loss': r['loss_prob']}
             outcome = max(probs, key=probs.get)
 
-            # ── 單場摘要列 ──
-            col_flag, col_score, col_prob = st.columns([3, 1, 3])
-            with col_flag:
+            # ── 單場摘要列：旗幟 球隊名 預測分 VS 預測分 球隊名 旗幟 ｜ 平局機率 ──
+            col_match, col_draw = st.columns([5, 1])
+            # 勝者標色
+            if outcome == 'win':
+                score1_color, score2_color = '#00d4ff', '#8899aa'
+            elif outcome == 'loss':
+                score1_color, score2_color = '#8899aa', '#00d4ff'
+            else:
+                score1_color = score2_color = '#f7c948'
+            with col_match:
                 st.markdown(
-                    f'<div style="display:flex;align-items:center;gap:10px;padding:6px 0">'
-                    f'<img src="https://flagcdn.com/40x30/{iso1}.png" style="height:28px;border-radius:3px;">'
+                    f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;flex-wrap:wrap">'
+                    f'<img src="https://flagcdn.com/40x30/{iso1}.png" style="height:26px;border-radius:3px;">'
                     f'<b style="font-size:1rem">{info1["cn"]}</b>'
-                    f'<span style="color:#8899aa;margin:0 6px">VS</span>'
-                    f'<img src="https://flagcdn.com/40x30/{iso2}.png" style="height:28px;border-radius:3px;">'
+                    f'<span style="font-size:1.5rem;font-weight:900;color:{score1_color};min-width:20px;text-align:right">{r["goal1"]}</span>'
+                    f'<span style="color:#8899aa;font-size:0.9rem;margin:0 2px">VS</span>'
+                    f'<span style="font-size:1.5rem;font-weight:900;color:{score2_color};min-width:20px">{r["goal2"]}</span>'
                     f'<b style="font-size:1rem">{info2["cn"]}</b>'
+                    f'<img src="https://flagcdn.com/40x30/{iso2}.png" style="height:26px;border-radius:3px;">'
                     f'</div>', unsafe_allow_html=True)
-            with col_score:
-                score_color = "#00d4ff"
+            with col_draw:
                 st.markdown(
-                    f'<div style="font-size:1.4rem;font-weight:800;color:{score_color};text-align:center;padding:4px 0">'
-                    f'{r["goal1"]} - {r["goal2"]}</div>', unsafe_allow_html=True)
-            with col_prob:
-                win_lbl = info1['cn'] if outcome == 'win' else (info2['cn'] if outcome == 'loss' else '平局')
-                st.markdown(
-                    f'<div style="font-size:0.9rem;padding:4px 0;color:#ccc">'
-                    f'<span style="color:#f7c948;font-weight:700">勝 {r["win_prob"]:.0%}</span>'
-                    f'&nbsp;&nbsp;平 {r["draw_prob"]:.0%}'
-                    f'&nbsp;&nbsp;負 {r["loss_prob"]:.0%}</div>', unsafe_allow_html=True)
+                    f'<div style="font-size:0.85rem;color:#aabbcc;padding:8px 0;text-align:right">'
+                    f'平局 <b style="color:#f7c948">{r["draw_prob"]:.0%}</b></div>',
+                    unsafe_allow_html=True)
 
             # ── 詳細數據展開 ──
             with st.expander(f"🔍 詳細分析 — {info1['cn']} vs {info2['cn']}"):
@@ -1541,20 +1543,22 @@ elif page == "🌍 各國分析":
                 opp_info = TEAM_INFO.get(opp, {'flag':'🏳️','cn':opp,'iso':'un'})
                 opp_iso = opp_info.get('iso','un')
                 pred = predict_match(selected_team, opp, 2026, match_df, fifa_df, clf, p1, p2, fc)
-                win_col  = "#26de81" if pred['win_prob'] > pred['loss_prob'] else "#aabbcc"
-                lose_col = "#e94560" if pred['loss_prob'] > pred['win_prob'] else "#aabbcc"
-                opp_flag_img = f'<img src="https://flagcdn.com/24x18/{opp_iso}.png" style="border-radius:2px;vertical-align:middle;margin-right:6px;">'
                 my_iso = info.get('iso','un')
-                my_flag_img = f'<img src="https://flagcdn.com/24x18/{my_iso}.png" style="border-radius:2px;vertical-align:middle;margin-right:6px;">'
+                my_flag_img = f'<img src="https://flagcdn.com/24x18/{my_iso}.png" style="border-radius:2px;vertical-align:middle;">'
+                opp_flag_img = f'<img src="https://flagcdn.com/24x18/{opp_iso}.png" style="border-radius:2px;vertical-align:middle;">'
+                _oc = 'win' if pred['win_prob'] > pred['loss_prob'] and pred['win_prob'] > pred['draw_prob'] else \
+                      ('loss' if pred['loss_prob'] > pred['win_prob'] and pred['loss_prob'] > pred['draw_prob'] else 'draw')
+                sc1 = '#00d4ff' if _oc == 'win' else ('#8899aa' if _oc == 'loss' else '#f7c948')
+                sc2 = '#00d4ff' if _oc == 'loss' else ('#8899aa' if _oc == 'win' else '#f7c948')
                 st.markdown(f"""
-                <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;gap:16px;">
-                  <span>{my_flag_img}<b>{info['cn']}</b></span>
-                  <span style="color:#8899aa;">VS</span>
-                  <span>{opp_flag_img}<b>{opp_info['cn']}</b></span>
-                  <span style="margin-left:auto;color:#00d4ff;font-weight:700;">{pred['goal1']} - {pred['goal2']}</span>
-                  <span style="color:{win_col};font-size:0.85rem;">勝 {pred['win_prob']:.0%}</span>
-                  <span style="color:#aabbcc;font-size:0.85rem;">平 {pred['draw_prob']:.0%}</span>
-                  <span style="color:{lose_col};font-size:0.85rem;">負 {pred['loss_prob']:.0%}</span>
+                <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:10px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+                  <span style="display:flex;align-items:center;gap:6px;">{my_flag_img}<b>{info['cn']}</b>
+                    <span style="font-size:1.4rem;font-weight:900;color:{sc1}">{pred['goal1']}</span></span>
+                  <span style="color:#8899aa;font-size:0.85rem;">VS</span>
+                  <span style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:1.4rem;font-weight:900;color:{sc2}">{pred['goal2']}</span>
+                    <b>{opp_info['cn']}</b>{opp_flag_img}</span>
+                  <span style="margin-left:auto;color:#aabbcc;font-size:0.82rem;">平局 <b style="color:#f7c948">{pred['draw_prob']:.0%}</b></span>
                 </div>
                 """, unsafe_allow_html=True)
         else:
