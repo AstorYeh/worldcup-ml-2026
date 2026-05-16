@@ -1728,24 +1728,24 @@ elif page == "🎯 球隊風格分群":
         plot_df['flag'] = plot_df['team'].apply(lambda t: TEAM_INFO.get(t, {'flag': '🏳️'})['flag'])
         plot_df['hover_name'] = plot_df['team_cn']   # 純文字，避免 emoji 亂碼
 
-        # Plotly 圖例用 ASCII Tier 標籤（避免 CJK+emoji 亂碼）
-        tier_labels = {i: f'Tier {i+1}' for i in range(k)}
-        plot_df['tier'] = plot_df['cluster'].map(tier_labels)
+        # Plotly 圖例用 ASCII 標籤（避免 CJK+emoji 亂碼）
+        en_labels = {i: clusters.get('cluster_names_en', {}).get(i, f'Group {i+1}') for i in range(k)}
+        plot_df['style_en'] = plot_df['cluster'].map(en_labels)
 
         fig_pca = px.scatter(
             plot_df, x='pca1', y='pca2',
-            color='tier',
+            color='style_en',
             hover_name='hover_name',
-            hover_data={'tier': True, 'cluster_label': True, 'pca1': False, 'pca2': False},
+            hover_data={'style_en': True, 'cluster_label': True, 'pca1': False, 'pca2': False},
             text='team_cn',
-            title=f'Team Style Clustering — PCA 2D  (k={k}, Silhouette={sil:.2f})',
+            title=f'球隊風格分群 — PCA 二維投影  (k={k}, Silhouette={sil:.2f})',
             color_discrete_sequence=['#e94560', '#f5a623', '#3366cc', '#0f6e6e'],
             height=540,
         )
         fig_pca.update_traces(textposition='top center', marker=dict(size=11),
                               textfont=dict(size=9))
         fig_pca.update_layout(
-            legend_title_text='Tier',
+            legend_title_text='風格',
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             font=dict(color='#ccc'),
             xaxis=dict(gridcolor='rgba(255,255,255,0.08)'),
@@ -1753,16 +1753,36 @@ elif page == "🎯 球隊風格分群":
         )
         st.plotly_chart(fig_pca, use_container_width=True)
 
-        # 圖例說明（Tier ↔ 中文名稱對照）
-        tier_legend_cols = st.columns(k)
-        tier_colors = ['#e94560', '#f5a623', '#3366cc', '#0f6e6e']
+        # ── 分群說明：類型定義 + 各群中心數據 ──
+        style_colors = {'攻擊型': '#e94560', '防守型': '#3366cc', '平衡型': '#f5a623'}
+        style_icons  = {'攻擊型': '⚡', '防守型': '🛡️', '平衡型': '⚖️'}
+        style_criteria = {
+            '攻擊型': '場均進球最高 → 主動進攻、以攻代守',
+            '防守型': '場均失球最低 → 穩守反擊、嚴密組織',
+            '平衡型': '攻守均衡 → 彈性戰術、視對手調整',
+        }
+        legend_cols = st.columns(k)
+        tier_colors_list = ['#e94560', '#f5a623', '#3366cc', '#0f6e6e']
         for i in range(k):
-            cname = cluster_names.get(i, f'Tier {i+1}')
-            with tier_legend_cols[i]:
+            cname_full = cluster_names.get(i, f'Group {i+1}')
+            # 取出純中文名（去 emoji）
+            cn_pure = cname_full.replace('⚡','').replace('🛡️','').replace('⚖️','').strip()
+            color = style_colors.get(cn_pure, tier_colors_list[i % len(tier_colors_list)])
+            icon  = style_icons.get(cn_pure, '')
+            criteria = style_criteria.get(cn_pure, '')
+            # 各群中心攻守數據
+            c_row = centers.iloc[i] if hasattr(centers, 'iloc') else {}
+            goals_c    = c_row.get('avg_goals', 0) if isinstance(c_row, dict) else float(c_row['avg_goals'])
+            conceded_c = c_row.get('avg_conceded', 0) if isinstance(c_row, dict) else float(c_row['avg_conceded'])
+            with legend_cols[i]:
                 st.markdown(
-                    f'<div style="border-left:4px solid {tier_colors[i % len(tier_colors)]};'
-                    f'padding:4px 10px;font-size:0.85rem;">'
-                    f'<b>Tier {i+1}</b><br>{cname}</div>',
+                    f'<div style="border-left:4px solid {color};padding:8px 12px;'
+                    f'border-radius:4px;background:rgba(255,255,255,0.04);margin-bottom:6px;">'
+                    f'<b style="font-size:1rem;">{icon} {cn_pure}</b><br>'
+                    f'<span style="color:#aaa;font-size:0.8rem;">{criteria}</span><br>'
+                    f'<span style="font-size:0.8rem;">場均進球 <b style="color:#00d4ff">{goals_c:.2f}</b> ／ '
+                    f'場均失球 <b style="color:#f7c948">{conceded_c:.2f}</b></span>'
+                    f'</div>',
                     unsafe_allow_html=True
                 )
 
@@ -1780,7 +1800,9 @@ elif page == "🎯 球隊風格分群":
 
         st.markdown("---")
         st.markdown("### 📋 各群球隊列表")
-        for cid, cname in cluster_names.items():
+        for cid, cname in sorted(cluster_names.items()):
+            cn_pure = cname.replace('⚡','').replace('🛡️','').replace('⚖️','').strip()
+            color = style_colors.get(cn_pure, '#aaa')
             teams_in_c = plot_df[plot_df['cluster'] == cid]['team'].tolist()
             team_labels = []
             for t in sorted(teams_in_c):

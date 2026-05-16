@@ -557,48 +557,43 @@ def run_clustering(match_df):
     scaler = StandardScaler()
     Xs = scaler.fit_transform(X)
 
-    # 嘗試多個 k 看 silhouette
+    # 固定 k=3（攻擊型 / 防守型 / 平衡型），並記錄 silhouette 供展示
     from sklearn.metrics import silhouette_score
+    best_k = 3
     sil = {}
     for k in [3, 4, 5]:
-        km = KMeans(n_clusters=k, random_state=42, n_init=10)
-        labels = km.fit_predict(Xs)
-        sil[k] = silhouette_score(Xs, labels)
+        km_tmp = KMeans(n_clusters=k, random_state=42, n_init=10)
+        sil[k] = silhouette_score(Xs, km_tmp.fit_predict(Xs))
         print(f"  k={k} silhouette = {sil[k]:.3f}")
-    best_k = max(sil, key=sil.get)
-    print(f"  最佳 k = {best_k}")
+    print(f"  固定使用 k={best_k}（攻擊型/防守型/平衡型）")
 
     km = KMeans(n_clusters=best_k, random_state=42, n_init=10)
     labels = km.fit_predict(Xs)
     df['cluster'] = labels
 
-    # 為各群定名稱（看哪一群的進攻/防守/實力最高）
+    # 為各群定名稱：依攻守特徵（avg_goals / avg_conceded）判斷風格
     centers_unscaled = scaler.inverse_transform(km.cluster_centers_)
     centers_df = pd.DataFrame(centers_unscaled, columns=feat_cols)
 
-    # 根據 fifa_pts 排序，給 cluster 標籤
-    cluster_rank = centers_df['fifa_pts'].rank(ascending=False).astype(int) - 1
-    # cluster_names：中文版（供 Streamlit HTML 渲染）
-    # cluster_names_en：純 ASCII（供 matplotlib 圖例，避免 CJK 亂碼）
-    cluster_names = {}
+    # 判斷邏輯（k=3，各群恰好一個）：
+    #   攻擊型 — 淨進球（avg_goals - avg_conceded）最高 → 進攻主導
+    #   防守型 — 淨進球最低 → 穩守反擊
+    #   平衡型 — 中間 → 攻守均衡
+    centers_df['net_goal'] = centers_df['avg_goals'] - centers_df['avg_conceded']
+    net_rank = centers_df['net_goal'].rank(ascending=False).astype(int)  # 1=最高淨進球
+    cluster_names    = {}
     cluster_names_en = {}
     for c in range(best_k):
-        rank = cluster_rank[c]
-        if rank == 0:
-            cluster_names[c]    = '🔥 強權型（高實力、高攻擊）'
-            cluster_names_en[c] = 'Tier 1 - Elite (High Power)'
-        elif rank == 1:
-            cluster_names[c]    = '⚔️ 競爭型（中上實力、攻守平衡）'
-            cluster_names_en[c] = 'Tier 2 - Competitive (Balanced)'
-        elif rank == 2:
-            cluster_names[c]    = '🛡️ 穩固型（中等實力、防守為主）'
-            cluster_names_en[c] = 'Tier 3 - Defensive (Mid Tier)'
-        elif rank == 3:
-            cluster_names[c]    = '🌱 黑馬型（中下實力、潛力新銳）'
-            cluster_names_en[c] = 'Tier 4 - Underdog (Emerging)'
+        r = net_rank[c]
+        if r == 1:
+            cluster_names[c]    = '⚡ 攻擊型'
+            cluster_names_en[c] = 'Attacking'
+        elif r == best_k:
+            cluster_names[c]    = '🛡️ 防守型'
+            cluster_names_en[c] = 'Defensive'
         else:
-            cluster_names[c]    = f'第 {rank+1} 群'
-            cluster_names_en[c] = f'Tier {rank+1}'
+            cluster_names[c]    = '⚖️ 平衡型'
+            cluster_names_en[c] = 'Balanced'
 
     # PCA 2D 視覺化
     pca = PCA(n_components=2)
@@ -617,6 +612,7 @@ def run_clustering(match_df):
         'kmeans': km,
         'scaler': scaler,
         'pca': pca,
+        'cluster_names_en': cluster_names_en,
     }
     with open(os.path.join(MODEL_DIR, 'team_clusters.pkl'), 'wb') as f:
         pickle.dump(out, f)
