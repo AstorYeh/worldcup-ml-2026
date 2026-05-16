@@ -633,6 +633,11 @@ def run_clustering(match_df):
         plt = None
 
     if plt is not None:
+        # 使用繁體中文字型（本機 Windows 微軟正黑體）
+        plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'Apple LiGothic',
+                                           'Noto Sans CJK TC', 'DejaVu Sans']
+        plt.rcParams['axes.unicode_minus'] = False
+
         # 雷達圖
         radar_feats = ['win_rate', 'avg_goals', 'avg_conceded', 'goal_diff', 'fifa_pts']
         # 將每個 cluster 中心 normalize 到 0~1
@@ -648,13 +653,13 @@ def run_clustering(match_df):
         for c in range(best_k):
             vals = c_norm.iloc[c].tolist()
             vals += vals[:1]
-            ax.plot(angles, vals, 'o-', linewidth=2, label=cluster_names_en[c], color=colors[c % len(colors)])
+            ax.plot(angles, vals, 'o-', linewidth=2, label=cluster_names[c].replace('🔥','').replace('⚔️','').replace('🛡️','').replace('🌱','').strip(), color=colors[c % len(colors)])
             ax.fill(angles, vals, alpha=0.15, color=colors[c % len(colors)])
         ax.set_thetagrids(np.degrees(angles[:-1]),
-                          ['Win Rate', 'Avg Goals', 'Defense (rev)', 'Goal Diff', 'FIFA Pts'])
+                          ['勝率', '場均進球', '防守（反向）', '淨勝球', 'FIFA積分'])
         ax.set_ylim(0, 1)
-        ax.set_title('Team Style Clusters — Radar Chart (k=%d, silhouette=%.2f)' % (best_k, sil[best_k]),
-                     fontsize=12, pad=20)
+        ax.set_title('球隊風格分群 — 雷達圖（k=%d，Silhouette=%.2f）' % (best_k, sil[best_k]),
+                     fontsize=13, pad=20)
         ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1), fontsize=9)
         plt.tight_layout()
         plt.savefig(os.path.join(FIG_DIR, '14_cluster_radar.png'), dpi=120, bbox_inches='tight')
@@ -666,14 +671,15 @@ def run_clustering(match_df):
         for c in range(best_k):
             sub = df[df['cluster'] == c]
             ax.scatter(sub['pca1'], sub['pca2'], s=120, alpha=0.7,
-                       label=cluster_names_en[c], color=colors[c % len(colors)],
+                       label=cluster_names[c].replace('🔥','').replace('⚔️','').replace('🛡️','').replace('🌱','').strip(),
+                       color=colors[c % len(colors)],
                        edgecolors='white', linewidths=1.2)
             for t, row in sub.iterrows():
                 ax.annotate(t, (row['pca1'], row['pca2']), fontsize=8, alpha=0.85,
                             xytext=(5, 5), textcoords='offset points')
-        ax.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)')
-        ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)')
-        ax.set_title('Team Style Clusters — PCA 2D Projection (48 teams)', fontsize=13)
+        ax.set_xlabel(f'主成分1（解釋變異 {pca.explained_variance_ratio_[0]*100:.1f}%）')
+        ax.set_ylabel(f'主成分2（解釋變異 {pca.explained_variance_ratio_[1]*100:.1f}%）')
+        ax.set_title('球隊風格 PCA 二維投影（48支參賽隊）', fontsize=13)
         ax.legend(loc='best', fontsize=9)
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
