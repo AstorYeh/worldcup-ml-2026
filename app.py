@@ -1690,7 +1690,7 @@ elif page == "🎯 球隊風格分群":
         plot_df['hover_name'] = plot_df['flag'] + ' ' + plot_df['team_cn']
 
         fig_pca = px.scatter(
-            plot_df, x='PC1', y='PC2',
+            plot_df, x='pca1', y='pca2',
             color='cluster_label',
             hover_name='hover_name',
             text='flag',
@@ -1738,7 +1738,7 @@ elif page == "🎯 球隊風格分群":
         team_a = sel_a.split('(')[-1].rstrip(')')
         team_b = sel_b.split('(')[-1].rstrip(')')
 
-        feat_cols_radar = [c for c in df_c.columns if c not in ('cluster', 'PC1', 'PC2')]
+        feat_cols_radar = [c for c in df_c.columns if c not in ('cluster', 'pca1', 'pca2')]
         if feat_cols_radar and team_a in df_c.index and team_b in df_c.index:
             row_a = df_c.loc[team_a, feat_cols_radar]
             row_b = df_c.loc[team_b, feat_cols_radar]
