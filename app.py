@@ -18,6 +18,7 @@ from sklearn.metrics import accuracy_score
 from scipy.stats import poisson
 import warnings
 warnings.filterwarnings('ignore')
+from squad_data import SQUAD_DATA
 
 # ============================================================
 # PAGE CONFIG
@@ -206,6 +207,15 @@ def team_pts(name):
 def team_rank(name):
     """取得球隊 FIFA 世界排名"""
     return TEAM_INFO.get(name, {}).get('fifa_rank', 99)
+
+_SQUAD_OVR_BASELINE = 79.0  # 世界盃平均球隊主將 OVR 基準
+
+def squad_ovr(team: str) -> float:
+    """回傳球隊主將平均 OVR；若無資料則回傳基準值"""
+    players = SQUAD_DATA.get(team, [])
+    if not players:
+        return _SQUAD_OVR_BASELINE
+    return float(np.mean([p['ovr'] for p in players]))
 
 # ============================================================
 # 2026 世界盃分組
@@ -734,6 +744,13 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     lam1 = min(2.2, max(0.4, lam1_dc * rank_factor))
     lam2 = min(2.2, max(0.3, lam2_dc / rank_factor))
 
+    # ── 主將 OVR 調整（第四層）：依主將平均能力值輕微修正 λ ──
+    # 幂次 0.18 保守調整，避免單一球星過度主導結果
+    ovr1, ovr2 = squad_ovr(team1), squad_ovr(team2)
+    squad_factor = (ovr1 / ovr2) ** 0.18
+    lam1 = min(2.2, max(0.4, lam1 * squad_factor))
+    lam2 = min(2.2, max(0.3, lam2 / squad_factor))
+
     # 從 λ 積分出 Poisson 勝/平/負機率（0~7 進球範圍涵蓋 99.9%+ 機率）
     poi_win = poi_draw = poi_loss = 0.0
     for g1 in range(8):
@@ -1048,20 +1065,22 @@ if page == "📊 專題總覽":
     st.markdown("---")
     st.subheader("🔬 模型架構")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.info("🤖 **第一層：XGBoost 分類**\n\n勝/平/負機率（佔 40%）\n\n• 時間衰減權重\n• FIFA 排名差異\n• 球隊近期狀態\n• 正向＋反向對稱平均，消除主場偏差")
+        st.info("🤖 **第一層：XGBoost 分類**\n\n勝/平/負機率（權重 40%）\n\n• 時間衰減權重\n• FIFA 排名差異\n• 球隊近期狀態\n• 正向＋反向對稱平均")
     with col2:
-        st.info("📊 **第二層：Dixon-Coles 進球模型**\n\nPoisson 期望進球（佔 60%）\n\n• 足聯品質係數校正（UEFA/CONMEBOL/AFC…）\n• FIFA 積分排名加權\n• 從 λ 積分算勝/平/負機率")
+        st.info("📊 **第二層：Dixon-Coles**\n\nPoisson 期望進球（權重 60%）\n\n• 足聯品質係數校正\n• FIFA 積分排名加權\n• 從 λ 積分勝/平/負機率")
     with col3:
-        st.info("🎲 **第三層：融合 + Monte Carlo**\n\n兩層加權融合後統一預測\n\n• 勝負方向與比分完全一致\n• MAP 最高機率比分\n• 10,000 次全賽程模擬奪冠機率")
+        st.info("⭐ **第三層：主將 OVR 修正**\n\n主力球員綜合能力值調整\n\n• 各隊 5 名主將平均 OVR\n• 幂次 0.18 保守修正 λ\n• 巨星球隊自然獲得加成")
+    with col4:
+        st.info("🎲 **第四層：融合 + Monte Carlo**\n\n統一方向後最終預測\n\n• 勝負方向與比分完全一致\n• MAP 最高機率比分\n• 10,000 次全賽程奪冠模擬")
 
 # ============================================================
 # PAGE 2: 2026 預測
 # ============================================================
 elif page == "🔮 2026 預測":
     st.title("🔮 2026 世界盃比分預測")
-    st.markdown("**XGBoost（40%）＋ Dixon-Coles Poisson（60%）三層融合模型 · Walk-Forward 驗證**")
+    st.markdown("**XGBoost（40%）＋ Dixon-Coles Poisson（60%）＋ 主將 OVR 修正 · 四層融合模型 · Walk-Forward 驗證**")
     st.markdown("---")
 
     match_df = load_match_data()
