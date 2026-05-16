@@ -1894,15 +1894,15 @@ elif page == "🏅 奪冠預測":
         if len(mc_df) > 0:
             top = mc_df.iloc[0]
             with c1:
-                st.markdown(f'<div class="metric-card"><h2>{top["flag_cn"]}</h2><p>奪冠熱門 {top["champ_pct"]:.1%}</p></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card"><h2>{top["flag_cn"]}</h2><p>奪冠熱門 {top["champ_pct"]:.1f}%</p></div>', unsafe_allow_html=True)
             if len(mc_df) > 1:
                 with c2:
                     t2 = mc_df.iloc[1]
-                    st.markdown(f'<div class="metric-card"><h2>{t2["flag_cn"]}</h2><p>第二熱門 {t2["champ_pct"]:.1%}</p></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="metric-card"><h2>{t2["flag_cn"]}</h2><p>第二熱門 {t2["champ_pct"]:.1f}%</p></div>', unsafe_allow_html=True)
             if len(mc_df) > 2:
                 with c3:
                     t3 = mc_df.iloc[2]
-                    st.markdown(f'<div class="metric-card"><h2>{t3["flag_cn"]}</h2><p>第三熱門 {t3["champ_pct"]:.1%}</p></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="metric-card"><h2>{t3["flag_cn"]}</h2><p>第三熱門 {t3["champ_pct"]:.1f}%</p></div>', unsafe_allow_html=True)
 
         st.markdown("---")
         top20 = mc_df.head(20)
@@ -1913,10 +1913,11 @@ elif page == "🏅 奪冠預測":
             labels={'champ_pct': '奪冠機率', 'flag_cn': '球隊'},
             color='champ_pct',
             color_continuous_scale='Reds',
-            text=top20['champ_pct'].apply(lambda x: f'{x:.1%}'),
+            text=top20['champ_pct'].apply(lambda x: f'{x:.1f}%'),
         )
         fig_mc.update_layout(
             yaxis={'categoryorder': 'total ascending'},
+            xaxis=dict(range=[0, 100], ticksuffix='%'),
             coloraxis_showscale=False,
             height=600,
         )
@@ -1928,7 +1929,7 @@ elif page == "🏅 奪冠預測":
         display_df = mc_df[['flag_cn', 'champ_pct', 'final_pct', 'semi_pct']].copy()
         display_df.columns = ['球隊', '奪冠', '進決賽', '進四強']
         for col in ['奪冠', '進決賽', '進四強']:
-            display_df[col] = display_df[col].apply(lambda x: f'{x:.1%}')
+            display_df[col] = display_df[col].apply(lambda x: f'{x:.1f}%')
         st.dataframe(display_df, use_container_width=True)
 
 # ============================================================
