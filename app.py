@@ -725,42 +725,40 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     cs1 = CONFED_SCALE.get(CONFED_MAP.get(team1, 'CAF'), 0.84)
     cs2 = CONFED_SCALE.get(CONFED_MAP.get(team2, 'CAF'), 0.84)
 
-    # 分母下限 0.90 防止除以極小值爆炸；結果封頂 2.5 防止 6-4 型比分
+    # 攻擊用足聯係數縮放；防守只做輕度調整（避免過度懲罰強防守隊）
     atk1 = min(2.0, s1['avg_goals'] * cs1)
-    def2 = max(0.90, s2['avg_conceded'] * cs2)
     atk2 = min(2.0, s2['avg_goals'] * cs2)
-    def1 = max(0.90, s1['avg_conceded'] * cs1)
-    lam1_dc = min(2.5, max(0.4, atk1 * LEAGUE_AVG / def2))
-    lam2_dc = min(2.0, max(0.3, atk2 * LEAGUE_AVG / def1))
+    # 防守：用 cs 的平方根（0.84→0.917）避免 AFC/CAF 隊防守被嚴重低估
+    def2 = max(0.75, s2['avg_conceded'] * (cs2 ** 0.5))
+    def1 = max(0.75, s1['avg_conceded'] * (cs1 ** 0.5))
+    lam1_dc = min(2.2, max(0.4, atk1 * LEAGUE_AVG / def2))
+    lam2_dc = min(2.2, max(0.3, atk2 * LEAGUE_AVG / def1))
 
     pts1, pts2 = team_pts(team1), team_pts(team2)
-    rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.25   # 溫和縮放
-    lam1 = min(2.5, max(0.4, lam1_dc * rank_factor))
-    lam2 = min(2.0, max(0.3, lam2_dc / rank_factor))
+    rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.20   # 溫和縮放，避免過度拉大差距
+    lam1 = min(2.2, max(0.4, lam1_dc * rank_factor))
+    lam2 = min(2.2, max(0.3, lam2_dc / rank_factor))
 
-    # ── 比分一致性：用排序後的規範順序做種子，無論誰是 team1 都得同一場比分 ──
+    # ── 比分：用 MAP（最大後驗概率）找最可能且符合勝負方向的比分 ──
+    # 規範化到字母序，確保 team1/team2 順序不影響結果
     t_can1, t_can2 = sorted([team1, team2])
     is_canonical = (team1 == t_can1)
-    # 規範順序下 t_can1 的 lambda 與 outcome
     lam_c1 = lam1 if is_canonical else lam2
     lam_c2 = lam2 if is_canonical else lam1
     out_c = outcome if is_canonical else (
         'loss' if outcome == 'win' else ('win' if outcome == 'loss' else 'draw'))
 
-    seed = abs(hash(f"{t_can1}|{t_can2}|{year}")) % (2 ** 31)
-    rng = np.random.RandomState(seed)
-    gc1, gc2 = None, None
-    for _ in range(400):
-        g1, g2 = rng.poisson(lam_c1), rng.poisson(lam_c2)
-        so = 'win' if g1 > g2 else ('draw' if g1 == g2 else 'loss')
-        if so == out_c:
-            gc1, gc2 = g1, g2
-            break
-    if gc1 is None:
-        gc1, gc2 = max(0, int(lam_c1)), max(0, int(lam_c2))
-        if out_c == 'win' and gc1 <= gc2:    gc1 = gc2 + 1
-        elif out_c == 'loss' and gc2 <= gc1: gc2 = gc1 + 1
-        elif out_c == 'draw':                gc1 = gc2 = (gc1 + gc2) // 2
+    # 在 0-7 範圍內窮舉，取符合 outcome 的最高機率比分
+    best_prob, gc1, gc2 = -1.0, 0, 0
+    for g1 in range(8):
+        for g2 in range(8):
+            so = 'win' if g1 > g2 else ('draw' if g1 == g2 else 'loss')
+            if so != out_c:
+                continue
+            p = poisson.pmf(g1, lam_c1) * poisson.pmf(g2, lam_c2)
+            if p > best_prob:
+                best_prob, gc1, gc2 = p, g1, g2
+
     # 轉回呼叫者的 team1/team2 視角
     goal1 = gc1 if is_canonical else gc2
     goal2 = gc2 if is_canonical else gc1
