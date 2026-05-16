@@ -509,23 +509,24 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
         champ, _, _ = sim_match(nr3[0], nr3[1])
         champion_count[champ] += 1
 
-    mc = {t: {
+    mc_teams = {t: {
             'champ_pct': champion_count[t] / n_sims * 100,
             'final_pct': final_count[t] / n_sims * 100,
             'semi_pct': semi_count[t] / n_sims * 100,
             'quarter_pct': quarter_count[t] / n_sims * 100,
             'r16_pct': r16_count[t] / n_sims * 100,
-            'win_pct': advance_count[t] / n_sims * 100,  # 出小組
+            'win_pct': advance_count[t] / n_sims * 100,
           } for t in ALL_TEAMS}
+    mc = {'n_sims': n_sims, 'results': mc_teams}
 
     with open(os.path.join(MODEL_DIR, 'mc_results.pkl'), 'wb') as f:
         pickle.dump(mc, f)
-    top10 = sorted(mc.items(), key=lambda x: -x[1]['champ_pct'])[:10]
+    top10 = sorted(mc_teams.items(), key=lambda x: -x[1]['champ_pct'])[:10]
     print("  Top 10 奪冠機率：")
     for t, d in top10:
         print(f"    {t:25s}  champ={d['champ_pct']:5.2f}%  final={d['final_pct']:5.2f}%  win_grp={d['win_pct']:5.1f}%")
     print(f"  💾 models/mc_results.pkl 存好了")
-    return mc
+    return mc_teams
 
 
 # ============================================================
@@ -813,6 +814,6 @@ if __name__ == '__main__':
     clf, p1, p2, fc, va = train_models(match_df, fifa_df)
     eval_visualizations(match_df, fifa_df, clf, fc)
     cluster_out = run_clustering(match_df)
-    mc = run_monte_carlo(match_df, fifa_df, clf, p1, p2, fc, n_sims=5000)
+    mc = run_monte_carlo(match_df, fifa_df, clf, p1, p2, fc, n_sims=10000)
     print("\n" + "="*60)
     print("✅ 全部完成！models/ 已更新")
