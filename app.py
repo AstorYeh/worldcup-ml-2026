@@ -823,6 +823,7 @@ page = st.sidebar.radio("選擇頁面", [
     "📊 專題總覽",
     "🔮 2026 預測",
     "📈 數據分析",
+    "🌍 各國分析",
     "🎯 球隊風格分群",
     "🏅 奪冠預測",
     "📅 完整賽程",
@@ -1259,7 +1260,201 @@ elif page == "📈 數據分析":
             st.caption("數值越高代表該特徵對模型決策影響越大。FIFA 排名差距（rank_diff）通常是最強預測因子。")
 
 # ============================================================
-# PAGE 4: 球隊風格分群（v2.2 新增 — 滿足課程「分群」任務）
+# PAGE 4: 各國分析 + 球員能力卡
+# ============================================================
+elif page == "🌍 各國分析":
+    from squad_data import SQUAD_DATA
+
+    st.title("🌍 各國深度分析")
+    st.markdown("**選擇一支球隊，查看歷史數據分析與本屆出賽球員能力卡**")
+    st.markdown("---")
+
+    match_df = load_match_data()
+    fifa_df  = load_fifa_ranking()
+
+    # ── 球員卡 CSS（FIFA 風格）──
+    st.markdown("""
+    <style>
+    .player-card {
+        background: linear-gradient(145deg, #1a2a4a 0%, #0d1b2e 100%);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 14px;
+        padding: 16px 14px 14px;
+        margin-bottom: 12px;
+        text-align: center;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+        min-height: 240px;
+    }
+    .pc-ovr  { font-size: 2.4rem; font-weight: 900; color: #f7c948; line-height: 1; }
+    .pc-pos  { font-size: 0.75rem; font-weight: 700; color: #aabbcc; letter-spacing: 1px; margin-bottom: 4px; }
+    .pc-name { font-size: 0.92rem; font-weight: 700; color: #ffffff; margin: 6px 0 4px; }
+    .pc-club { font-size: 0.72rem; color: #7a9ab5; margin-bottom: 10px; }
+    .pc-flag { font-size: 1.6rem; margin-bottom: 2px; }
+    .pc-attr-row { display: flex; justify-content: space-between; font-size: 0.68rem;
+                   color: #ccd; margin: 2px 0; }
+    .pc-attr-label { color: #8899aa; font-weight: 600; }
+    .pc-attr-bar-wrap { flex: 1; margin: 0 6px; background: rgba(255,255,255,0.08);
+                        border-radius: 4px; height: 7px; margin-top: 3px; }
+    .pc-attr-bar { height: 7px; border-radius: 4px; }
+    .divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 10px 0; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ── 國家選擇器 ──
+    all_teams_sorted = sorted(TEAM_INFO.keys())
+    group_map = {t: g for g, teams in WC_2026_GROUPS.items() for t in teams}
+    team_options = [t for t in all_teams_sorted if t in group_map]
+
+    selected_team = st.selectbox(
+        "選擇國家",
+        team_options,
+        format_func=lambda t: f"{TEAM_INFO[t]['flag']} {TEAM_INFO[t]['cn']} ({TEAM_INFO[t]['en']}) — Group {group_map.get(t,'?')}"
+    )
+
+    info = TEAM_INFO[selected_team]
+    iso  = info.get('iso', 'un')
+    grp  = group_map.get(selected_team, '?')
+
+    # ── 國家 Header ──
+    col_flag, col_info = st.columns([1, 4])
+    with col_flag:
+        st.markdown(f'<img src="https://flagcdn.com/80x60/{iso}.png" style="border-radius:6px;width:100%;max-width:110px;">',
+                    unsafe_allow_html=True)
+    with col_info:
+        st.markdown(f"## {info['cn']}（{info['en']}）")
+        st.markdown(f"**FIFA 排名：#{info['fifa_rank']}　FIFA 積分：{info['fifa_pts']}　所在小組：Group {grp}**")
+        conf = next((v for k, v in {
+            'France':'UEFA','Spain':'UEFA','England':'UEFA','Germany':'UEFA','Portugal':'UEFA',
+            'Netherlands':'UEFA','Belgium':'UEFA','Croatia':'UEFA','Switzerland':'UEFA',
+            'Poland':'UEFA','Sweden':'UEFA','Austria':'UEFA','Czechia':'UEFA','Scotland':'UEFA',
+            'Norway':'UEFA','Bosnia and Herzegovina':'UEFA','Turkiye':'UEFA',
+            'Brazil':'CONMEBOL','Argentina':'CONMEBOL','Uruguay':'CONMEBOL','Colombia':'CONMEBOL',
+            'Paraguay':'CONMEBOL','Ecuador':'CONMEBOL',
+            'USA':'CONCACAF','Mexico':'CONCACAF','Canada':'CONCACAF','Panama':'CONCACAF',
+            'Curacao':'CONCACAF','Haiti':'CONCACAF',
+            'Japan':'AFC','South Korea':'AFC','Iran':'AFC','Australia':'AFC',
+            'Saudi Arabia':'AFC','Iraq':'AFC','Jordan':'AFC','Uzbekistan':'AFC','Qatar':'AFC',
+            'New Zealand':'OFC',
+        }.items() if k == selected_team), 'CAF')
+        st.markdown(f"**洲際聯盟：{conf}**")
+
+    st.markdown("---")
+
+    # ── 歷史統計 + 近期表現 ──
+    s = compute_team_strength(match_df, selected_team, 2026)
+    recent_matches = match_df[
+        ((match_df['home_team'] == selected_team) | (match_df['away_team'] == selected_team)) &
+        (match_df['year'] >= 2022)
+    ].sort_values('date', ascending=False).head(8)
+
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    with col_s1: st.metric("近 8 年勝率", f"{s['win_rate']:.1%}")
+    with col_s2: st.metric("平均進球", f"{s['avg_goals']:.2f}")
+    with col_s3: st.metric("平均失球", f"{s['avg_conceded']:.2f}")
+    with col_s4: st.metric("出賽場數", f"{s['matches']}")
+
+    st.markdown("---")
+
+    # ── 近期賽果 + 小組賽程 ──
+    tab_recent, tab_group, tab_players = st.tabs(["📅 近期賽果", "⚔️ 小組賽程預測", "👤 球員能力卡"])
+
+    with tab_recent:
+        st.markdown("##### 2022年後近期賽果（最多 8 場）")
+        if len(recent_matches) == 0:
+            st.info("無近期賽事資料")
+        else:
+            for _, row in recent_matches.iterrows():
+                is_home = row['home_team'] == selected_team
+                opp = row['away_team'] if is_home else row['home_team']
+                opp_info = TEAM_INFO.get(opp, {'flag':'🏳️','cn':opp,'iso':'un'})
+                gf = row['home_score'] if is_home else row['away_score']
+                ga = row['away_score'] if is_home else row['home_score']
+                result = "✅ 勝" if gf > ga else ("❌ 負" if gf < ga else "🟡 平")
+                venue = "主場" if is_home else "客場"
+                opp_iso = opp_info.get('iso','un')
+                opp_flag_html = f'<img src="https://flagcdn.com/20x15/{opp_iso}.png" style="vertical-align:middle;margin-right:4px;border-radius:2px;">'
+                st.markdown(
+                    f"{result} &nbsp; **{row['date'].strftime('%Y-%m-%d')}** &nbsp; "
+                    f"（{venue}）vs {opp_flag_html}{opp_info['cn']} &nbsp; **{int(gf)} - {int(ga)}** &nbsp; "
+                    f"<span style='color:#7a9ab5;font-size:0.8rem;'>{row['tournament']}</span>",
+                    unsafe_allow_html=True
+                )
+
+    with tab_group:
+        group_teams = WC_2026_GROUPS[grp]
+        opponents = [t for t in group_teams if t != selected_team]
+        pre = load_pretrained()
+        if pre:
+            clf, p1, p2, fc = pre['clf'], pre['poisson1'], pre['poisson2'], pre['feat_cols']
+            st.markdown(f"##### Group {grp} 小組賽預測")
+            for opp in opponents:
+                opp_info = TEAM_INFO.get(opp, {'flag':'🏳️','cn':opp,'iso':'un'})
+                opp_iso = opp_info.get('iso','un')
+                pred = predict_match(selected_team, opp, 2026, match_df, fifa_df, clf, p1, p2, fc)
+                win_col  = "#26de81" if pred['win_prob'] > pred['loss_prob'] else "#aabbcc"
+                lose_col = "#e94560" if pred['loss_prob'] > pred['win_prob'] else "#aabbcc"
+                opp_flag_img = f'<img src="https://flagcdn.com/24x18/{opp_iso}.png" style="border-radius:2px;vertical-align:middle;margin-right:6px;">'
+                my_iso = info.get('iso','un')
+                my_flag_img = f'<img src="https://flagcdn.com/24x18/{my_iso}.png" style="border-radius:2px;vertical-align:middle;margin-right:6px;">'
+                st.markdown(f"""
+                <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;gap:16px;">
+                  <span>{my_flag_img}<b>{info['cn']}</b></span>
+                  <span style="color:#8899aa;">VS</span>
+                  <span>{opp_flag_img}<b>{opp_info['cn']}</b></span>
+                  <span style="margin-left:auto;color:#00d4ff;font-weight:700;">{pred['goal1']} - {pred['goal2']}</span>
+                  <span style="color:{win_col};font-size:0.85rem;">勝 {pred['win_prob']:.0%}</span>
+                  <span style="color:#aabbcc;font-size:0.85rem;">平 {pred['draw_prob']:.0%}</span>
+                  <span style="color:{lose_col};font-size:0.85rem;">負 {pred['loss_prob']:.0%}</span>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("請先執行 python pretrain.py 產生模型")
+
+    with tab_players:
+        players = SQUAD_DATA.get(selected_team, [])
+        if not players:
+            st.info("此隊球員資料尚未收錄")
+        else:
+            st.markdown(f"##### {info['cn']} 出賽球員能力卡（共 {len(players)} 人）")
+            ATTR_COLORS = {
+                'pac': '#00d4ff', 'sho': '#e94560', 'pas': '#26de81',
+                'dri': '#f7c948', 'def': '#a29bfe', 'phy': '#fd9644',
+            }
+            ATTR_LABELS = {'pac':'PAC','sho':'SHO','pas':'PAS','dri':'DRI','def':'DEF','phy':'PHY'}
+
+            cols = st.columns(min(len(players), 5))
+            for idx, p in enumerate(players):
+                with cols[idx % len(cols)]:
+                    ovr = p['ovr']
+                    ovr_color = '#f7c948' if ovr >= 85 else ('#00d4ff' if ovr >= 78 else '#aabbcc')
+                    attrs_html = ""
+                    for attr_key in ['pac','sho','pas','dri','def','phy']:
+                        val = p[attr_key]
+                        bar_color = ATTR_COLORS[attr_key]
+                        label = ATTR_LABELS[attr_key]
+                        attrs_html += f"""
+                        <div class="pc-attr-row">
+                          <span class="pc-attr-label">{label}</span>
+                          <div class="pc-attr-bar-wrap">
+                            <div class="pc-attr-bar" style="width:{val}%;background:{bar_color};"></div>
+                          </div>
+                          <span style="color:#e8e8e8;font-weight:700;min-width:26px;">{val}</span>
+                        </div>"""
+                    st.markdown(f"""
+                    <div class="player-card">
+                      <div class="pc-flag"><img src="https://flagcdn.com/32x24/{iso}.png" style="border-radius:2px;"></div>
+                      <div class="pc-ovr" style="color:{ovr_color};">{ovr}</div>
+                      <div class="pc-pos">{p['pos']}</div>
+                      <hr class="divider">
+                      <div class="pc-name">{p['name']}</div>
+                      <div class="pc-club">{p['club']} · {p['age']}歲</div>
+                      <hr class="divider">
+                      {attrs_html}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+# ============================================================
+# PAGE 5: 球隊風格分群（v2.2 新增 — 滿足課程「分群」任務）
 # ============================================================
 elif page == "🎯 球隊風格分群":
     st.title("🎯 球隊風格分群")
