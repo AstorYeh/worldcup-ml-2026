@@ -739,22 +739,18 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     lam1 = min(2.2, max(0.4, lam1_dc * rank_factor))
     lam2 = min(2.2, max(0.3, lam2_dc / rank_factor))
 
-    # ── 比分：用 MAP（最大後驗概率）找最可能且符合勝負方向的比分 ──
-    # 規範化到字母序，確保 team1/team2 順序不影響結果
+    # ── 比分：純 Poisson MAP — 直接找全域最高聯合機率的比分 ──
+    # 不用分類器方向約束，讓 λ 自然決定比分與勝負，避免兩模型互相矛盾
+    # 規範化到字母序確保同場比賽比分一致（與呼叫順序無關）
     t_can1, t_can2 = sorted([team1, team2])
     is_canonical = (team1 == t_can1)
     lam_c1 = lam1 if is_canonical else lam2
     lam_c2 = lam2 if is_canonical else lam1
-    out_c = outcome if is_canonical else (
-        'loss' if outcome == 'win' else ('win' if outcome == 'loss' else 'draw'))
 
-    # 在 0-7 範圍內窮舉，取符合 outcome 的最高機率比分
+    # 窮舉 0-7，取聯合機率最高的比分（無勝負方向約束）
     best_prob, gc1, gc2 = -1.0, 0, 0
     for g1 in range(8):
         for g2 in range(8):
-            so = 'win' if g1 > g2 else ('draw' if g1 == g2 else 'loss')
-            if so != out_c:
-                continue
             p = poisson.pmf(g1, lam_c1) * poisson.pmf(g2, lam_c2)
             if p > best_prob:
                 best_prob, gc1, gc2 = p, g1, g2
@@ -762,6 +758,14 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     # 轉回呼叫者的 team1/team2 視角
     goal1 = gc1 if is_canonical else gc2
     goal2 = gc2 if is_canonical else gc1
+
+    # 以比分重新確定勝負，覆蓋分類器結果（確保比分與勝負一致）
+    if goal1 > goal2:
+        outcome = 'win'
+    elif goal1 < goal2:
+        outcome = 'loss'
+    else:
+        outcome = 'draw'
     r1, r2 = team_pts(team1), team_pts(team2)
     rank1, rank2 = team_rank(team1), team_rank(team2)
     info1 = TEAM_INFO.get(team1, {'flag': '🏳️', 'cn': team1, 'en': team1})
@@ -1110,18 +1114,16 @@ elif page == "🔮 2026 預測":
             iso1 = info1.get('iso', 'un')
             iso2 = info2.get('iso', 'un')
 
-            probs = {'win': r['win_prob'], 'draw': r['draw_prob'], 'loss': r['loss_prob']}
-            outcome = max(probs, key=probs.get)
-
-            # ── 單場摘要列：旗幟 球隊名 預測分 VS 預測分 球隊名 旗幟 ｜ 平局機率 ──
-            col_match, col_draw = st.columns([5, 1])
-            # 勝者標色
-            if outcome == 'win':
+            # 勝者標色依比分決定（而非機率），確保顏色與顯示比分一致
+            if r['goal1'] > r['goal2']:
                 score1_color, score2_color = '#00d4ff', '#8899aa'
-            elif outcome == 'loss':
+            elif r['goal1'] < r['goal2']:
                 score1_color, score2_color = '#8899aa', '#00d4ff'
             else:
                 score1_color = score2_color = '#f7c948'
+
+            # ── 單場摘要列：旗幟 球隊名 預測分 VS 預測分 球隊名 旗幟 ｜ 平局機率 ──
+            col_match, col_draw = st.columns([5, 1])
             with col_match:
                 st.markdown(
                     f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;flex-wrap:wrap">'
@@ -1546,10 +1548,9 @@ elif page == "🌍 各國分析":
                 my_iso = info.get('iso','un')
                 my_flag_img = f'<img src="https://flagcdn.com/24x18/{my_iso}.png" style="border-radius:2px;vertical-align:middle;">'
                 opp_flag_img = f'<img src="https://flagcdn.com/24x18/{opp_iso}.png" style="border-radius:2px;vertical-align:middle;">'
-                _oc = 'win' if pred['win_prob'] > pred['loss_prob'] and pred['win_prob'] > pred['draw_prob'] else \
-                      ('loss' if pred['loss_prob'] > pred['win_prob'] and pred['loss_prob'] > pred['draw_prob'] else 'draw')
-                sc1 = '#00d4ff' if _oc == 'win' else ('#8899aa' if _oc == 'loss' else '#f7c948')
-                sc2 = '#00d4ff' if _oc == 'loss' else ('#8899aa' if _oc == 'win' else '#f7c948')
+                # 依比分決定顏色，確保與顯示結果一致
+                sc1 = '#00d4ff' if pred['goal1'] > pred['goal2'] else ('#8899aa' if pred['goal1'] < pred['goal2'] else '#f7c948')
+                sc2 = '#00d4ff' if pred['goal1'] < pred['goal2'] else ('#8899aa' if pred['goal1'] > pred['goal2'] else '#f7c948')
                 st.markdown(f"""
                 <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:10px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
                   <span style="display:flex;align-items:center;gap:6px;">{my_flag_img}<b>{info['cn']}</b>
