@@ -578,20 +578,27 @@ def run_clustering(match_df):
 
     # 根據 fifa_pts 排序，給 cluster 標籤
     cluster_rank = centers_df['fifa_pts'].rank(ascending=False).astype(int) - 1
+    # cluster_names：中文版（供 Streamlit HTML 渲染）
+    # cluster_names_en：純 ASCII（供 matplotlib 圖例，避免 CJK 亂碼）
     cluster_names = {}
+    cluster_names_en = {}
     for c in range(best_k):
         rank = cluster_rank[c]
         if rank == 0:
-            name = '🔥 強權型（高實力、高攻擊）'
+            cluster_names[c]    = '🔥 強權型（高實力、高攻擊）'
+            cluster_names_en[c] = 'Tier 1 - Elite (High Power)'
         elif rank == 1:
-            name = '⚔️ 競爭型（中上實力、攻守平衡）'
+            cluster_names[c]    = '⚔️ 競爭型（中上實力、攻守平衡）'
+            cluster_names_en[c] = 'Tier 2 - Competitive (Balanced)'
         elif rank == 2:
-            name = '🛡️ 穩固型（中等實力、防守為主）'
+            cluster_names[c]    = '🛡️ 穩固型（中等實力、防守為主）'
+            cluster_names_en[c] = 'Tier 3 - Defensive (Mid Tier)'
         elif rank == 3:
-            name = '🌱 黑馬型（中下實力、潛力新銳）'
+            cluster_names[c]    = '🌱 黑馬型（中下實力、潛力新銳）'
+            cluster_names_en[c] = 'Tier 4 - Underdog (Emerging)'
         else:
-            name = f'第 {rank+1} 群'
-        cluster_names[c] = name
+            cluster_names[c]    = f'第 {rank+1} 群'
+            cluster_names_en[c] = f'Tier {rank+1}'
 
     # PCA 2D 視覺化
     pca = PCA(n_components=2)
@@ -641,7 +648,7 @@ def run_clustering(match_df):
         for c in range(best_k):
             vals = c_norm.iloc[c].tolist()
             vals += vals[:1]
-            ax.plot(angles, vals, 'o-', linewidth=2, label=cluster_names[c], color=colors[c % len(colors)])
+            ax.plot(angles, vals, 'o-', linewidth=2, label=cluster_names_en[c], color=colors[c % len(colors)])
             ax.fill(angles, vals, alpha=0.15, color=colors[c % len(colors)])
         ax.set_thetagrids(np.degrees(angles[:-1]),
                           ['Win Rate', 'Avg Goals', 'Defense (rev)', 'Goal Diff', 'FIFA Pts'])
@@ -659,7 +666,7 @@ def run_clustering(match_df):
         for c in range(best_k):
             sub = df[df['cluster'] == c]
             ax.scatter(sub['pca1'], sub['pca2'], s=120, alpha=0.7,
-                       label=cluster_names[c], color=colors[c % len(colors)],
+                       label=cluster_names_en[c], color=colors[c % len(colors)],
                        edgecolors='white', linewidths=1.2)
             for t, row in sub.iterrows():
                 ax.annotate(t, (row['pca1'], row['pca2']), fontsize=8, alpha=0.85,
