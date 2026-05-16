@@ -1988,13 +1988,13 @@ elif page == "📅 完整賽程":
     import streamlit.components.v1 as _c
 
     # ── 版面參數（由上而下樹狀圖：決賽在頂，32強在底）──
-    BW    = 62     # match box 寬度
-    BHB   = 42     # match box 高度
-    UNIT  = 68     # BW + 6px 間距
+    BW    = 54     # match box 寬度
+    BHB   = 40     # match box 高度
+    UNIT  = 60     # BW + 6px 間距
     N32   = 16     # 32強場數
-    LM    = 44     # 左邊留給輪次標籤的空間
+    LM    = 34     # 左邊留給輪次標籤的空間
     SC    = 'rgba(100,160,220,0.7)'   # 連接線顏色
-    RSTEP = 88     # 各輪 Y 中心間距
+    RSTEP = 82     # 各輪 Y 中心間距
 
     # ── 各輪 X 中心（由底部 32強 往上推算）──
     xc5 = [LM + i * UNIT + BW // 2 for i in range(N32)]
@@ -2115,12 +2115,13 @@ elif page == "📅 完整賽程":
     )
 
     full_html = (
-        f'<div style="background:#091525;border-radius:12px;padding:12px 14px;'
-        f'font-family:\'Noto Sans TC\',sans-serif;overflow-x:auto;">'
+        f'<div style="background:#091525;border-radius:12px;padding:10px 12px;'
+        f'font-family:\'Noto Sans TC\',sans-serif;overflow-x:auto;min-width:{TW}px;">'
         f'{body}{third_bar}'
         f'<div style="text-align:center;color:#1a3050;font-size:0.55rem;margin-top:5px;">'
         f'※ 對陣組合以 FIFA 官方公布為準 · 時間為台灣時間（UTC+8）</div>'
         f'</div>'
     )
 
-    _c.html(full_html, height=CANVAS_H + 80, scrolling=False)
+    st.caption(f"賽程總寬度 {TW}px · 若未完整顯示可左右滑動")
+    _c.html(full_html, height=CANVAS_H + 85, scrolling=True)
