@@ -1424,6 +1424,25 @@ elif page == "🌍 各國分析":
             }
             ATTR_LABELS = {'pac':'PAC','sho':'SHO','pas':'PAS','dri':'DRI','def':'DEF','phy':'PHY'}
 
+            # sofifa ID lookup for well-known players
+            SOFIFA_IDS = {
+                'L. Messi': 158023, 'C. Ronaldo': 20801, 'K. Mbappé': 231747,
+                'E. Haaland': 239085, 'K. De Bruyne': 192985, 'Vinícius Jr.': 246169,
+                'J. Bellingham': 253072, 'M. Salah': 209331, 'L. Modrić': 177003,
+                'Son Heung-min': 202126, 'K. Havertz': 246669, 'F. Wirtz': 263552,
+                'R. Leão': 251706, 'A. Davies': 236460, 'J. David': 254103,
+                'M. Ødegaard': 231568, 'A. Hakimi': 238023, 'V. van Dijk': 203376,
+                'L. Díaz': 243726, 'A. Griezmann': 194765, 'R. Mahrez': 220054,
+                'S. Mané': 208722, 'T. Partey': 209564, 'M. Kudus': 260460,
+                'Pedri': 252371, 'L. Yamal': 272456, 'F. de Jong': 239473,
+                'F. Valverde': 241764, 'D. Núñez': 261204, 'J. Álvarez': 261289,
+                'B. Fernandes': 212831, 'R. Dias': 237692, 'H. Kane': 202126,
+                'G. Xhaka': 186942, 'M. Akanji': 231678, 'J. Kimmich': 214455,
+                'Alisson': 211110, 'Marquinhos': 200389, 'Rodrygo': 252658,
+                'V. Gyökeres': 243726, 'D. Kulusevski': 246940, 'M. Neuer': 167495,
+                'A. Rüdiger': 206158, 'A. Robertson': 225321, 'J. Gvardiol': 261255,
+            }
+
             # 整批建一個 HTML，用 CSS Grid 排列，交給 components.html 完整渲染
             cards_html = ""
             for p in players:
@@ -1442,16 +1461,34 @@ elif page == "🌍 各國分析":
                         f'<span style="color:#e8e8e8;font-weight:700;width:22px;text-align:right;">{val}</span>'
                         f'</div>'
                     )
+                # player photo: sofifa CDN with initials fallback
+                sid = SOFIFA_IDS.get(p['name'], 0)
+                initials = ''.join(w[0] for w in p['name'].replace('.','').split() if w)[:2].upper()
+                fallback_url = f"https://ui-avatars.com/api/?name={initials}&background=1a2a4a&color=f7c948&size=80&bold=true&rounded=true&length=2"
+                if sid:
+                    photo_src = f"https://cdn.sofifa.net/players/{sid}/26_60.png"
+                    photo_html = (
+                        f'<img src="{photo_src}" '
+                        f'onerror="this.onerror=null;this.src=\'{fallback_url}\';" '
+                        f'style="width:64px;height:64px;border-radius:50%;object-fit:cover;'
+                        f'border:2px solid rgba(247,201,72,0.4);margin-bottom:6px;">'
+                    )
+                else:
+                    photo_html = (
+                        f'<img src="{fallback_url}" '
+                        f'style="width:64px;height:64px;border-radius:50%;object-fit:cover;'
+                        f'border:2px solid rgba(255,255,255,0.15);margin-bottom:6px;">'
+                    )
                 cards_html += (
                     f'<div style="background:linear-gradient(145deg,#1a2a4a,#0d1b2e);border:1px solid rgba(255,255,255,0.1);'
                     f'border-radius:14px;padding:16px 14px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,0.4);">'
-                    f'<img src="https://flagcdn.com/32x24/{iso}.png" style="border-radius:2px;margin-bottom:4px;">'
-                    f'<div style="font-size:2.2rem;font-weight:900;color:{ovr_color};line-height:1.1;">{ovr}</div>'
+                    f'{photo_html}'
+                    f'<div style="font-size:2rem;font-weight:900;color:{ovr_color};line-height:1.1;">{ovr}</div>'
                     f'<div style="font-size:0.72rem;font-weight:700;color:#aabbcc;letter-spacing:1px;">{p["pos"]}</div>'
-                    f'<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:8px 0;">'
+                    f'<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:6px 0;">'
                     f'<div style="font-size:0.88rem;font-weight:700;color:#fff;">{p["name"]}</div>'
-                    f'<div style="font-size:0.7rem;color:#7a9ab5;margin-bottom:10px;">{p["club"]} · {p["age"]}歲</div>'
-                    f'<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:8px 0;">'
+                    f'<div style="font-size:0.7rem;color:#7a9ab5;margin-bottom:8px;">{p["club"]} · {p["age"]}歲</div>'
+                    f'<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:6px 0;">'
                     f'{attrs_rows}'
                     f'</div>'
                 )
@@ -1460,7 +1497,7 @@ elif page == "🌍 各國分析":
                 f'<div style="display:grid;grid-template-columns:repeat({min(len(players),5)},1fr);gap:12px;">'
                 f'{cards_html}</div>'
             )
-            _components.html(full_html, height=360, scrolling=False)
+            _components.html(full_html, height=460, scrolling=False)
 
 # ============================================================
 # PAGE 5: 球隊風格分群（v2.2 新增 — 滿足課程「分群」任務）
