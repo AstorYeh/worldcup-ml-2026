@@ -237,6 +237,30 @@ WC_2026_GROUPS = {
     'L': ['England', 'Croatia', 'Panama', 'Ghana'],
 }
 
+# 小組賽賽程（台灣時間 UTC+8）
+# 各組隊伍索引對應 WC_2026_GROUPS 中的順序 0-3
+# 每組三輪：MD1 (0v1, 2v3)、MD2 (0v2, 1v3)、MD3 (0v3, 1v2，最後一輪同時開踢)
+def _build_group_schedule() -> dict:
+    md1 = {'A':'6/12','B':'6/13','C':'6/14','D':'6/14',
+            'E':'6/15','F':'6/15','G':'6/16','H':'6/16',
+            'I':'6/17','J':'6/17','K':'6/18','L':'6/18'}
+    md2 = {'A':'6/21','B':'6/22','C':'6/22','D':'6/23',
+            'E':'6/23','F':'6/24','G':'6/24','H':'6/25',
+            'I':'6/25','J':'6/26','K':'6/26','L':'6/27'}
+    md3 = {'A':'6/29','B':'6/29','C':'6/30','D':'6/30',
+            'E':'7/1', 'F':'7/1', 'G':'7/1', 'H':'7/2',
+            'I':'7/2', 'J':'7/2', 'K':'7/2', 'L':'7/2'}
+    s = {}
+    for g in 'ABCDEFGHIJKL':
+        s[(g,0,1)] = f"{md1[g]} 09:00"
+        s[(g,2,3)] = f"{md1[g]} 22:00"
+        s[(g,0,2)] = f"{md2[g]} 09:00"
+        s[(g,1,3)] = f"{md2[g]} 22:00"
+        s[(g,0,3)] = f"{md3[g]} 04:00"
+        s[(g,1,2)] = f"{md3[g]} 04:00"
+    return s
+
+_GROUP_SCHEDULE = _build_group_schedule()
 
 # ============================================================
 # DATA LOADING
@@ -1134,14 +1158,18 @@ elif page == "🔮 2026 預測":
 
         results = []
         for i, t1 in enumerate(teams):
-            for t2 in teams[i+1:]:
+            for j in range(i+1, len(teams)):
+                t2 = teams[j]
                 try:
                     pred = predict_match(t1, t2, 2026, match_df, fifa_df, clf, poisson1, poisson2, feat_cols)
+                    pred['_match_time'] = _GROUP_SCHEDULE.get((selected_group, i, j), '')
+                    _round_map = {(0,1):1,(2,3):1,(0,2):2,(1,3):2,(0,3):3,(1,2):3}
+                    pred['_round'] = _round_map.get((i, j), 0)
                     results.append(pred)
-                except Exception as e:
+                except Exception:
                     continue
 
-        results.sort(key=lambda x: x['win_prob'], reverse=True)
+        results.sort(key=lambda x: x.get('_round', 9))
 
         for r in results:
             info1 = TEAM_INFO.get(r['team1'], {'iso': 'un', 'cn': r['team1']})
@@ -1158,6 +1186,9 @@ elif page == "🔮 2026 預測":
                 score1_color = score2_color = '#f7c948'
 
             # ── 單場摘要列：旗幟 球隊名 預測分 VS 預測分 球隊名 旗幟 ｜ 平局機率 ──
+            match_time = r.get('_match_time', '')
+            match_round = r.get('_round', '')
+            round_label = f"第{match_round}輪" if match_round else ''
             col_match, col_draw = st.columns([5, 1])
             with col_match:
                 st.markdown(
@@ -1169,6 +1200,8 @@ elif page == "🔮 2026 預測":
                     f'<span style="font-size:1.5rem;font-weight:900;color:{score2_color};min-width:20px">{r["goal2"]}</span>'
                     f'<b style="font-size:1rem">{info2["cn"]}</b>'
                     f'<img src="https://flagcdn.com/40x30/{iso2}.png" style="height:26px;border-radius:3px;">'
+                    f'<span style="color:#6a8fb0;font-size:0.78rem;margin-left:6px">{round_label}'
+                    f'{" · " if match_time else ""}{match_time}（台灣時間）</span>'
                     f'</div>', unsafe_allow_html=True)
             with col_draw:
                 st.markdown(
