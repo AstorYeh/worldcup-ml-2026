@@ -715,7 +715,7 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     outcome = max({'win': prob_win, 'draw': prob_draw, 'loss': prob_loss},
                   key=lambda k: {'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}[k])
 
-    # Dixon-Coles 期望進球：攻擊力 × 聯賽均值 / 對手防守 × 足聯品質調整
+    # Dixon-Coles 期望進球（足聯品質校正 + FIFA積分調整）
     s1 = compute_team_strength(match_df, team1, year)
     s2 = compute_team_strength(match_df, team2, year)
     LEAGUE_AVG = 1.35
@@ -724,30 +724,45 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     cs1 = CONFED_SCALE.get(CONFED_MAP.get(team1, 'CAF'), 0.84)
     cs2 = CONFED_SCALE.get(CONFED_MAP.get(team2, 'CAF'), 0.84)
 
-    lam1_dc = max(0.4, s1['avg_goals'] * cs1 * (LEAGUE_AVG / max(s2['avg_conceded'] * cs2, 0.55)))
-    lam2_dc = max(0.4, s2['avg_goals'] * cs2 * (LEAGUE_AVG / max(s1['avg_conceded'] * cs1, 0.55)))
+    # 分母下限 0.90 防止除以極小值爆炸；結果封頂 2.5 防止 6-4 型比分
+    atk1 = min(2.0, s1['avg_goals'] * cs1)
+    def2 = max(0.90, s2['avg_conceded'] * cs2)
+    atk2 = min(2.0, s2['avg_goals'] * cs2)
+    def1 = max(0.90, s1['avg_conceded'] * cs1)
+    lam1_dc = min(2.5, max(0.4, atk1 * LEAGUE_AVG / def2))
+    lam2_dc = min(2.0, max(0.3, atk2 * LEAGUE_AVG / def1))
 
-    # FIFA 積分加成：拉大強弱差距
     pts1, pts2 = team_pts(team1), team_pts(team2)
-    rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.35
-    lam1 = max(0.4, lam1_dc * rank_factor)
-    lam2 = max(0.3, lam2_dc / rank_factor)
+    rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.25   # 溫和縮放
+    lam1 = min(2.5, max(0.4, lam1_dc * rank_factor))
+    lam2 = min(2.0, max(0.3, lam2_dc / rank_factor))
 
-    # 確定性 Poisson 採樣，產生多樣比分
-    seed = abs(hash(f"{team1}|{team2}|{year}")) % (2 ** 31)
+    # ── 比分一致性：用排序後的規範順序做種子，無論誰是 team1 都得同一場比分 ──
+    t_can1, t_can2 = sorted([team1, team2])
+    is_canonical = (team1 == t_can1)
+    # 規範順序下 t_can1 的 lambda 與 outcome
+    lam_c1 = lam1 if is_canonical else lam2
+    lam_c2 = lam2 if is_canonical else lam1
+    out_c = outcome if is_canonical else (
+        'loss' if outcome == 'win' else ('win' if outcome == 'loss' else 'draw'))
+
+    seed = abs(hash(f"{t_can1}|{t_can2}|{year}")) % (2 ** 31)
     rng = np.random.RandomState(seed)
-    goal1, goal2 = None, None
-    for _ in range(300):
-        g1, g2 = rng.poisson(lam1), rng.poisson(lam2)
+    gc1, gc2 = None, None
+    for _ in range(400):
+        g1, g2 = rng.poisson(lam_c1), rng.poisson(lam_c2)
         so = 'win' if g1 > g2 else ('draw' if g1 == g2 else 'loss')
-        if so == outcome:
-            goal1, goal2 = g1, g2
+        if so == out_c:
+            gc1, gc2 = g1, g2
             break
-    if goal1 is None:
-        goal1, goal2 = max(0, int(lam1)), max(0, int(lam2))
-        if outcome == 'win' and goal1 <= goal2:    goal1 = goal2 + 1
-        elif outcome == 'loss' and goal2 <= goal1: goal2 = goal1 + 1
-        elif outcome == 'draw':                    goal1 = goal2 = (goal1 + goal2) // 2
+    if gc1 is None:
+        gc1, gc2 = max(0, int(lam_c1)), max(0, int(lam_c2))
+        if out_c == 'win' and gc1 <= gc2:    gc1 = gc2 + 1
+        elif out_c == 'loss' and gc2 <= gc1: gc2 = gc1 + 1
+        elif out_c == 'draw':                gc1 = gc2 = (gc1 + gc2) // 2
+    # 轉回呼叫者的 team1/team2 視角
+    goal1 = gc1 if is_canonical else gc2
+    goal2 = gc2 if is_canonical else gc1
     r1, r2 = team_pts(team1), team_pts(team2)
     rank1, rank2 = team_rank(team1), team_rank(team2)
     info1 = TEAM_INFO.get(team1, {'flag': '🏳️', 'cn': team1, 'en': team1})
