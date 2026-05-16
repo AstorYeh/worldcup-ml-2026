@@ -1131,14 +1131,14 @@ elif page == "📈 數據分析":
             info = TEAM_INFO.get(t, {'flag': '🏳️', 'cn': t})
             team_hist.append({
                 'flag_cn': f"{info['flag']} {info['cn']}",
-                'Team': t,
-                'Group': g,
-                'Win Rate': f"{s['win_rate']:.1%}",
-                'Avg Goals': f"{s['avg_goals']:.2f}",
-                'Matches': s['matches']
+                '球隊': t,
+                '組別': g,
+                '勝率': f"{s['win_rate']:.1%}",
+                '場均進球': f"{s['avg_goals']:.2f}",
+                '場次': s['matches']
             })
 
-    hist_df = pd.DataFrame(team_hist).sort_values(['Group', 'Win Rate'], ascending=[True, False])
+    hist_df = pd.DataFrame(team_hist).sort_values(['組別', '勝率'], ascending=[True, False])
     st.dataframe(hist_df, use_container_width=True, hide_index=True)
 
     # ── 模型評估區塊（v2.3 新增）──
@@ -1155,7 +1155,7 @@ elif page == "📈 數據分析":
             f"整體準確率 **{_acc:.1%}**（三向分類：主隊勝 / 平 / 主隊負）"
         )
         tab_cm, tab_roc, tab_cal, tab_fi = st.tabs(
-            ["📊 Confusion Matrix", "📈 ROC 曲線", "🎚 Calibration", "🔍 特徵重要性"]
+            ["📊 混淆矩陣", "📈 ROC 曲線", "🎚 校準曲線", "🔍 特徵重要性"]
         )
 
         # ── Tab 1: Confusion Matrix ──
@@ -1179,8 +1179,8 @@ elif page == "📈 數據分析":
                 showscale=True,
             ))
             fig_cm.update_layout(
-                title=f"Confusion Matrix — 2022 WC (acc={_acc:.2f})",
-                xaxis_title="Predicted", yaxis_title="Actual",
+                title=f"混淆矩陣 — 2022 世界盃（正確率={_acc:.2f}）",
+                xaxis_title="預測結果", yaxis_title="實際結果",
                 height=420,
             )
             st.plotly_chart(fig_cm, use_container_width=True)
@@ -1204,14 +1204,14 @@ elif page == "📈 數據分析":
                 showlegend=False,
             ))
             fig_roc.update_layout(
-                title="ROC Curves — One-vs-Rest（2022 WC 測試集）",
-                xaxis_title="False Positive Rate",
-                yaxis_title="True Positive Rate",
+                title="ROC 曲線 — 一對多（2022 世界盃測試集）",
+                xaxis_title="假陽性率",
+                yaxis_title="真陽性率",
                 height=420,
                 legend=dict(x=0.62, y=0.08),
             )
             st.plotly_chart(fig_roc, use_container_width=True)
-            st.caption("AUC > 0.7 表示模型對各類別有明顯鑑別力；平局（Draw）AUC 最低，符合足球平局難預測的直覺。")
+            st.caption("AUC > 0.7 表示模型對各類別有明顯鑑別力；平局 AUC 最低，符合足球平局難預測的直覺。")
 
         # ── Tab 3: Calibration ──
         with tab_cal:
@@ -1231,7 +1231,7 @@ elif page == "📈 數據分析":
                 name='完美校準',
             ))
             fig_cal.update_layout(
-                title="Calibration Curve — 主隊勝（Win）類別",
+                title="校準曲線 — 主隊勝類別",
                 xaxis_title="預測機率",
                 yaxis_title="實際頻率",
                 height=420,
@@ -1251,8 +1251,8 @@ elif page == "📈 數據分析":
                 marker_color='#3366cc',
             ))
             fig_fi.update_layout(
-                title="Feature Importance（XGBoost gain）",
-                xaxis_title="Importance",
+                title="特徵重要性（XGBoost gain）",
+                xaxis_title="重要性分數",
                 height=max(350, len(fi['features']) * 28),
                 margin=dict(l=160),
             )
