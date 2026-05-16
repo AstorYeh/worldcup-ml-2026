@@ -1688,20 +1688,45 @@ elif page == "🎯 球隊風格分群":
         plot_df['cluster_label'] = plot_df['cluster'].map(cluster_names)
         plot_df['team_cn'] = plot_df['team'].apply(lambda t: TEAM_INFO.get(t, {'cn': t})['cn'])
         plot_df['flag'] = plot_df['team'].apply(lambda t: TEAM_INFO.get(t, {'flag': '🏳️'})['flag'])
-        plot_df['hover_name'] = plot_df['flag'] + ' ' + plot_df['team_cn']
+        plot_df['hover_name'] = plot_df['team_cn']   # 純文字，避免 emoji 亂碼
+
+        # Plotly 圖例用 ASCII Tier 標籤（避免 CJK+emoji 亂碼）
+        tier_labels = {i: f'Tier {i+1}' for i in range(k)}
+        plot_df['tier'] = plot_df['cluster'].map(tier_labels)
 
         fig_pca = px.scatter(
             plot_df, x='pca1', y='pca2',
-            color='cluster_label',
+            color='tier',
             hover_name='hover_name',
-            text='flag',
-            title=f'球隊風格 PCA 分群（k={k}，Silhouette={sil:.2f}）',
-            color_discrete_sequence=['#e94560', '#0f6e6e', '#3366cc', '#f5a623'],
-            height=520,
+            hover_data={'tier': True, 'cluster_label': True, 'pca1': False, 'pca2': False},
+            text='team_cn',
+            title=f'Team Style Clustering — PCA 2D  (k={k}, Silhouette={sil:.2f})',
+            color_discrete_sequence=['#e94560', '#f5a623', '#3366cc', '#0f6e6e'],
+            height=540,
         )
-        fig_pca.update_traces(textposition='top center', marker=dict(size=12))
-        fig_pca.update_layout(legend_title_text='風格群')
+        fig_pca.update_traces(textposition='top center', marker=dict(size=11),
+                              textfont=dict(size=9))
+        fig_pca.update_layout(
+            legend_title_text='Tier',
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#ccc'),
+            xaxis=dict(gridcolor='rgba(255,255,255,0.08)'),
+            yaxis=dict(gridcolor='rgba(255,255,255,0.08)'),
+        )
         st.plotly_chart(fig_pca, use_container_width=True)
+
+        # 圖例說明（Tier ↔ 中文名稱對照）
+        tier_legend_cols = st.columns(k)
+        tier_colors = ['#e94560', '#f5a623', '#3366cc', '#0f6e6e']
+        for i in range(k):
+            cname = cluster_names.get(i, f'Tier {i+1}')
+            with tier_legend_cols[i]:
+                st.markdown(
+                    f'<div style="border-left:4px solid {tier_colors[i % len(tier_colors)]};'
+                    f'padding:4px 10px;font-size:0.85rem;">'
+                    f'<b>Tier {i+1}</b><br>{cname}</div>',
+                    unsafe_allow_html=True
+                )
 
         st.markdown("---")
         st.markdown("### 📡 分群靜態雷達圖")
