@@ -1751,13 +1751,10 @@ elif page == "📅 完整賽程":
             blocks += f"""
             <div style="height:{slot_h}px;display:flex;align-items:center;justify-content:center;">
               <div style="width:{w-8}px;border:1px solid rgba(255,255,255,0.18);border-radius:6px;
-                          background:rgba(255,255,255,0.04);padding:4px 7px;font-size:0.7rem;">
-                <div style="color:#6a9ab5;font-size:0.62rem;margin-bottom:2px;">⏰ {m[0]}</div>
+                          background:rgba(255,255,255,0.04);padding:5px 8px;font-size:0.68rem;">
+                <div style="color:#6a9ab5;font-size:0.62rem;margin-bottom:3px;">{m[0]}</div>
                 <div style="color:#ddeeff;font-weight:600;white-space:nowrap;overflow:hidden;
-                            text-overflow:ellipsis;border-bottom:1px solid rgba(255,255,255,0.1);
-                            padding-bottom:2px;">{m[1]}</div>
-                <div style="color:#ddeeff;font-weight:600;white-space:nowrap;overflow:hidden;
-                            text-overflow:ellipsis;padding-top:2px;">vs {m[2]}</div>
+                            text-overflow:ellipsis;">{m[1]} VS {m[2]}</div>
               </div>
             </div>"""
         return f'<div style="width:{w}px;height:{BH}px;flex-shrink:0;">{blocks}</div>'
