@@ -1529,57 +1529,90 @@ elif page == "🔮 2026 預測":
                     )
                     st.plotly_chart(fig_bar, use_container_width=True)
 
-                    # 用 CSS class 取代 inline style（Streamlit 會剝離 background）
-                    grid_rows = [
-                        f'<div class="cmp-head">指標</div>'
-                        f'<div class="cmp-head cmp-head-c cmp-head-red">'
-                        f'<span class="cmp-chip cmp-chip-red"></span>{info1["cn"]}</div>'
-                        f'<div class="cmp-head cmp-head-c cmp-head-blue">'
-                        f'<span class="cmp-chip cmp-chip-blue"></span>{info2["cn"]}</div>'
-                    ]
+                    # 使用 pandas Styler — Streamlit 原生支援，樣式不會被剝離
+                    cn1 = f"🔴 {info1['cn']}"
+                    cn2 = f"🔵 {info2['cn']}"
+                    cmp_rows = []
+                    win_flags = []  # (col1_win, col2_win) per row
                     for label, v1, v2, fmt, direction in metrics_list:
                         if direction == 'high':
-                            t1_better = v1 > v2
+                            t1 = v1 > v2; dir_mk = '▲'
                         elif direction == 'low':
-                            t1_better = v1 < v2
+                            t1 = v1 < v2; dir_mk = '▼'
                         else:
-                            t1_better = None
-                        dir_icon = ('▲' if direction == 'high'
-                                    else '▼' if direction == 'low' else '·')
+                            t1 = None; dir_mk = '·'
+                        row_label = f"{dir_mk} {label}"
+                        v1_str = fmt.format(v1)
+                        v2_str = fmt.format(v2)
+                        if t1 is True:
+                            v1_str = '★ ' + v1_str
+                        elif t1 is False:
+                            v2_str = '★ ' + v2_str
+                        cmp_rows.append({'指標': row_label, cn1: v1_str, cn2: v2_str})
+                        win_flags.append((t1 is True, t1 is False))
 
-                        if t1_better is True:
-                            c1_cls, c2_cls = 'cmp-win', 'cmp-dim'
-                            p1, p2 = '★ ', ''
-                        elif t1_better is False:
-                            c1_cls, c2_cls = 'cmp-dim', 'cmp-win'
-                            p1, p2 = '', '★ '
-                        else:
-                            c1_cls = c2_cls = 'cmp-cell'
-                            p1 = p2 = ''
+                    cmp_df = pd.DataFrame(cmp_rows)
 
-                        grid_rows.append(
-                            f'<div class="cmp-label">'
-                            f'<span class="cmp-dir">{dir_icon}</span>{label}</div>'
-                            f'<div class="{c1_cls}">{p1}{fmt.format(v1)}</div>'
-                            f'<div class="{c2_cls}">{p2}{fmt.format(v2)}</div>'
-                        )
+                    def _style_cmp(_df):
+                        styles = pd.DataFrame('', index=_df.index, columns=_df.columns)
+                        for i, (w1, w2) in enumerate(win_flags):
+                            if w1:
+                                styles.loc[i, cn1] = ('background-color:#fde047;color:#000;'
+                                                     'font-weight:900;font-size:16px')
+                                styles.loc[i, cn2] = 'color:#94a3b8;font-weight:600'
+                            elif w2:
+                                styles.loc[i, cn1] = 'color:#94a3b8;font-weight:600'
+                                styles.loc[i, cn2] = ('background-color:#fde047;color:#000;'
+                                                     'font-weight:900;font-size:16px')
+                            else:
+                                styles.loc[i, cn1] = 'color:#0f172a;font-weight:700'
+                                styles.loc[i, cn2] = 'color:#0f172a;font-weight:700'
+                            styles.loc[i, '指標'] = 'color:#0f172a;font-weight:600'
+                        return styles
 
-                    st.markdown(
-                        f'<div class="cmp-grid">{"".join(grid_rows)}</div>',
-                        unsafe_allow_html=True
+                    styled = (cmp_df.style
+                              .apply(_style_cmp, axis=None)
+                              .set_properties(**{
+                                  'text-align': 'center', 'padding': '12px 14px',
+                                  'font-size': '15px',
+                              })
+                              .set_table_styles([
+                                  {'selector': '', 'props': [
+                                       ('width', '100%'),
+                                       ('border-collapse', 'collapse'),
+                                       ('background', '#ffffff'),
+                                       ('border-radius', '8px'),
+                                       ('overflow', 'hidden'),
+                                       ('box-shadow', '0 4px 12px rgba(0,0,0,0.4)'),
+                                       ('margin-top', '10px'),
+                                  ]},
+                                  {'selector': 'th', 'props': [
+                                       ('background-color', '#f1f5f9'),
+                                       ('color', '#0f172a'),
+                                       ('font-weight', '700'),
+                                       ('text-align', 'center'),
+                                       ('padding', '12px'),
+                                       ('border-bottom', '2px solid #cbd5e1'),
+                                  ]},
+                                  {'selector': 'td', 'props': [
+                                       ('border-bottom', '1px solid #e2e8f0'),
+                                  ]},
+                                  {'selector': 'td:first-child', 'props': [
+                                       ('text-align', 'left'),
+                                       ('background-color', '#ffffff'),
+                                       ('color', '#0f172a'),
+                                       ('font-weight', '600'),
+                                  ]},
+                              ])
+                              .hide(axis='index'))
+                    # to_html 直接輸出 pandas 的內聯 <style> 區塊（ID-based 不衝突）
+                    st.markdown(styled.to_html(), unsafe_allow_html=True)
+                    st.caption(
+                        f"📊 樣本場數：🔴 {info1['cn']} {s1['matches']} 場  ·  "
+                        f"🔵 {info2['cn']} {s2['matches']} 場    "
+                        f"｜  ★ 黃底 = 該指標較強  ｜  "
+                        f"▲ 高者強 / ▼ 低者強 / · 中性"
                     )
-                    st.markdown(
-                        f"<div style='font-size:0.82rem;color:#e2e8f0;margin-top:12px;"
-                        f"display:flex;align-items:center;gap:6px;flex-wrap:wrap'>"
-                        f"📊 樣本場數："
-                        f"<b style='color:#ff8a8a'>{info1['cn']}</b> {s1['matches']} 場"
-                        f"<span style='margin:0 6px;color:#64748b'>·</span>"
-                        f"<b style='color:#7aa8ff'>{info2['cn']}</b> {s2['matches']} 場"
-                        f"<span style='margin-left:10px;color:#cbd5e1'>"
-                        f"（<span style='background:#fde047;color:#000;border:2px solid #ea580c;"
-                        f"padding:1px 8px;border-radius:4px;font-weight:900'>★ 黃底</span> = 該指標較強）</span>"
-                        f"</div>",
-                        unsafe_allow_html=True)
 
                 # Poisson 比分機率熱圖
                 with det_c2:
