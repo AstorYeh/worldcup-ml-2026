@@ -1430,16 +1430,16 @@ elif page == "🔮 2026 預測":
                     )
                     st.plotly_chart(fig_bar, use_container_width=True)
 
-                    # 緊湊三欄表格：指標 | 球隊1 | 球隊2 — 較強值黃底高亮
+                    # 白底黑字傳統報表風格
                     rows_html = []
-                    # 表頭
+                    # 表頭：淺灰底 + 黑字
                     rows_html.append(
-                        f"<tr style='background:#1a1a2e;color:#f7c948;font-size:0.85rem'>"
-                        f"<th style='padding:8px 12px;text-align:left;border-bottom:2px solid #e94560'>指標</th>"
-                        f"<th style='padding:8px 12px;text-align:center;border-bottom:2px solid {C1};color:#ff8a8a'>"
+                        f"<tr style='background:#f1f5f9;color:#0f172a;font-size:0.88rem'>"
+                        f"<th style='padding:10px 12px;text-align:left;border-bottom:2px solid #cbd5e1'>指標</th>"
+                        f"<th style='padding:10px 12px;text-align:center;border-bottom:3px solid {C1};color:#0f172a'>"
                         f"<span style='display:inline-block;width:10px;height:10px;background:{C1};border-radius:2px;margin-right:6px;vertical-align:middle'></span>"
                         f"{info1['cn']}</th>"
-                        f"<th style='padding:8px 12px;text-align:center;border-bottom:2px solid {C2};color:#7aa8ff'>"
+                        f"<th style='padding:10px 12px;text-align:center;border-bottom:3px solid {C2};color:#0f172a'>"
                         f"<span style='display:inline-block;width:10px;height:10px;background:{C2};border-radius:2px;margin-right:6px;vertical-align:middle'></span>"
                         f"{info2['cn']}</th>"
                         f"</tr>"
@@ -1453,13 +1453,13 @@ elif page == "🔮 2026 預測":
                             t1_better = None
                         dir_icon = ('▲' if direction == 'high'
                                     else '▼' if direction == 'low' else '·')
-                        # 較強者：黃底黑字 → 對比最強，蒙版下也清楚
-                        win_cell = ("background:#facc15;color:#1a1a2e;font-weight:900;"
+                        # 較強者：黃底黑字加粗
+                        win_cell = ("background:#fef08a;color:#0f172a;font-weight:900;"
                                     "border-radius:4px;padding:6px 12px")
-                        # 普通者：白字無底
-                        norm_cell = "color:#ffffff;font-weight:700;padding:6px 12px"
-                        # 輸者：灰字
-                        dim_cell = "color:#94a3b8;font-weight:600;padding:6px 12px"
+                        # 普通者：黑字
+                        norm_cell = "color:#0f172a;font-weight:700;padding:6px 12px"
+                        # 輸者：中灰字
+                        dim_cell = "color:#64748b;font-weight:600;padding:6px 12px"
 
                         if t1_better is True:
                             v1_style, v2_style = win_cell, dim_cell
@@ -1469,9 +1469,9 @@ elif page == "🔮 2026 預測":
                             v1_style = v2_style = norm_cell
 
                         rows_html.append(
-                            f"<tr style='border-bottom:1px solid rgba(255,255,255,0.08)'>"
-                            f"<td style='padding:10px 12px;color:#e2e8f0;font-weight:600;font-size:0.95rem'>"
-                            f"<span style='color:#f7c948;margin-right:6px;font-size:0.85rem'>{dir_icon}</span>{label}</td>"
+                            f"<tr style='border-bottom:1px solid #e2e8f0'>"
+                            f"<td style='padding:10px 12px;color:#0f172a;font-weight:600;font-size:0.95rem'>"
+                            f"<span style='color:#475569;margin-right:6px;font-size:0.85rem'>{dir_icon}</span>{label}</td>"
                             f"<td style='text-align:center'><span style='{v1_style};display:inline-block;min-width:64px;font-size:1.05rem'>{fmt.format(v1)}</span></td>"
                             f"<td style='text-align:center'><span style='{v2_style};display:inline-block;min-width:64px;font-size:1.05rem'>{fmt.format(v2)}</span></td>"
                             f"</tr>"
@@ -1479,7 +1479,8 @@ elif page == "🔮 2026 預測":
 
                     st.markdown(
                         f"<table style='width:100%;border-collapse:collapse;margin-top:8px;"
-                        f"background:rgba(10,10,15,0.55);border-radius:8px;overflow:hidden'>"
+                        f"background:#ffffff;border-radius:8px;overflow:hidden;"
+                        f"box-shadow:0 2px 8px rgba(0,0,0,0.25)'>"
                         + ''.join(rows_html) +
                         f"</table>",
                         unsafe_allow_html=True
@@ -1492,7 +1493,7 @@ elif page == "🔮 2026 預測":
                         f"<span style='margin:0 6px;color:#475569'>·</span>"
                         f"<b style='color:#7aa8ff'>{info2['cn']}</b> {s2['matches']} 場"
                         f"<span style='margin-left:8px;color:#94a3b8'>"
-                        f"（<span style='background:#facc15;color:#1a1a2e;padding:1px 6px;border-radius:3px;font-weight:800'>黃底</span> = 該指標較強）</span>"
+                        f"（<span style='background:#fef08a;color:#0f172a;padding:1px 6px;border-radius:3px;font-weight:800'>黃底</span> = 該指標較強）</span>"
                         f"</div>",
                         unsafe_allow_html=True)
 
