@@ -1454,19 +1454,20 @@ elif page == "🔮 2026 預測":
                     )
                     st.plotly_chart(fig_bar, use_container_width=True)
 
-                    # 白底黑字傳統報表風格
-                    rows_html = []
-                    # 表頭：淺灰底 + 黑字
-                    rows_html.append(
-                        f"<tr style='background:#f1f5f9;color:#0f172a;font-size:0.88rem'>"
-                        f"<th style='padding:10px 12px;text-align:left;border-bottom:2px solid #cbd5e1'>指標</th>"
-                        f"<th style='padding:10px 12px;text-align:center;border-bottom:3px solid {C1};color:#0f172a'>"
-                        f"<span style='display:inline-block;width:10px;height:10px;background:{C1};border-radius:2px;margin-right:6px;vertical-align:middle'></span>"
-                        f"{info1['cn']}</th>"
-                        f"<th style='padding:10px 12px;text-align:center;border-bottom:3px solid {C2};color:#0f172a'>"
-                        f"<span style='display:inline-block;width:10px;height:10px;background:{C2};border-radius:2px;margin-right:6px;vertical-align:middle'></span>"
-                        f"{info2['cn']}</th>"
-                        f"</tr>"
+                    # 改用 CSS Grid 避開 <table> 在 st.markdown 內 style 被剝離的問題
+                    grid_rows = []
+                    # 表頭
+                    grid_rows.append(
+                        f"<div style='padding:12px 14px;background:#f1f5f9;color:#0f172a;"
+                        f"font-weight:700;border-bottom:2px solid #cbd5e1'>指標</div>"
+                        f"<div style='padding:12px 14px;background:#f1f5f9;color:#0f172a;"
+                        f"font-weight:700;text-align:center;border-bottom:3px solid {C1}'>"
+                        f"<span style=\"display:inline-block;width:10px;height:10px;background:{C1};"
+                        f"border-radius:2px;margin-right:6px;vertical-align:middle\"></span>{info1['cn']}</div>"
+                        f"<div style='padding:12px 14px;background:#f1f5f9;color:#0f172a;"
+                        f"font-weight:700;text-align:center;border-bottom:3px solid {C2}'>"
+                        f"<span style=\"display:inline-block;width:10px;height:10px;background:{C2};"
+                        f"border-radius:2px;margin-right:6px;vertical-align:middle\"></span>{info2['cn']}</div>"
                     )
                     for label, v1, v2, fmt, direction in metrics_list:
                         if direction == 'high':
@@ -1477,16 +1478,19 @@ elif page == "🔮 2026 預測":
                             t1_better = None
                         dir_icon = ('▲' if direction == 'high'
                                     else '▼' if direction == 'low' else '·')
-                        # 較強者：飽和黃底 + 橘色粗邊框 + ★ 圖示
+                        # 較強值：直接給整個 cell 上黃底（不再用內層 span）
                         win_cell = ("background:#fde047;color:#000000;font-weight:900;"
-                                    "border:2px solid #ea580c;border-radius:6px;"
-                                    "padding:6px 14px;box-shadow:0 2px 4px rgba(234,88,12,0.25)")
-                        # 普通者：黑字
-                        norm_cell = ("background:transparent;color:#0f172a;font-weight:700;"
-                                     "padding:6px 14px;border:2px solid transparent")
-                        # 輸者：中灰字
-                        dim_cell = ("background:transparent;color:#94a3b8;font-weight:600;"
-                                    "padding:6px 14px;border:2px solid transparent")
+                                    "border-top:3px solid #ea580c;border-bottom:3px solid #ea580c;"
+                                    "padding:14px;text-align:center;font-size:1.1rem")
+                        norm_cell = ("background:#ffffff;color:#0f172a;font-weight:700;"
+                                     "padding:14px;text-align:center;font-size:1.05rem;"
+                                     "border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0")
+                        dim_cell = ("background:#ffffff;color:#94a3b8;font-weight:600;"
+                                    "padding:14px;text-align:center;font-size:1.05rem;"
+                                    "border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0")
+                        label_cell = ("background:#ffffff;padding:14px;color:#0f172a;"
+                                      "font-weight:600;font-size:0.95rem;"
+                                      "border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0")
 
                         if t1_better is True:
                             v1_style, v2_style = win_cell, dim_cell
@@ -1498,21 +1502,19 @@ elif page == "🔮 2026 預測":
                             v1_style = v2_style = norm_cell
                             v1_prefix = v2_prefix = ''
 
-                        rows_html.append(
-                            f"<tr style='border-bottom:1px solid #e2e8f0'>"
-                            f"<td style='padding:12px 14px;color:#0f172a;font-weight:600;font-size:0.95rem'>"
-                            f"<span style='color:#ea580c;margin-right:6px;font-size:0.85rem;font-weight:700'>{dir_icon}</span>{label}</td>"
-                            f"<td style='text-align:center;padding:6px 4px'><span style='{v1_style};display:inline-block;min-width:80px;font-size:1.05rem'>{v1_prefix}{fmt.format(v1)}</span></td>"
-                            f"<td style='text-align:center;padding:6px 4px'><span style='{v2_style};display:inline-block;min-width:80px;font-size:1.05rem'>{v2_prefix}{fmt.format(v2)}</span></td>"
-                            f"</tr>"
+                        grid_rows.append(
+                            f"<div style='{label_cell}'>"
+                            f"<span style='color:#ea580c;margin-right:6px;font-weight:700'>{dir_icon}</span>{label}</div>"
+                            f"<div style='{v1_style}'>{v1_prefix}{fmt.format(v1)}</div>"
+                            f"<div style='{v2_style}'>{v2_prefix}{fmt.format(v2)}</div>"
                         )
 
                     st.markdown(
-                        f"<table style='width:100%;border-collapse:collapse;margin-top:8px;"
-                        f"background:#ffffff;border-radius:8px;overflow:hidden;"
-                        f"box-shadow:0 2px 8px rgba(0,0,0,0.25)'>"
-                        + ''.join(rows_html) +
-                        f"</table>",
+                        f"<div style='display:grid;grid-template-columns:1.4fr 1fr 1fr;"
+                        f"margin-top:10px;background:#ffffff;border-radius:8px;overflow:hidden;"
+                        f"box-shadow:0 4px 12px rgba(0,0,0,0.35)'>"
+                        + ''.join(grid_rows) +
+                        f"</div>",
                         unsafe_allow_html=True
                     )
                     st.markdown(
