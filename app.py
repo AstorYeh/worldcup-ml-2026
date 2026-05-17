@@ -1011,17 +1011,24 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     lam1_dc = min(2.5, max(0.3, atk1 * vul2 / LEAGUE_AVG))
     lam2_dc = min(2.5, max(0.3, atk2 * vul1 / LEAGUE_AVG))
 
+    # ── λ 多因素融合：DC 基礎 × FIFA 排名 × 主將 × 近期狀態 × 淘汰賽經驗 ──
     pts1, pts2 = team_pts(team1), team_pts(team2)
-    rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.20
-    lam1 = min(2.8, max(0.3, lam1_dc * rank_factor))
-    lam2 = min(2.8, max(0.3, lam2_dc / rank_factor))
+    rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.22       # FIFA 積分差距
 
-    # ── 主將 OVR 調整（第四層）：依主將平均能力值輕微修正 λ ──
-    # 幂次 0.18 保守調整，避免單一球星過度主導結果
     ovr1, ovr2 = squad_ovr(team1), squad_ovr(team2)
-    squad_factor = (ovr1 / ovr2) ** 0.18
-    lam1 = min(2.8, max(0.3, lam1 * squad_factor))
-    lam2 = min(2.8, max(0.3, lam2 / squad_factor))
+    squad_factor = (ovr1 / ovr2) ** 0.35                       # 主將能力（提高權重 0.18→0.35）
+
+    form1 = compute_recent_form(match_df, team1, year)
+    form2 = compute_recent_form(match_df, team2, year)
+    form_factor = ((form1 + 0.3) / (form2 + 0.3)) ** 0.18      # 近 2 年勝率（新增）
+
+    exp1 = compute_knockout_exp(match_df, team1)
+    exp2 = compute_knockout_exp(match_df, team2)
+    exp_factor = ((exp1 + 10) / (exp2 + 10)) ** 0.08           # 世界盃淘汰賽經驗（新增）
+
+    composite_factor = rank_factor * squad_factor * form_factor * exp_factor
+    lam1 = min(2.8, max(0.3, lam1_dc * composite_factor))
+    lam2 = min(2.8, max(0.3, lam2_dc / composite_factor))
 
     # 從 λ 積分出 Poisson 勝/平/負機率（0~7 進球範圍涵蓋 99.9%+ 機率）
     poi_win = poi_draw = poi_loss = 0.0
@@ -1047,43 +1054,33 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     _t3 = prob_win + prob_draw + prob_loss
     prob_win /= _t3; prob_draw /= _t3; prob_loss /= _t3
 
-    # ── MAP 比分：直接取整個 Poisson 矩陣的絕對最高機率 cell ──
-    # 不再套用勝負方向約束 → 確保 ★ 標記就是矩陣裡實際最高的格子
+    # ── MAP 比分：在「融合勝負方向」內找最高 Poisson 機率 cell ──
+    # 為什麼要約束方向：當 λ 接近時，最高的單格機率常落在 (1,1) 等平局
+    #   即使整體勝率(40%)大於平局(27%)。約束後 ★ 標的是「符合主預測方向的
+    #   最強比分」，與顯示的機率方向一致，避免「20%平局卻每場都平」的悖論
+    outcome = ('win' if prob_win >= prob_draw and prob_win >= prob_loss
+               else 'draw' if prob_draw >= prob_loss else 'loss')
+
     # 規範化到字母序，確保同場比賽比分不因呼叫順序而改變
     t_can1, t_can2 = sorted([team1, team2])
     is_canonical = (team1 == t_can1)
     lam_c1 = lam1 if is_canonical else lam2
     lam_c2 = lam2 if is_canonical else lam1
+    out_c = outcome if is_canonical else (
+        'loss' if outcome == 'win' else ('win' if outcome == 'loss' else 'draw'))
 
     best_prob, gc1, gc2 = -1.0, 0, 0
     for g1 in range(8):
         for g2 in range(8):
+            so = 'win' if g1 > g2 else ('draw' if g1 == g2 else 'loss')
+            if so != out_c:
+                continue
             p = poisson.pmf(g1, lam_c1) * poisson.pmf(g2, lam_c2)
             if p > best_prob:
                 best_prob, gc1, gc2 = p, g1, g2
 
     goal1 = gc1 if is_canonical else gc2
     goal2 = gc2 if is_canonical else gc1
-
-    # 校驗：若顯示的機率方向與比分方向不一致，以「比分方向」為準重新分配機率
-    # （因為比分是用戶看到的最強指標，必須與機率一致）
-    score_outcome = 'win' if goal1 > goal2 else ('draw' if goal1 == goal2 else 'loss')
-    prob_max = max(prob_win, prob_draw, prob_loss)
-    cur_outcome = ('win' if prob_max == prob_win
-                   else 'draw' if prob_max == prob_draw else 'loss')
-    if score_outcome != cur_outcome:
-        # 當分歧時，套用較弱的調整把「比分方向」對應的機率拉到至少略高
-        # 加 5% 到比分方向，按比例從其他兩類扣回
-        adj = 0.05
-        if score_outcome == 'win':
-            prob_win += adj; prob_draw -= adj * (prob_draw / max(prob_draw + prob_loss, 1e-6))
-            prob_loss -= adj * (prob_loss / max(prob_draw + prob_loss, 1e-6))
-        elif score_outcome == 'loss':
-            prob_loss += adj; prob_win -= adj * (prob_win / max(prob_win + prob_draw, 1e-6))
-            prob_draw -= adj * (prob_draw / max(prob_win + prob_draw, 1e-6))
-        # 重新正規化
-        _t4 = prob_win + prob_draw + prob_loss
-        prob_win /= _t4; prob_draw /= _t4; prob_loss /= _t4
     r1, r2 = team_pts(team1), team_pts(team2)
     rank1, rank2 = team_rank(team1), team_rank(team2)
     info1 = TEAM_INFO.get(team1, {'flag': '🏳️', 'cn': team1, 'en': team1})
@@ -1227,7 +1224,7 @@ st.sidebar.markdown(
     """
     <div style='font-size:0.74rem; color:#7a8aa0; line-height:1.7; padding: 6px 4px;'>
         <div><b style='color:#aabbcc;'>🤖 模型架構</b></div>
-        <div>XGBoost 40% + Dixon-Coles 60%</div>
+        <div>XGBoost 20% + Dixon-Coles 80%</div>
         <div>+ Squad OVR + Monte Carlo 10k</div>
         <br>
         <div><b style='color:#aabbcc;'>📊 訓練資料</b></div>
@@ -1379,20 +1376,20 @@ if page == "📊 專題總覽":
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.info("🤖 **第一層：XGBoost 分類**\n\n勝/平/負機率（權重 40%）\n\n• 時間衰減權重\n• FIFA 排名差異\n• 球隊近期狀態\n• 正向＋反向對稱平均")
+        st.info("🤖 **第一層：XGBoost 分類**\n\n勝/平/負機率（權重 20%）\n\n• 時間衰減權重\n• FIFA 排名差異\n• 球隊近期狀態\n• 正向＋反向對稱平均")
     with col2:
-        st.info("📊 **第二層：Dixon-Coles**\n\nPoisson 期望進球（權重 60%）\n\n• 足聯品質係數校正\n• FIFA 積分排名加權\n• 從 λ 積分勝/平/負機率")
+        st.info("📊 **第二層：Dixon-Coles**\n\nPoisson 期望進球（權重 80%）\n\n• 攻防交叉 λ = atk × vul / μ\n• 足聯品質係數校正\n• 從 λ 積分勝/平/負機率")
     with col3:
-        st.info("⭐ **第三層：主將 OVR 修正**\n\n主力球員綜合能力值調整\n\n• 各隊 5 名主將平均 OVR\n• 幂次 0.18 保守修正 λ\n• 巨星球隊自然獲得加成")
+        st.info("⭐ **第三層：λ 多因素修正**\n\n複合權重調整 λ\n\n• 主將 OVR（次方 0.35）\n• FIFA 積分（次方 0.22）\n• 近 2 年勝率（0.18）\n• 世界盃淘汰賽經驗（0.08）")
     with col4:
-        st.info("🎲 **第四層：融合 + Monte Carlo**\n\n統一方向後最終預測\n\n• 勝負方向與比分完全一致\n• MAP 最高機率比分\n• 10,000 次全賽程奪冠模擬")
+        st.info("🎲 **第四層：融合 + Monte Carlo**\n\n統一方向後最終預測\n\n• 勝負方向與比分完全一致\n• MAP 在主預測方向內找最強比分\n• 10,000 次全賽程奪冠模擬")
 
 # ============================================================
 # PAGE 2: 2026 預測
 # ============================================================
 elif page == "🔮 2026 預測":
     st.title("🔮 2026 世界盃比分預測")
-    st.markdown("**XGBoost（40%）＋ Dixon-Coles Poisson（60%）＋ 主將 OVR 修正 · 四層融合模型 · Walk-Forward 驗證**")
+    st.markdown("**XGBoost(20%) + Dixon-Coles(80%) · λ 加權：主將 OVR · FIFA 積分 · 近期狀態 · 淘汰賽經驗 · Walk-Forward 驗證**")
     st.markdown("---")
 
     match_df = load_match_data()
