@@ -1529,11 +1529,11 @@ elif page == "🔮 2026 預測":
                     )
                     st.plotly_chart(fig_bar, use_container_width=True)
 
-                    # 使用 pandas Styler — Streamlit 原生支援，樣式不會被剝離
+                    # 純文字標記方案：Streamlit 原生 dataframe + 文字內 ★ 與 ⬇
+                    # 不再倚賴 HTML/CSS 配色（會被 Streamlit 過濾），改用 Unicode 符號
                     cn1 = f"🔴 {info1['cn']}"
                     cn2 = f"🔵 {info2['cn']}"
                     cmp_rows = []
-                    win_flags = []  # (col1_win, col2_win) per row
                     for label, v1, v2, fmt, direction in metrics_list:
                         if direction == 'high':
                             t1 = v1 > v2; dir_mk = '▲'
@@ -1541,72 +1541,30 @@ elif page == "🔮 2026 預測":
                             t1 = v1 < v2; dir_mk = '▼'
                         else:
                             t1 = None; dir_mk = '·'
-                        row_label = f"{dir_mk} {label}"
                         v1_str = fmt.format(v1)
                         v2_str = fmt.format(v2)
+                        # 用 ★ 前綴標示較強，並用 emoji 在較弱欄位開頭給差異感
                         if t1 is True:
-                            v1_str = '★ ' + v1_str
+                            v1_str = f"⭐ {v1_str}"
                         elif t1 is False:
-                            v2_str = '★ ' + v2_str
-                        cmp_rows.append({'指標': row_label, cn1: v1_str, cn2: v2_str})
-                        win_flags.append((t1 is True, t1 is False))
+                            v2_str = f"⭐ {v2_str}"
+                        cmp_rows.append({
+                            '指標': f"{dir_mk} {label}",
+                            cn1: v1_str,
+                            cn2: v2_str,
+                        })
 
                     cmp_df = pd.DataFrame(cmp_rows)
-
-                    def _style_cmp(_df):
-                        styles = pd.DataFrame('', index=_df.index, columns=_df.columns)
-                        for i, (w1, w2) in enumerate(win_flags):
-                            if w1:
-                                styles.loc[i, cn1] = ('background-color:#fde047;color:#000;'
-                                                     'font-weight:900;font-size:16px')
-                                styles.loc[i, cn2] = 'color:#94a3b8;font-weight:600'
-                            elif w2:
-                                styles.loc[i, cn1] = 'color:#94a3b8;font-weight:600'
-                                styles.loc[i, cn2] = ('background-color:#fde047;color:#000;'
-                                                     'font-weight:900;font-size:16px')
-                            else:
-                                styles.loc[i, cn1] = 'color:#0f172a;font-weight:700'
-                                styles.loc[i, cn2] = 'color:#0f172a;font-weight:700'
-                            styles.loc[i, '指標'] = 'color:#0f172a;font-weight:600'
-                        return styles
-
-                    styled = (cmp_df.style
-                              .apply(_style_cmp, axis=None)
-                              .set_properties(**{
-                                  'text-align': 'center', 'padding': '12px 14px',
-                                  'font-size': '15px',
-                              })
-                              .set_table_styles([
-                                  {'selector': '', 'props': [
-                                       ('width', '100%'),
-                                       ('border-collapse', 'collapse'),
-                                       ('background', '#ffffff'),
-                                       ('border-radius', '8px'),
-                                       ('overflow', 'hidden'),
-                                       ('box-shadow', '0 4px 12px rgba(0,0,0,0.4)'),
-                                       ('margin-top', '10px'),
-                                  ]},
-                                  {'selector': 'th', 'props': [
-                                       ('background-color', '#f1f5f9'),
-                                       ('color', '#0f172a'),
-                                       ('font-weight', '700'),
-                                       ('text-align', 'center'),
-                                       ('padding', '12px'),
-                                       ('border-bottom', '2px solid #cbd5e1'),
-                                  ]},
-                                  {'selector': 'td', 'props': [
-                                       ('border-bottom', '1px solid #e2e8f0'),
-                                  ]},
-                                  {'selector': 'td:first-child', 'props': [
-                                       ('text-align', 'left'),
-                                       ('background-color', '#ffffff'),
-                                       ('color', '#0f172a'),
-                                       ('font-weight', '600'),
-                                  ]},
-                              ])
-                              .hide(axis='index'))
-                    # to_html 直接輸出 pandas 的內聯 <style> 區塊（ID-based 不衝突）
-                    st.markdown(styled.to_html(), unsafe_allow_html=True)
+                    st.dataframe(
+                        cmp_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            '指標': st.column_config.TextColumn('指標', width='small'),
+                            cn1: st.column_config.TextColumn(cn1, width='medium'),
+                            cn2: st.column_config.TextColumn(cn2, width='medium'),
+                        },
+                    )
                     st.caption(
                         f"📊 樣本場數：🔴 {info1['cn']} {s1['matches']} 場  ·  "
                         f"🔵 {info2['cn']} {s2['matches']} 場    "
