@@ -2383,8 +2383,8 @@ elif page == "🌍 各國分析":
 
     st.markdown("---")
 
-    # ── 近期賽果 + 小組賽程 ──
-    tab_recent, tab_group, tab_players = st.tabs(["📅 近期賽果", "⚔️ 小組賽程預測", "👤 球員能力卡"])
+    # ── 近期賽果 + 球員能力卡（小組賽程預測已移除，避免與「🔮 2026 預測」頁重複） ──
+    tab_recent, tab_players = st.tabs(["📅 近期賽果", "👤 球員能力卡"])
 
     with tab_recent:
         st.markdown("##### 2022年後近期賽果（最多 8 場）")
@@ -2407,37 +2407,7 @@ elif page == "🌍 各國分析":
                     f"<span style='color:#7a9ab5;font-size:0.8rem;'>{row['tournament']}</span>",
                     unsafe_allow_html=True
                 )
-
-    with tab_group:
-        group_teams = WC_2026_GROUPS[grp]
-        opponents = [t for t in group_teams if t != selected_team]
-        pre = load_pretrained()
-        if pre:
-            clf, p1, p2, fc = pre['clf'], pre['poisson1'], pre['poisson2'], pre['feat_cols']
-            st.markdown(f"##### Group {grp} 小組賽預測")
-            for opp in opponents:
-                opp_info = TEAM_INFO.get(opp, {'flag':'🏳️','cn':opp,'iso':'un'})
-                opp_iso = opp_info.get('iso','un')
-                pred = predict_match(selected_team, opp, 2026, match_df, fifa_df, clf, p1, p2, fc)
-                my_iso = info.get('iso','un')
-                my_flag_img = f'<img src="https://flagcdn.com/24x18/{my_iso}.png" style="border-radius:2px;vertical-align:middle;">'
-                opp_flag_img = f'<img src="https://flagcdn.com/24x18/{opp_iso}.png" style="border-radius:2px;vertical-align:middle;">'
-                # 依比分決定顏色，確保與顯示結果一致
-                sc1 = '#00d4ff' if pred['goal1'] > pred['goal2'] else ('#8899aa' if pred['goal1'] < pred['goal2'] else '#f7c948')
-                sc2 = '#00d4ff' if pred['goal1'] < pred['goal2'] else ('#8899aa' if pred['goal1'] > pred['goal2'] else '#f7c948')
-                st.markdown(f"""
-                <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:10px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
-                  <span style="display:flex;align-items:center;gap:6px;">{my_flag_img}<b>{info['cn']}</b>
-                    <span style="font-size:1.4rem;font-weight:900;color:{sc1}">{pred['goal1']}</span></span>
-                  <span style="color:#8899aa;font-size:0.85rem;">VS</span>
-                  <span style="display:flex;align-items:center;gap:6px;">
-                    <span style="font-size:1.4rem;font-weight:900;color:{sc2}">{pred['goal2']}</span>
-                    <b>{opp_info['cn']}</b>{opp_flag_img}</span>
-                  <span style="margin-left:auto;color:#aabbcc;font-size:0.82rem;">平局 <b style="color:#f7c948">{pred['draw_prob']:.0%}</b></span>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("請先執行 python pretrain.py 產生模型")
+        st.caption(f"📌 {info['cn']} 的 Group {grp} 小組賽預測請至「🔮 2026 預測」頁查看")
 
     with tab_players:
         players = SQUAD_DATA.get(selected_team, [])
