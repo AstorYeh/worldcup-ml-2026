@@ -1030,40 +1030,53 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     _t2 = poi_win + poi_draw + poi_loss
     poi_win /= _t2; poi_draw /= _t2; poi_loss /= _t2
 
-    # ── 第三層：加權融合（XGBoost 40% + Poisson 60%）──
-    # Poisson 權重較高，因其直接反映兩隊攻防期望值，內部一致性更強
-    W_CLF, W_POI = 0.40, 0.60
+    # ── 第三層：加權融合（XGBoost 20% + Poisson 80%）──
+    # Poisson 直接由 λ（球隊攻防強度）推導，與顯示的 λ₁/λ₂ 內部一致
+    # XGBoost 權重降低，避免在強弱明顯時被分類器誤導反向
+    W_CLF, W_POI = 0.20, 0.80
     prob_win  = W_CLF * clf_win  + W_POI * poi_win
     prob_draw = W_CLF * clf_draw + W_POI * poi_draw
     prob_loss = W_CLF * clf_loss + W_POI * poi_loss
     _t3 = prob_win + prob_draw + prob_loss
     prob_win /= _t3; prob_draw /= _t3; prob_loss /= _t3
 
-    # 融合後的勝負方向
-    outcome = max({'win': prob_win, 'draw': prob_draw, 'loss': prob_loss},
-                  key=lambda k: {'win': prob_win, 'draw': prob_draw, 'loss': prob_loss}[k])
-
-    # ── MAP 比分：在融合勝負方向約束下找最高 Poisson 機率比分 ──
+    # ── MAP 比分：直接取整個 Poisson 矩陣的絕對最高機率 cell ──
+    # 不再套用勝負方向約束 → 確保 ★ 標記就是矩陣裡實際最高的格子
     # 規範化到字母序，確保同場比賽比分不因呼叫順序而改變
     t_can1, t_can2 = sorted([team1, team2])
     is_canonical = (team1 == t_can1)
     lam_c1 = lam1 if is_canonical else lam2
     lam_c2 = lam2 if is_canonical else lam1
-    out_c = outcome if is_canonical else (
-        'loss' if outcome == 'win' else ('win' if outcome == 'loss' else 'draw'))
 
     best_prob, gc1, gc2 = -1.0, 0, 0
     for g1 in range(8):
         for g2 in range(8):
-            so = 'win' if g1 > g2 else ('draw' if g1 == g2 else 'loss')
-            if so != out_c:
-                continue
             p = poisson.pmf(g1, lam_c1) * poisson.pmf(g2, lam_c2)
             if p > best_prob:
                 best_prob, gc1, gc2 = p, g1, g2
 
     goal1 = gc1 if is_canonical else gc2
     goal2 = gc2 if is_canonical else gc1
+
+    # 校驗：若顯示的機率方向與比分方向不一致，以「比分方向」為準重新分配機率
+    # （因為比分是用戶看到的最強指標，必須與機率一致）
+    score_outcome = 'win' if goal1 > goal2 else ('draw' if goal1 == goal2 else 'loss')
+    prob_max = max(prob_win, prob_draw, prob_loss)
+    cur_outcome = ('win' if prob_max == prob_win
+                   else 'draw' if prob_max == prob_draw else 'loss')
+    if score_outcome != cur_outcome:
+        # 當分歧時，套用較弱的調整把「比分方向」對應的機率拉到至少略高
+        # 加 5% 到比分方向，按比例從其他兩類扣回
+        adj = 0.05
+        if score_outcome == 'win':
+            prob_win += adj; prob_draw -= adj * (prob_draw / max(prob_draw + prob_loss, 1e-6))
+            prob_loss -= adj * (prob_loss / max(prob_draw + prob_loss, 1e-6))
+        elif score_outcome == 'loss':
+            prob_loss += adj; prob_win -= adj * (prob_win / max(prob_win + prob_draw, 1e-6))
+            prob_draw -= adj * (prob_draw / max(prob_win + prob_draw, 1e-6))
+        # 重新正規化
+        _t4 = prob_win + prob_draw + prob_loss
+        prob_win /= _t4; prob_draw /= _t4; prob_loss /= _t4
     r1, r2 = team_pts(team1), team_pts(team2)
     rank1, rank2 = team_rank(team1), team_rank(team2)
     info1 = TEAM_INFO.get(team1, {'flag': '🏳️', 'cn': team1, 'en': team1})
@@ -1489,12 +1502,13 @@ elif page == "🔮 2026 預測":
                     st.markdown("**⚔️ 球隊實力對比（近8年）**")
                     s1, s2 = r['s1'], r['s2']
                     # (label, v1, v2, fmt, direction)
-                    # direction: 'high' = 高者較強, 'low' = 低者較強, 'neutral' = 無方向
+                    # direction: 'high' = 高者較強, 'low' = 低者較強
+                    # 平局率為「該隊歷史踢平的傾向」，不適合做兩隊強弱對比 → 移除
+                    # 本場平局機率另在卡片右側顯示（單一機率而非雙球隊）
                     metrics_list = [
                         ('勝率',     s1['win_rate'],     s2['win_rate'],     '{:.1%}', 'high'),
                         ('場均進球', s1['avg_goals'],    s2['avg_goals'],    '{:.2f}', 'high'),
                         ('場均失球', s1['avg_conceded'], s2['avg_conceded'], '{:.2f}', 'low'),
-                        ('平局率',   s1['draw_rate'],    s2['draw_rate'],    '{:.1%}', 'neutral'),
                     ]
                     # 傳統高對比配色：標準紅 + 標準藍 + 黃色高亮
                     C1 = '#dc2626'   # 球隊1（標準紅，類似中華隊紅）
