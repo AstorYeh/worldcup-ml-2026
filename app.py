@@ -243,6 +243,81 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     color: #ffffff !important;
 }
 
+/* ── 球隊對比表 cell classes（避開 Streamlit inline-style 被剝離問題） ── */
+.cmp-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    margin-top: 10px;
+    background: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.cmp-head {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 700;
+    padding: 12px 14px;
+    border-bottom: 2px solid #cbd5e1;
+}
+.cmp-head-c { text-align: center; }
+.cmp-head-red { border-bottom: 3px solid #dc2626 !important; }
+.cmp-head-blue { border-bottom: 3px solid #2563eb !important; }
+.cmp-label {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 14px;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+}
+.cmp-cell {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-weight: 700;
+    text-align: center;
+    padding: 14px;
+    font-size: 1.05rem;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+}
+.cmp-dim {
+    background: #ffffff !important;
+    color: #94a3b8 !important;
+    font-weight: 600;
+    text-align: center;
+    padding: 14px;
+    font-size: 1.05rem;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+}
+.cmp-win {
+    background: #fde047 !important;
+    color: #000000 !important;
+    font-weight: 900 !important;
+    text-align: center;
+    padding: 14px;
+    font-size: 1.15rem;
+    border-top: 3px solid #ea580c !important;
+    border-bottom: 3px solid #ea580c !important;
+}
+.cmp-dir {
+    color: #ea580c;
+    font-weight: 700;
+    margin-right: 6px;
+}
+.cmp-chip {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+.cmp-chip-red { background: #dc2626; }
+.cmp-chip-blue { background: #2563eb; }
+
 /* Sidebar 樣式 */
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0a0a0f 0%, #12121a 100%);
@@ -1454,21 +1529,14 @@ elif page == "🔮 2026 預測":
                     )
                     st.plotly_chart(fig_bar, use_container_width=True)
 
-                    # 改用 CSS Grid 避開 <table> 在 st.markdown 內 style 被剝離的問題
-                    grid_rows = []
-                    # 表頭
-                    grid_rows.append(
-                        f"<div style='padding:12px 14px;background:#f1f5f9;color:#0f172a;"
-                        f"font-weight:700;border-bottom:2px solid #cbd5e1'>指標</div>"
-                        f"<div style='padding:12px 14px;background:#f1f5f9;color:#0f172a;"
-                        f"font-weight:700;text-align:center;border-bottom:3px solid {C1}'>"
-                        f"<span style=\"display:inline-block;width:10px;height:10px;background:{C1};"
-                        f"border-radius:2px;margin-right:6px;vertical-align:middle\"></span>{info1['cn']}</div>"
-                        f"<div style='padding:12px 14px;background:#f1f5f9;color:#0f172a;"
-                        f"font-weight:700;text-align:center;border-bottom:3px solid {C2}'>"
-                        f"<span style=\"display:inline-block;width:10px;height:10px;background:{C2};"
-                        f"border-radius:2px;margin-right:6px;vertical-align:middle\"></span>{info2['cn']}</div>"
-                    )
+                    # 用 CSS class 取代 inline style（Streamlit 會剝離 background）
+                    grid_rows = [
+                        f'<div class="cmp-head">指標</div>'
+                        f'<div class="cmp-head cmp-head-c cmp-head-red">'
+                        f'<span class="cmp-chip cmp-chip-red"></span>{info1["cn"]}</div>'
+                        f'<div class="cmp-head cmp-head-c cmp-head-blue">'
+                        f'<span class="cmp-chip cmp-chip-blue"></span>{info2["cn"]}</div>'
+                    ]
                     for label, v1, v2, fmt, direction in metrics_list:
                         if direction == 'high':
                             t1_better = v1 > v2
@@ -1478,43 +1546,26 @@ elif page == "🔮 2026 預測":
                             t1_better = None
                         dir_icon = ('▲' if direction == 'high'
                                     else '▼' if direction == 'low' else '·')
-                        # 較強值：直接給整個 cell 上黃底（不再用內層 span）
-                        win_cell = ("background:#fde047;color:#000000;font-weight:900;"
-                                    "border-top:3px solid #ea580c;border-bottom:3px solid #ea580c;"
-                                    "padding:14px;text-align:center;font-size:1.1rem")
-                        norm_cell = ("background:#ffffff;color:#0f172a;font-weight:700;"
-                                     "padding:14px;text-align:center;font-size:1.05rem;"
-                                     "border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0")
-                        dim_cell = ("background:#ffffff;color:#94a3b8;font-weight:600;"
-                                    "padding:14px;text-align:center;font-size:1.05rem;"
-                                    "border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0")
-                        label_cell = ("background:#ffffff;padding:14px;color:#0f172a;"
-                                      "font-weight:600;font-size:0.95rem;"
-                                      "border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0")
 
                         if t1_better is True:
-                            v1_style, v2_style = win_cell, dim_cell
-                            v1_prefix, v2_prefix = '★ ', ''
+                            c1_cls, c2_cls = 'cmp-win', 'cmp-dim'
+                            p1, p2 = '★ ', ''
                         elif t1_better is False:
-                            v1_style, v2_style = dim_cell, win_cell
-                            v1_prefix, v2_prefix = '', '★ '
+                            c1_cls, c2_cls = 'cmp-dim', 'cmp-win'
+                            p1, p2 = '', '★ '
                         else:
-                            v1_style = v2_style = norm_cell
-                            v1_prefix = v2_prefix = ''
+                            c1_cls = c2_cls = 'cmp-cell'
+                            p1 = p2 = ''
 
                         grid_rows.append(
-                            f"<div style='{label_cell}'>"
-                            f"<span style='color:#ea580c;margin-right:6px;font-weight:700'>{dir_icon}</span>{label}</div>"
-                            f"<div style='{v1_style}'>{v1_prefix}{fmt.format(v1)}</div>"
-                            f"<div style='{v2_style}'>{v2_prefix}{fmt.format(v2)}</div>"
+                            f'<div class="cmp-label">'
+                            f'<span class="cmp-dir">{dir_icon}</span>{label}</div>'
+                            f'<div class="{c1_cls}">{p1}{fmt.format(v1)}</div>'
+                            f'<div class="{c2_cls}">{p2}{fmt.format(v2)}</div>'
                         )
 
                     st.markdown(
-                        f"<div style='display:grid;grid-template-columns:1.4fr 1fr 1fr;"
-                        f"margin-top:10px;background:#ffffff;border-radius:8px;overflow:hidden;"
-                        f"box-shadow:0 4px 12px rgba(0,0,0,0.35)'>"
-                        + ''.join(grid_rows) +
-                        f"</div>",
+                        f'<div class="cmp-grid">{"".join(grid_rows)}</div>',
                         unsafe_allow_html=True
                     )
                     st.markdown(
