@@ -2423,24 +2423,40 @@ elif page == "🌍 各國分析":
             }
             ATTR_LABELS = {'pac':'PAC','sho':'SHO','pas':'PAS','dri':'DRI','def':'DEF','phy':'PHY'}
 
-            # sofifa ID lookup for well-known players
+            # SOFIFA 球員 ID 對照表（FIFA 25 / EAFC 25 為主）
+            # 重要：每個 ID 必須唯一，否則會顯示錯誤頭像
+            # 舊版有重複 ID 已修正：
+            #   - H. Kane 與 Son Heung-min 同為 202126 → Kane 暫移除避免錯像
+            #   - V. Gyökeres 與 L. Díaz 同為 243726 → Gyökeres 暫移除
+            # 未驗證的球員一律 fallback 顯示英文姓名縮寫頭像（不顯示錯誤照片）
             SOFIFA_IDS = {
+                # ── 超巨星（高信心 ID）──
                 'L. Messi': 158023, 'C. Ronaldo': 20801, 'K. Mbappé': 231747,
                 'E. Haaland': 239085, 'K. De Bruyne': 192985, 'Vinícius Jr.': 246169,
                 'J. Bellingham': 253072, 'M. Salah': 209331, 'L. Modrić': 177003,
-                'Son Heung-min': 202126, 'K. Havertz': 246669, 'F. Wirtz': 263552,
-                'R. Leão': 251706, 'A. Davies': 236460, 'J. David': 254103,
-                'M. Ødegaard': 231568, 'A. Hakimi': 238023, 'V. van Dijk': 203376,
-                'L. Díaz': 243726, 'A. Griezmann': 194765, 'R. Mahrez': 220054,
-                'S. Mané': 208722, 'T. Partey': 209564, 'M. Kudus': 260460,
-                'Pedri': 252371, 'L. Yamal': 272456, 'F. de Jong': 239473,
-                'F. Valverde': 241764, 'D. Núñez': 261204, 'J. Álvarez': 261289,
-                'B. Fernandes': 212831, 'R. Dias': 237692, 'H. Kane': 202126,
-                'G. Xhaka': 186942, 'M. Akanji': 231678, 'J. Kimmich': 214455,
-                'Alisson': 211110, 'Marquinhos': 200389, 'Rodrygo': 252658,
-                'V. Gyökeres': 243726, 'D. Kulusevski': 246940, 'M. Neuer': 167495,
-                'A. Rüdiger': 206158, 'A. Robertson': 225321, 'J. Gvardiol': 261255,
+                'Son Heung-min': 202126, 'A. Griezmann': 194765,
+                # ── 新生代 ──
+                'K. Havertz': 246669, 'F. Wirtz': 263552, 'L. Yamal': 272456,
+                'Pedri': 252371, 'J. David': 254103, 'M. Ødegaard': 231568,
+                # ── 中後場明星 ──
+                'F. de Jong': 239473, 'F. Valverde': 241764, 'V. van Dijk': 203376,
+                'A. Hakimi': 238023, 'J. Kimmich': 214455, 'A. Rüdiger': 206158,
+                'A. Robertson': 225321, 'J. Gvardiol': 261255, 'R. Dias': 237692,
+                'B. Fernandes': 212831, 'G. Xhaka': 186942, 'M. Akanji': 231678,
+                'T. Partey': 209564,
+                # ── 進攻群 ──
+                'R. Leão': 251706, 'A. Davies': 236460, 'L. Díaz': 243726,
+                'S. Mané': 208722, 'R. Mahrez': 220054, 'M. Kudus': 260460,
+                'D. Núñez': 261204, 'J. Álvarez': 261289, 'Rodrygo': 252658,
+                'D. Kulusevski': 246940,
+                # ── 門將 / 後衛 ──
+                'M. Neuer': 167495, 'Alisson': 211110, 'Marquinhos': 200389,
             }
+
+            def _sofifa_url(sid: int, version: int = 25, size: int = 120) -> str:
+                """SOFIFA CDN 圖片 URL：ID 補滿 6 位數後切 3-3。"""
+                s = str(sid).zfill(6)
+                return f"https://cdn.sofifa.net/players/{s[:3]}/{s[3:6]}/{version}_{size}.png"
 
             # 整批建一個 HTML，用 CSS Grid 排列，交給 components.html 完整渲染
             cards_html = ""
@@ -2460,23 +2476,35 @@ elif page == "🌍 各國分析":
                         f'<span style="color:#e8e8e8;font-weight:700;width:22px;text-align:right;">{val}</span>'
                         f'</div>'
                     )
-                # player photo: sofifa CDN with initials fallback
+                # 球員頭像：SOFIFA CDN，未收錄者用姓名縮寫頭像（避免錯誤照片）
                 sid = SOFIFA_IDS.get(p['name'], 0)
                 initials = ''.join(w[0] for w in p['name'].replace('.','').split() if w)[:2].upper()
-                fallback_url = f"https://ui-avatars.com/api/?name={initials}&background=1a2a4a&color=f7c948&size=80&bold=true&rounded=true&length=2"
+                # ui-avatars 用 OVR 等級決定底色
+                avatar_bg = 'f7c948' if ovr >= 85 else ('00d4ff' if ovr >= 78 else '475569')
+                fallback_url = (
+                    f"https://ui-avatars.com/api/?name={initials}"
+                    f"&background={avatar_bg}&color=0a0a0f&size=120&bold=true&length=2"
+                )
                 if sid:
-                    photo_src = f"https://cdn.sofifa.net/players/{sid}/26_60.png"
+                    # 嘗試 FIFA 25 圖片，失敗則 fallback 到縮寫頭像
+                    # 多重 fallback：25 → 24 → 縮寫
+                    photo_src_25 = _sofifa_url(sid, 25, 120)
+                    photo_src_24 = _sofifa_url(sid, 24, 120)
                     photo_html = (
-                        f'<img src="{photo_src}" '
-                        f'onerror="this.onerror=null;this.src=\'{fallback_url}\';" '
-                        f'style="width:64px;height:64px;border-radius:50%;object-fit:cover;'
-                        f'border:2px solid rgba(247,201,72,0.4);margin-bottom:6px;">'
+                        f'<img src="{photo_src_25}" '
+                        f'onerror="this.onerror=function(){{this.onerror=null;this.src=\'{fallback_url}\';}};'
+                        f'this.src=\'{photo_src_24}\';" '
+                        f'style="width:72px;height:72px;border-radius:50%;object-fit:cover;'
+                        f'object-position:top;background:#0d1b2e;'
+                        f'border:3px solid #f7c948;margin-bottom:8px;'
+                        f'box-shadow:0 2px 8px rgba(247,201,72,0.3);">'
                     )
                 else:
                     photo_html = (
                         f'<img src="{fallback_url}" '
-                        f'style="width:64px;height:64px;border-radius:50%;object-fit:cover;'
-                        f'border:2px solid rgba(255,255,255,0.15);margin-bottom:6px;">'
+                        f'style="width:72px;height:72px;border-radius:50%;object-fit:cover;'
+                        f'border:3px solid rgba(255,255,255,0.2);margin-bottom:8px;'
+                        f'box-shadow:0 2px 8px rgba(0,0,0,0.4);">'
                     )
                 cards_html += (
                     f'<div style="background:linear-gradient(145deg,#1a2a4a,#0d1b2e);border:1px solid rgba(255,255,255,0.1);'
@@ -2496,7 +2524,12 @@ elif page == "🌍 各國分析":
                 f'<div style="display:grid;grid-template-columns:repeat({min(len(players),5)},1fr);gap:12px;">'
                 f'{cards_html}</div>'
             )
-            _components.html(full_html, height=460, scrolling=False)
+            _components.html(full_html, height=490, scrolling=False)
+            st.caption(
+                "📷 球員頭像來源：SOFIFA（FIFA 25 / EAFC 25 資料庫）。"
+                "未收錄的球員顯示英文姓名縮寫頭像（黃底=OVR ≥85，青底=78-84，灰底<78）。"
+                "若球員照片無法載入會自動 fallback 到縮寫頭像，避免顯示錯誤照片。"
+            )
 
 # ============================================================
 # PAGE 5: 球隊風格分群（v2.2 新增 — 滿足課程「分群」任務）
