@@ -1777,38 +1777,140 @@ elif page == "🔮 2026 預測":
 # ============================================================
 elif page == "📈 數據分析":
     st.title("📈 歷史數據分析")
-    st.markdown("**49,328 場真實國際比賽（1872-2026）**")
+    st.markdown(
+        "**49,328 場真實國際比賽（1872-2026）** ｜ 本頁透過歷史資料驗證"
+        "我們的模型假設：為什麼選 Poisson、為什麼用近 8 年、為什麼平局難預測。"
+    )
     st.markdown("---")
 
     match_df = load_match_data()
     wc = match_df[match_df['tournament'].str.contains('World Cup', na=False)]
 
+    # ============================================================
+    # 區塊 1：進球分佈 + Poisson 對比
+    # ============================================================
+    st.subheader("📊 區塊一：世界盃進球分佈 — Poisson 假設驗證")
+    st.markdown(
+        "**為什麼選擇 Poisson 模型？** 足球進球是「稀疏隨機事件」典型範例："
+        "射門次數高但成功率低，符合 Poisson 分佈的數學前提。"
+    )
+
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader("⚽ 世界盃進球分佈")
         all_g = pd.concat([wc['home_score'], wc['away_score']])
-        fig = px.histogram(all_g, nbins=9, title="進球數分佈",
-                          labels={'value': '進球數', 'count': '場次'},
-                          color_discrete_sequence=['#3366cc'])
-        fig.update_layout(bargap=0.1)
-        st.plotly_chart(fig, use_container_width=True)
+        # 計算實際分佈和 Poisson 理論分佈
+        from scipy.stats import poisson as scipy_poisson
+        mean_goals = float(all_g.mean())
+        max_g = min(7, int(all_g.max()))
+        actual_dist = all_g[all_g <= max_g].value_counts(normalize=True).sort_index()
+        theoretical_dist = [scipy_poisson.pmf(k, mean_goals) for k in range(max_g + 1)]
+        compare_df = pd.DataFrame({
+            '進球數': list(range(max_g + 1)),
+            '實際比例': [actual_dist.get(k, 0) for k in range(max_g + 1)],
+            'Poisson理論': theoretical_dist,
+        })
+        fig_dist = go.Figure()
+        fig_dist.add_trace(go.Bar(name='實際比例', x=compare_df['進球數'],
+                                   y=compare_df['實際比例'], marker_color='#3366cc'))
+        fig_dist.add_trace(go.Scatter(name=f'Poisson(λ={mean_goals:.2f})',
+                                       x=compare_df['進球數'], y=compare_df['Poisson理論'],
+                                       mode='lines+markers', line=dict(color='#f7c948', width=3),
+                                       marker=dict(size=10)))
+        fig_dist.update_layout(
+            title=f"世界盃單隊進球分佈（{len(all_g):,} 個樣本）",
+            xaxis_title='單場進球數', yaxis_title='出現比例',
+            height=380, legend=dict(x=0.55, y=0.95),
+        )
+        st.plotly_chart(fig_dist, use_container_width=True)
 
     with c2:
-        st.subheader("📅 每場平均進球趨勢")
-        yearly = match_df[match_df['year'] >= 1970].groupby('year').agg(
-            total=('home_score', lambda x: x.sum() + match_df.loc[x.index, 'away_score'].sum()),
-            count=('home_score', 'count')
+        st.markdown("##### 💡 重點解讀")
+        # 關鍵統計
+        zero_pct = (all_g == 0).mean()
+        one_pct = (all_g == 1).mean()
+        two_pct = (all_g == 2).mean()
+        rare_pct = (all_g >= 4).mean()
+        st.markdown(
+            f"**關鍵統計（{len(all_g):,} 個單隊進球記錄）：**\n\n"
+            f"- 進 0 球：**{zero_pct:.1%}** — 進攻無功而返的常態\n"
+            f"- 進 1 球：**{one_pct:.1%}** — 最高頻次\n"
+            f"- 進 2 球：**{two_pct:.1%}** — 第二高頻次\n"
+            f"- 進 ≥4 球：**{rare_pct:.1%}** — 罕見爆發\n\n"
+            f"**平均進球（λ）：{mean_goals:.2f}**\n\n"
+            "---\n\n"
+            "**📌 為什麼這對模型重要？**\n"
+            "1. 藍色柱（實際）幾乎貼合金線（Poisson 理論）→ "
+            "證實足球進球符合 Poisson 分佈\n"
+            "2. **這就是我們用 `Poisson(λ)` 計算每個比分機率的數學基礎**\n"
+            "3. 進球數高度集中在 0-2 球 → 1-1、1-0、2-1 是最常見比分\n"
+            "4. 4+ 球極罕見 → 模型 0-7 進球範圍涵蓋 99.9%+ 機率"
         )
-        yearly['avg'] = yearly['total'] / yearly['count']
-        yearly = yearly.reset_index()
-        fig = px.line(yearly, x='year', y='avg', title='每場平均總進球（1970年至今）',
-                     labels={'year': '年份', 'avg': '平均進球'})
-        st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
-    st.subheader("🏆 各屆世界盃參賽球隊實力（2026分組）")
 
-    # 2026球隊的歷史表現
+    # ============================================================
+    # 區塊 2：進球趨勢
+    # ============================================================
+    st.subheader("📈 區塊二：每場平均進球趨勢 — 為何只用近 8 年？")
+    st.markdown(
+        "**現代足球與歷史足球差距巨大**：戰術、體能、規則持續演化。"
+        "用 1950s 的進球數據預測 2026 會嚴重失準。"
+    )
+
+    yearly = match_df[match_df['year'] >= 1970].groupby('year').agg(
+        total=('home_score', lambda x: x.sum() + match_df.loc[x.index, 'away_score'].sum()),
+        count=('home_score', 'count')
+    )
+    yearly['avg'] = yearly['total'] / yearly['count']
+    yearly = yearly.reset_index()
+    # 加 8 年滾動平均
+    yearly['avg_8yr'] = yearly['avg'].rolling(window=8, center=True).mean()
+
+    c3, c4 = st.columns([2, 1])
+    with c3:
+        fig_trend = go.Figure()
+        fig_trend.add_trace(go.Scatter(name='年均進球', x=yearly['year'], y=yearly['avg'],
+                                        mode='lines+markers', line=dict(color='#3366cc', width=1.5),
+                                        marker=dict(size=5), opacity=0.6))
+        fig_trend.add_trace(go.Scatter(name='8 年滾動平均', x=yearly['year'], y=yearly['avg_8yr'],
+                                        mode='lines', line=dict(color='#e94560', width=3)))
+        fig_trend.update_layout(
+            title="每場平均總進球（1970-2025）",
+            xaxis_title='年份', yaxis_title='場均總進球',
+            height=380, legend=dict(x=0.02, y=0.05),
+        )
+        st.plotly_chart(fig_trend, use_container_width=True)
+
+    with c4:
+        st.markdown("##### 💡 重點解讀")
+        recent_avg = yearly[yearly['year'] >= 2018]['avg'].mean()
+        old_avg = yearly[(yearly['year'] >= 1970) & (yearly['year'] < 1990)]['avg'].mean()
+        st.markdown(
+            f"**1970-1989 平均**：{old_avg:.2f} 球/場\n\n"
+            f"**2018-2025 平均**：{recent_avg:.2f} 球/場\n\n"
+            f"**差距**：{(recent_avg - old_avg):+.2f} 球\n\n"
+            "---\n\n"
+            "**📌 模型設計決策**\n"
+            f"- `compute_team_strength()` 只取最近 **8 年** 資料\n"
+            f"- 加入 **時間衰減權重** `exp(-0.1 × 年數)`：\n"
+            f"  - 1 年前的權重 = 0.90\n"
+            f"  - 5 年前 = 0.61\n"
+            f"  - 8 年前 = 0.45\n"
+            f"- → 越近期的比賽對 λ 影響越大\n"
+            f"- → 避免用過時數據誤判球隊現況"
+        )
+
+    st.markdown("---")
+
+    # ============================================================
+    # 區塊 3：球隊實力分組
+    # ============================================================
+    st.subheader("🏆 區塊三：各組球隊實力對比 — 死亡之組在哪？")
+    st.markdown(
+        "**各組強度不均** 是世界盃常態。下表按組別排序，"
+        "可一眼看出哪些組擁有多支強隊（死亡之組），哪些組相對輕鬆。"
+    )
+
     team_hist = []
     for g, teams in WC_2026_GROUPS.items():
         for t in teams:
@@ -1820,35 +1922,83 @@ elif page == "📈 數據分析":
                 '組別': g,
                 '勝率': f"{s['win_rate']:.1%}",
                 '場均進球': f"{s['avg_goals']:.2f}",
-                '場次': s['matches']
+                '場次': s['matches'],
+                '_win': s['win_rate'],
             })
 
-    hist_df = pd.DataFrame(team_hist).sort_values(['組別', '勝率'], ascending=[True, False])
-    st.dataframe(hist_df, use_container_width=True, hide_index=True)
+    hist_df_full = pd.DataFrame(team_hist)
+    # 計算每組總勝率（用於識別死亡之組）
+    group_stats = hist_df_full.groupby('組別').agg(
+        平均勝率=('_win', 'mean'),
+        最強隊勝率=('_win', 'max'),
+        強隊數=('_win', lambda x: (x > 0.50).sum()),
+    ).reset_index().sort_values('平均勝率', ascending=False)
+
+    c5, c6 = st.columns([1, 1])
+    with c5:
+        st.markdown("**📋 各隊歷史實力（按組分類）**")
+        hist_df = hist_df_full.drop('_win', axis=1).sort_values(['組別', '勝率'], ascending=[True, False])
+        st.dataframe(hist_df, use_container_width=True, hide_index=True, height=400)
+
+    with c6:
+        st.markdown("**🔥 死亡之組排行**")
+        group_stats_display = group_stats.copy()
+        group_stats_display['平均勝率'] = group_stats_display['平均勝率'].apply(lambda x: f"{x:.1%}")
+        group_stats_display['最強隊勝率'] = group_stats_display['最強隊勝率'].apply(lambda x: f"{x:.1%}")
+        st.dataframe(group_stats_display, use_container_width=True, hide_index=True, height=400)
+
+    deadly_groups = group_stats.head(3)['組別'].tolist()
+    easy_groups = group_stats.tail(3)['組別'].tolist()
+    st.markdown(
+        f"##### 💡 解讀\n"
+        f"- **死亡之組（強隊密集）**：Group **{', '.join(deadly_groups)}** — "
+        f"平均勝率最高、強隊數多 → 出線競爭最激烈\n"
+        f"- **輕鬆之組（強弱懸殊）**：Group **{', '.join(easy_groups)}** — "
+        f"強隊容易壓制 → 出線機率高度傾斜\n"
+        f"- **模型意義**：Monte Carlo 模擬 10,000 次小組賽時，死亡之組的「黑馬出線」"
+        f"次數會明顯偏高，反映真實不確定性"
+    )
 
     # ── 模型評估區塊（v2.3 新增）──
     st.markdown("---")
-    st.subheader("🎯 XGBoost 模型評估（2022 WC 測試集）")
+    st.subheader("🔬 區塊四：XGBoost 模型評估（2022 WC 測試集）")
+    st.markdown(
+        "**這裡回答一個關鍵問題：你的模型到底準不準？** "
+        "我們用 2022 卡達世界盃小組賽當「未見過」的測試集，"
+        "5 個面向徹底評估模型表現：整體準確率、各類別表現、機率可信度、特徵貢獻、統計顯著性。"
+    )
     em = load_eval_metrics()
     if em is None:
         st.info("⚠️ 找不到 models/eval_metrics.pkl，請先在本機跑 `python pretrain.py` 產生評估數據。")
     else:
         _acc = em['accuracy']
         _n = em['n_test']
-        st.markdown(
-            f"測試集：**2022 世界盃小組賽** · 共 **{_n}** 場 · "
-            f"整體準確率 **{_acc:.1%}**（三向分類：主隊勝 / 平 / 主隊負）"
-        )
+        # 概覽 metrics
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            st.metric("測試集場數", f"{_n} 場", help="2022 卡達世界盃小組賽全部比賽")
+        with col_b:
+            st.metric("整體準確率", f"{_acc:.1%}",
+                      delta=f"+{_acc-0.333:.1%} vs 隨機 33.3%",
+                      help="三分類問題中，模型答對的比例")
+        with col_c:
+            st.metric("隨機猜測基準", "33.3%",
+                      help="三向（勝/平/負）隨機猜測的理論準確率")
+        st.markdown("")
         tab_cm, tab_roc, tab_cal, tab_fi, tab_fisher = st.tabs(
             ["📊 混淆矩陣", "📈 ROC 曲線", "🎚 校準曲線", "🔍 特徵重要性", "🧪 費雪檢定"]
         )
 
         # ── Tab 1: Confusion Matrix ──
         with tab_cm:
+            st.markdown(
+                "**📊 圖表意義**：混淆矩陣（Confusion Matrix）是分類問題的「成績單」。"
+                "Y 軸是「實際結果」，X 軸是「模型預測結果」。**對角線格子代表預測正確**，"
+                "其他格子是錯誤類型。"
+            )
             cm_data = em['cm']
             lbls = em['labels_name']
             import plotly.graph_objects as _go
-            # 標準化為百分比（row-wise）
             cm_norm = [[round(v / max(sum(row), 1) * 100, 1) for v in row] for row in cm_data]
             text_vals = [
                 [f"{cm_data[i][j]}<br>({cm_norm[i][j]}%)" for j in range(3)]
@@ -1869,13 +2019,36 @@ elif page == "📈 數據分析":
                 height=420,
             )
             st.plotly_chart(fig_cm, use_container_width=True)
-            st.caption("格子內：場數（列百分比）。對角線為預測正確；主要誤差在平局辨識。")
+            # 計算每類正確率
+            cm_arr_local = np.array(cm_data)
+            lose_recall = cm_arr_local[0, 0] / max(cm_arr_local[0, :].sum(), 1)
+            draw_recall = cm_arr_local[1, 1] / max(cm_arr_local[1, :].sum(), 1)
+            win_recall = cm_arr_local[2, 2] / max(cm_arr_local[2, :].sum(), 1)
+            st.markdown(
+                f"##### 💡 逐類別解讀\n"
+                f"- **主隊負**：實際發生 {int(cm_arr_local[0,:].sum())} 場，"
+                f"模型答對 {int(cm_arr_local[0,0])} 場（**{lose_recall:.0%} Recall**）\n"
+                f"- **平局**：實際發生 {int(cm_arr_local[1,:].sum())} 場，"
+                f"模型答對 {int(cm_arr_local[1,1])} 場（**{draw_recall:.0%} Recall**）"
+                f" ← 最難預測\n"
+                f"- **主隊勝**：實際發生 {int(cm_arr_local[2,:].sum())} 場，"
+                f"模型答對 {int(cm_arr_local[2,2])} 場（**{win_recall:.0%} Recall**）\n\n"
+                f"**📌 為什麼平局最難預測？** 平局發生在兩隊實力接近時，模型看到「勢均力敵」"
+                f"的特徵反而會傾向猜「強勢方獲勝」。這是足球預測的世界性難題，所有商業博弈"
+                f"公司也都有此問題。"
+            )
 
         # ── Tab 2: ROC 曲線 ──
         with tab_roc:
+            st.markdown(
+                "**📈 圖表意義**：ROC 曲線（Receiver Operating Characteristic）衡量「機率排序能力」。"
+                "曲線越向左上方靠近 = 模型越能把「真正會發生的類別」排在「不會發生的類別」前面。"
+                "**AUC（曲線下面積）** 是核心指標：1.0 = 完美、0.5 = 隨機猜測、< 0.5 = 比隨機還差。"
+            )
             import plotly.graph_objects as _go2
             fig_roc = _go2.Figure()
             colors_roc = ['#e94560', '#0f6e6e', '#3366cc']
+            auc_summary = []
             for idx, (name, rd) in enumerate(em['roc'].items()):
                 fig_roc.add_trace(_go2.Scatter(
                     x=rd['fpr'], y=rd['tpr'],
@@ -1883,23 +2056,57 @@ elif page == "📈 數據分析":
                     name=f"{name} (AUC = {rd['auc']:.2f})",
                     line=dict(width=2.5, color=colors_roc[idx % 3]),
                 ))
+                auc_summary.append((name, rd['auc']))
             fig_roc.add_trace(_go2.Scatter(
                 x=[0, 1], y=[0, 1], mode='lines',
                 line=dict(dash='dash', color='gray', width=1),
-                showlegend=False,
+                showlegend=False, name='隨機基準',
             ))
             fig_roc.update_layout(
                 title="ROC 曲線 — 一對多（2022 世界盃測試集）",
-                xaxis_title="假陽性率",
-                yaxis_title="真陽性率",
+                xaxis_title="假陽性率 (False Positive Rate)",
+                yaxis_title="真陽性率 (True Positive Rate)",
                 height=420,
-                legend=dict(x=0.62, y=0.08),
+                legend=dict(x=0.55, y=0.10),
             )
             st.plotly_chart(fig_roc, use_container_width=True)
-            st.caption("AUC > 0.7 表示模型對各類別有明顯鑑別力；平局 AUC 最低，符合足球平局難預測的直覺。")
+            # AUC 解讀
+            class_cn_roc = {'Team1 Lose': '主隊負', 'Draw': '平局', 'Team1 Win': '主隊勝'}
+            auc_lines = []
+            for name, auc_v in auc_summary:
+                cn = class_cn_roc.get(name, name)
+                if auc_v >= 0.8:
+                    rating = "🟢 優秀"
+                elif auc_v >= 0.7:
+                    rating = "🟡 良好"
+                elif auc_v >= 0.6:
+                    rating = "🟠 可接受"
+                else:
+                    rating = "🔴 偏弱"
+                auc_lines.append(f"- **{cn}** AUC = {auc_v:.2f} {rating}")
+            st.markdown(
+                "##### 💡 各類別 AUC 評等\n"
+                + "\n".join(auc_lines)
+                + "\n\n**📌 AUC 判讀標準**\n"
+                "| AUC 範圍 | 鑑別力 |\n"
+                "|---------|--------|\n"
+                "| 0.90+ | 出色（極少在運動預測達到）|\n"
+                "| 0.80-0.89 | 優秀 |\n"
+                "| 0.70-0.79 | 良好 |\n"
+                "| 0.60-0.69 | 可接受 |\n"
+                "| < 0.60 | 偏弱 |\n\n"
+                "**為何平局 AUC 通常最低？** 平局沒有清晰的「特徵指紋」— "
+                "強隊互踢可能平局、弱隊互踢也可能平局。模型很難用單一特徵集鎖定平局。"
+            )
 
         # ── Tab 3: Calibration ──
         with tab_cal:
+            st.markdown(
+                "**🎚 圖表意義**：校準曲線（Calibration Plot）檢驗「**機率本身可不可信**」。"
+                "當模型說「主隊有 70% 勝率」時，這 70% 是真實機率還是亂喊的？\n\n"
+                "**完美校準的模型**：所有預測機率 70% 的場次，最終真的有約 70% 是主隊贏。"
+                "圖中的對角虛線就是「完美校準」。"
+            )
             import plotly.graph_objects as _go3
             cal = em['calibration']
             fig_cal = _go3.Figure()
@@ -1908,7 +2115,7 @@ elif page == "📈 數據分析":
                 mode='lines+markers',
                 name='XGBoost（勝）',
                 line=dict(color='#e94560', width=2.5),
-                marker=dict(size=8),
+                marker=dict(size=10),
             ))
             fig_cal.add_trace(_go3.Scatter(
                 x=[0, 1], y=[0, 1], mode='lines',
@@ -1917,32 +2124,89 @@ elif page == "📈 數據分析":
             ))
             fig_cal.update_layout(
                 title="校準曲線 — 主隊勝類別",
-                xaxis_title="預測機率",
-                yaxis_title="實際頻率",
+                xaxis_title="預測機率（模型說有 X% 機率主隊贏）",
+                yaxis_title="實際頻率（這些場次中真的有 Y% 主隊贏）",
                 height=420,
                 xaxis=dict(range=[0, 1]),
                 yaxis=dict(range=[0, 1]),
             )
             st.plotly_chart(fig_cal, use_container_width=True)
-            st.caption("點越靠近對角虛線，機率預測越可靠。偏上方表示模型預測偏保守（低估勝率），偏下方則過度自信。")
+            # 計算 Brier score 或 ECE
+            try:
+                import numpy as _np
+                pred = _np.array(cal['prob_pred'])
+                true = _np.array(cal['prob_true'])
+                ece = _np.mean(_np.abs(pred - true))
+                if ece < 0.05:
+                    rating = "🟢 校準極佳 (ECE < 5%)"
+                elif ece < 0.10:
+                    rating = "🟡 校準良好 (ECE < 10%)"
+                else:
+                    rating = "🟠 校準偏差較大 (ECE ≥ 10%)"
+            except Exception:
+                ece = None; rating = "—"
+            st.markdown(
+                f"##### 💡 校準診斷\n"
+                + (f"- **預期校準誤差（ECE）**：{ece:.3f} {rating}\n\n" if ece is not None else "")
+                + "**📌 如何讀圖**\n"
+                "- **紅線在對角線上**：完美 — 預測機率 = 實際發生機率\n"
+                "- **紅線在對角線上方**：保守 — 模型低估勝率（實際比預測高）\n"
+                "- **紅線在對角線下方**：過度自信 — 模型高估勝率（實際比預測低）\n\n"
+                "**📌 為什麼校準很重要？**\n"
+                "對於 Monte Carlo 模擬 10,000 次比賽來說，機率值的「絕對水平」必須準。"
+                "如果模型把 70% 都喊成 90%，10,000 次模擬出來的奪冠分布會嚴重失真。"
+                "校準曲線確保我們的機率「按字面值」可信。"
+            )
 
         # ── Tab 4: Feature Importance ──
         with tab_fi:
+            st.markdown(
+                "**🔍 圖表意義**：特徵重要性（Feature Importance）告訴你「**模型最在意什麼**」。"
+                "XGBoost 的 `gain` 指標衡量每個特徵在所有決策樹分裂節點上「資訊增益」的總和。\n\n"
+                "**白話：分數越高 = 模型越靠這個特徵做判斷**。"
+            )
             import plotly.graph_objects as _go4
             fi = em['feature_importance']
             fig_fi = _go4.Figure(_go4.Bar(
                 x=fi['values'], y=fi['features'],
                 orientation='h',
                 marker_color='#3366cc',
+                text=[f"{v:.1f}" for v in fi['values']],
+                textposition='outside',
             ))
             fig_fi.update_layout(
                 title="特徵重要性（XGBoost gain）",
                 xaxis_title="重要性分數",
-                height=max(350, len(fi['features']) * 28),
-                margin=dict(l=160),
+                height=max(350, len(fi['features']) * 32),
+                margin=dict(l=180),
             )
             st.plotly_chart(fig_fi, use_container_width=True)
-            st.caption("數值越高代表該特徵對模型決策影響越大。FIFA 排名差距（rank_diff）通常是最強預測因子。")
+            # 找出 top 3 特徵
+            top_features = sorted(zip(fi['features'], fi['values']),
+                                  key=lambda x: x[1], reverse=True)[:3]
+            feat_translation = {
+                'rank_diff': 'FIFA 積分差', 'pts_diff': 'FIFA 積分差',
+                'win_rate_diff': '勝率差', 'avg_goals_diff': '場均進球差',
+                'avg_conceded_diff': '場均失球差', 'goal_diff_diff': '淨勝球差',
+                'matches_diff': '出賽場數差', 'rank1': '球隊1 FIFA 積分',
+                'rank2': '球隊2 FIFA 積分', 'fifa_pts_diff': 'FIFA 積分差',
+                'confed_diff': '足聯差', 'recent_form_diff': '近期狀態差',
+            }
+            top_lines = []
+            for name, val in top_features:
+                cn = feat_translation.get(name, name)
+                top_lines.append(f"- **{name}** ({cn}) — 重要性 {val:.1f}")
+            st.markdown(
+                "##### 💡 Top 3 最有影響力的特徵\n"
+                + "\n".join(top_lines)
+                + "\n\n**📌 為什麼 FIFA 排名差距通常排第一？**\n"
+                "FIFA 排名濃縮了一支球隊「過去 4 年所有國際賽」的結果，是最強的「綜合實力指標」。"
+                "兩隊積分差距越大，比賽結果越容易預測。\n\n"
+                "**📌 怎麼解讀低分特徵？**\n"
+                "不代表沒用！XGBoost 的 gain 會把高度相關的特徵分散權重。"
+                "例如「勝率差」和「FIFA 積分差」高度相關，模型只會主要依賴其中一個，"
+                "另一個的 gain 就會偏低。"
+            )
 
         # ── Tab 5: Fisher's Exact Test ──
         with tab_fisher:
