@@ -304,7 +304,7 @@ SQUAD_DATA = {
         {'name':'D. Sánchez',   'pos':'RB', 'age':27,'club':'Toulouse',     'ovr':78,'pac':82,'sho':54,'pas':70,'dri':72,'def':74,'phy':68},
         {'name':'L. Díaz',      'pos':'LW', 'age':27,'club':'Liverpool',    'ovr':85,'pac':91,'sho':80,'pas':76,'dri':87,'def':36,'phy':72},
         {'name':'J. Cuadrado',  'pos':'RW', 'age':36,'club':'Inter Miami',  'ovr':80,'pac':82,'sho':72,'pas':78,'dri':82,'def':50,'phy':66},
-        {'name':'R. Falcao',    'pos':'ST', 'age':39,'club':'Rayo Vallecano','ovr':78,'pac':62,'sho':84,'pas':68,'dri':72,'def':26,'phy':72},
+        {'name':'J. Durán',     'pos':'ST', 'age':21,'club':'Aston Villa',   'ovr':77,'pac':80,'sho':81,'pas':60,'dri':74,'def':24,'phy':78},
     ],
     'Uzbekistan': [
         {'name':'I. Nematov',   'pos':'GK', 'age':29,'club':'Pakhtakor',    'ovr':68,'pac':34,'sho':8, 'pas':44,'dri':30,'def':64,'phy':62},

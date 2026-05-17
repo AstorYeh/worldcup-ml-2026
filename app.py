@@ -144,7 +144,7 @@ TEAM_INFO = {
     'Bosnia and Herzegovina': {'flag': '🇧🇦', 'iso': 'ba', 'cn': '波赫',   'en': 'Bosnia',          'fifa_rank': 50, 'fifa_pts': 1402},
     # === GROUP C ===
     'Brazil':         {'flag': '🇧🇷', 'iso': 'br', 'cn': '巴西',           'en': 'Brazil',          'fifa_rank': 5,  'fifa_pts': 1819},
-    'Morocco':        {'flag': '🇲🇦', 'iso': 'ma', 'cn': '摩洛哥',         'en': 'Morocco',         'fifa_rank': 11, 'fifa_pts': 1735},
+    'Morocco':        {'flag': '🇲🇦', 'iso': 'ma', 'cn': '摩洛哥',         'en': 'Morocco',         'fifa_rank': 14, 'fifa_pts': 1720},
     'Scotland':       {'flag': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'iso': 'gb-sct', 'cn': '蘇格蘭', 'en': 'Scotland',      'fifa_rank': 52, 'fifa_pts': 1390},
     'Haiti':          {'flag': '🇭🇹', 'iso': 'ht', 'cn': '海地',           'en': 'Haiti',           'fifa_rank': 86, 'fifa_pts': 1279},
     # === GROUP D ===
@@ -320,33 +320,16 @@ def compute_team_strength(df, team, year, years_back=8):
     if len(team_matches) == 0:
         return {'win_rate': 0.35, 'draw_rate': 0.25, 'avg_goals': 1.2, 'avg_conceded': 1.3, 'matches': 0}
 
-    results = []
-    for _, row in team_matches.iterrows():
-        if row['home_team'] == team:
-            gf, ga = row['home_score'], row['away_score']
-        else:
-            gf, ga = row['away_score'], row['home_score']
+    is_home = team_matches['home_team'] == team
+    gf = np.where(is_home, team_matches['home_score'], team_matches['away_score'])
+    ga = np.where(is_home, team_matches['away_score'], team_matches['home_score'])
+    weight = np.exp(-0.1 * (year - team_matches['year']))
+    total_weight = weight.sum()
 
-        years_ago = year - row['year']
-        weight = np.exp(-0.1 * years_ago)  # 時間衰減
-
-        if gf > ga:
-            results.append({'result': 'W', 'gf': gf, 'ga': ga, 'weight': weight})
-        elif gf == ga:
-            results.append({'result': 'D', 'gf': gf, 'ga': ga, 'weight': weight})
-        else:
-            results.append({'result': 'L', 'gf': gf, 'ga': ga, 'weight': weight})
-
-    if not results:
-        return {'win_rate': 0.35, 'draw_rate': 0.25, 'avg_goals': 1.2, 'avg_conceded': 1.3, 'matches': 0}
-
-    res_df = pd.DataFrame(results)
-    total_weight = res_df['weight'].sum()
-
-    win_rate = res_df[res_df['result'] == 'W']['weight'].sum() / total_weight
-    draw_rate = res_df[res_df['result'] == 'D']['weight'].sum() / total_weight
-    avg_goals = (res_df['gf'] * res_df['weight']).sum() / total_weight
-    avg_conceded = (res_df['ga'] * res_df['weight']).sum() / total_weight
+    win_rate = weight[gf > ga].sum() / total_weight
+    draw_rate = weight[gf == ga].sum() / total_weight
+    avg_goals = (gf * weight).sum() / total_weight
+    avg_conceded = (ga * weight).sum() / total_weight
 
     return {
         'win_rate': win_rate,
@@ -364,9 +347,11 @@ def compute_recent_form(df, team, year):
     ]
     if len(recent) == 0:
         return 0.35
-    wins = sum(1 for _, row in recent.iterrows() if
-               (row['home_team'] == team and row['home_score'] > row['away_score']) or
-               (row['away_team'] == team and row['away_score'] > row['home_score']))
+    is_home = recent['home_team'] == team
+    wins = (
+        (is_home & (recent['home_score'] > recent['away_score'])) |
+        (~is_home & (recent['away_score'] > recent['home_score']))
+    ).sum()
     return wins / len(recent)
 
 def compute_knockout_exp(df, team):
@@ -476,7 +461,7 @@ def _make_wc_dataset_v2(match_df, fifa_df, year):
                         'gf': gf, 'ga': ga,
                         'team1': t1, 'team2': t2,
                     })
-                except:
+                except Exception:
                     continue
     return samples
 
@@ -513,7 +498,7 @@ def _make_all_intl_dataset(match_df, fifa_df, year, years_back=8):
                 'gf': gf, 'ga': ga,
                 'team1': t1, 'team2': t2,
             })
-        except:
+        except Exception:
             continue
     return samples
 
@@ -544,7 +529,7 @@ def _make_wc_dataset(match_df, year):
                         'label': 0 if gf < ga else (1 if gf == ga else 2),  # 0=輸,1=平,2=贏
                         'gf': gf, 'ga': ga
                     })
-                except:
+                except Exception:
                     continue
     return samples
 
@@ -895,8 +880,9 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
         return t1 if np.random.random() < p_t1_wins else t2
 
     for _ in range(n_sims):
-        # ── 小組賽（本次模擬的晉級隊伍） ──
-        sim_qualifiers = []   # 本次模擬晉級的24隊（每組前2）
+        # ── 小組賽：取各組前2晉級 + 記錄各組第3名 ──
+        sim_qualifiers = []
+        third_place_info = []  # (pts, team) 各組第3名
         for g, teams in WC_2026_GROUPS.items():
             pts = {t: 0 for t in teams}
             for i, t1 in enumerate(teams):
@@ -906,19 +892,13 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
             sorted_pts = sorted(pts.items(), key=lambda x: x[1], reverse=True)
             qualifiers = [t for t, _ in sorted_pts[:2]]
             sim_qualifiers.extend(qualifiers)
-            win_count[qualifiers[0]] += 1   # 統計小組第一次數（跨模擬累計）
+            win_count[qualifiers[0]] += 1
+            third_team, third_pts = sorted_pts[2]
+            third_place_info.append((third_pts, third_team))
 
-        # 2026 世界盃共 32 強（24支小組前2 + 8支最佳第3名）
-        # 簡化：取全部24支晉級隊，再加8支第3名中實力最強者
-        third_place = []
-        for g, teams in WC_2026_GROUPS.items():
-            pts = {t: 0 for t in teams}
-            # 用 sim_qualifiers 反推第3名（實際上再算一次小組積分）
-            # 簡化：直接從各組剩餘隊伍中取積分最高者
-        # 簡化方案：隨機補足至32強（讓所有小組第3名競爭）
-        remaining = [t for t in all_teams if t not in sim_qualifiers]
-        np.random.shuffle(remaining)
-        bracket = sim_qualifiers + remaining[:8]  # 24 + 8 = 32
+        # 2026 世界盃：24支小組前2 + 8支最佳第3名（按積分排序）= 32強
+        best_thirds = sorted(third_place_info, reverse=True)[:8]
+        bracket = sim_qualifiers + [t for _, t in best_thirds]
         np.random.shuffle(bracket)
 
         # ── 淘汰賽 R32 → R16 → QF → SF → Final ──
