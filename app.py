@@ -1389,43 +1389,89 @@ elif page == "🔮 2026 預測":
                 with det_c1:
                     st.markdown("**⚔️ 球隊實力對比（近8年）**")
                     s1, s2 = r['s1'], r['s2']
-                    metrics = {
-                        '勝率': (s1['win_rate'], s2['win_rate'], '{:.1%}'),
-                        '場均進球': (s1['avg_goals'], s2['avg_goals'], '{:.2f}'),
-                        '場均失球': (s1['avg_conceded'], s2['avg_conceded'], '{:.2f}'),
-                        '平局率': (s1['draw_rate'], s2['draw_rate'], '{:.1%}'),
-                    }
+                    # (label, v1, v2, fmt, direction)
+                    # direction: 'high' = 高者較強, 'low' = 低者較強, 'neutral' = 無方向
+                    metrics_list = [
+                        ('勝率',     s1['win_rate'],     s2['win_rate'],     '{:.1%}', 'high'),
+                        ('場均進球', s1['avg_goals'],    s2['avg_goals'],    '{:.2f}', 'high'),
+                        ('場均失球', s1['avg_conceded'], s2['avg_conceded'], '{:.2f}', 'low'),
+                        ('平局率',   s1['draw_rate'],    s2['draw_rate'],    '{:.1%}', 'neutral'),
+                    ]
+                    # 高對比配色：暖橘紅 vs 亮青綠（深底辨識度高）
+                    C1 = '#ff5e6c'   # 球隊1（暖紅）
+                    C2 = '#4cd9d9'   # 球隊2（青綠）
+                    WIN = '#a3e635'  # 較強標記（檸檬綠）
+
                     fig_bar = go.Figure()
-                    cats = list(metrics.keys())
-                    # normalize to 0-1 per metric for radar-like bar
-                    v1s = [metrics[c][0] for c in cats]
-                    v2s = [metrics[c][1] for c in cats]
-                    fig_bar.add_trace(go.Bar(name=info1['cn'], x=cats, y=v1s,
-                                             marker_color='#e94560', opacity=0.85))
-                    fig_bar.add_trace(go.Bar(name=info2['cn'], x=cats, y=v2s,
-                                             marker_color='#0099cc', opacity=0.85))
+                    cats = [m[0] for m in metrics_list]
+                    v1s = [m[1] for m in metrics_list]
+                    v2s = [m[2] for m in metrics_list]
+                    fig_bar.add_trace(go.Bar(
+                        name=info1['cn'], x=cats, y=v1s,
+                        marker=dict(color=C1, line=dict(color='#ffffff', width=0.5)),
+                    ))
+                    fig_bar.add_trace(go.Bar(
+                        name=info2['cn'], x=cats, y=v2s,
+                        marker=dict(color=C2, line=dict(color='#ffffff', width=0.5)),
+                    ))
                     fig_bar.update_layout(
                         barmode='group', height=260,
-                        margin=dict(l=0, r=0, t=20, b=0),
-                        legend=dict(orientation='h', y=1.1),
+                        margin=dict(l=0, r=0, t=30, b=0),
+                        legend=dict(orientation='h', y=1.12, font=dict(color='#f0f0f0', size=12)),
                         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='#ccc'),
-                        yaxis=dict(gridcolor='rgba(255,255,255,0.08)')
+                        font=dict(color='#e0e0e0'),
+                        xaxis=dict(tickfont=dict(color='#e0e0e0', size=11)),
+                        yaxis=dict(gridcolor='rgba(255,255,255,0.08)',
+                                   tickfont=dict(color='#aaa')),
                     )
                     st.plotly_chart(fig_bar, use_container_width=True)
-                    # 數字表
-                    for label, (v1, v2, fmt) in metrics.items():
-                        better = info1['cn'] if v1 >= v2 else info2['cn']
+
+                    # 數字表：較強值高亮 + 方向標示
+                    for label, v1, v2, fmt, direction in metrics_list:
+                        if direction == 'high':
+                            t1_better = v1 > v2
+                        elif direction == 'low':
+                            t1_better = v1 < v2
+                        else:
+                            t1_better = None
+                        # 樣式：勝出值套底色，輸的值灰階
+                        if t1_better is True:
+                            v1_html = (f"<span style='background:rgba(163,230,53,0.18);"
+                                       f"color:{WIN};padding:1px 8px;border-radius:4px;"
+                                       f"font-weight:800'>{fmt.format(v1)}</span>")
+                            v2_html = f"<span style='color:#8899aa'>{fmt.format(v2)}</span>"
+                        elif t1_better is False:
+                            v1_html = f"<span style='color:#8899aa'>{fmt.format(v1)}</span>"
+                            v2_html = (f"<span style='background:rgba(163,230,53,0.18);"
+                                       f"color:{WIN};padding:1px 8px;border-radius:4px;"
+                                       f"font-weight:800'>{fmt.format(v2)}</span>")
+                        else:
+                            v1_html = f"<span style='color:{C1};font-weight:700'>{fmt.format(v1)}</span>"
+                            v2_html = f"<span style='color:{C2};font-weight:700'>{fmt.format(v2)}</span>"
+                        dir_tag = ('▲ 高者強' if direction == 'high'
+                                   else '▼ 低者強' if direction == 'low' else '— 中性')
+                        dir_color = ('#a3e635' if direction == 'high'
+                                     else '#f7c948' if direction == 'low' else '#7a8aa0')
                         st.markdown(
-                            f"<div style='display:flex;justify-content:space-between;font-size:0.85rem;"
-                            f"padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.06)'>"
-                            f"<span style='color:#aaa'>{label}</span>"
-                            f"<span><b style='color:#e94560'>{fmt.format(v1)}</b>"
-                            f" &nbsp;/&nbsp; <b style='color:#0099cc'>{fmt.format(v2)}</b></span>"
+                            f"<div style='display:grid;grid-template-columns:1fr auto auto auto auto;"
+                            f"gap:8px;align-items:center;font-size:0.88rem;"
+                            f"padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06)'>"
+                            f"<span style='color:#cfd6e0;font-weight:600'>{label}</span>"
+                            f"<span style='font-size:0.66rem;color:{dir_color};white-space:nowrap'>{dir_tag}</span>"
+                            f"<span>{v1_html}</span>"
+                            f"<span style='color:#556677;font-size:0.78rem'>vs</span>"
+                            f"<span>{v2_html}</span>"
                             f"</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='font-size:0.75rem;color:#666;margin-top:4px'>"
-                                f"{info1['cn']} 樣本 {s1['matches']} 場 / {info2['cn']} 樣本 {s2['matches']} 場</div>",
-                                unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div style='font-size:0.72rem;color:#7a8aa0;margin-top:8px;"
+                        f"display:flex;align-items:center;gap:6px'>"
+                        f"<span style='width:10px;height:10px;background:{C1};border-radius:2px;display:inline-block'></span>"
+                        f"{info1['cn']} {s1['matches']} 場"
+                        f"<span style='margin:0 4px'>·</span>"
+                        f"<span style='width:10px;height:10px;background:{C2};border-radius:2px;display:inline-block'></span>"
+                        f"{info2['cn']} {s2['matches']} 場"
+                        f"</div>",
+                        unsafe_allow_html=True)
 
                 # Poisson 比分機率熱圖
                 with det_c2:
@@ -1495,8 +1541,8 @@ elif page == "🔮 2026 預測":
                                 'pas': '傳球', 'dri': '盤帶', 'def': '防守', 'phy': '體能'}
                 pc1, pc2 = st.columns(2)
                 for col, plist, color, tinfo in [
-                    (pc1, p1_list, '#e94560', info1),
-                    (pc2, p2_list, '#0099cc', info2),
+                    (pc1, p1_list, '#ff5e6c', info1),
+                    (pc2, p2_list, '#4cd9d9', info2),
                 ]:
                     with col:
                         st.markdown(f"<b style='color:{color}'>{tinfo['flag']} {tinfo['cn']}</b>",
