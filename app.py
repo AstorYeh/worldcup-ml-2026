@@ -997,24 +997,31 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     cs1 = CONFED_SCALE.get(CONFED_MAP.get(team1, 'CAF'), 0.84)
     cs2 = CONFED_SCALE.get(CONFED_MAP.get(team2, 'CAF'), 0.84)
 
-    atk1 = min(2.0, s1['avg_goals'] * cs1)
-    atk2 = min(2.0, s2['avg_goals'] * cs2)
-    def2 = max(0.75, s2['avg_conceded'] * (cs2 ** 0.5))
-    def1 = max(0.75, s1['avg_conceded'] * (cs1 ** 0.5))
-    lam1_dc = min(2.2, max(0.4, atk1 * LEAGUE_AVG / def2))
-    lam2_dc = min(2.2, max(0.3, atk2 * LEAGUE_AVG / def1))
+    # Dixon-Coles 標準形式：λ_A = (atk_A / μ) × (vul_B / μ) × μ = atk_A × vul_B / μ
+    #   atk: 進攻強度（高=強）
+    #   vul: 防守脆弱度（=avg_conceded，高=容易失球）
+    # 弱聯盟修正：
+    #   - 進攻數據被高估（對手弱）→ atk *= cs（弱聯盟 cs 小，下調 atk）
+    #   - 失球數據被低估（對手弱）→ vul /= sqrt(cs)（弱聯盟實際更易失球，上調 vul）
+    atk1 = min(2.5, s1['avg_goals'] * cs1)
+    atk2 = min(2.5, s2['avg_goals'] * cs2)
+    vul1 = min(2.5, s1['avg_conceded'] / max(0.5, cs1 ** 0.5))
+    vul2 = min(2.5, s2['avg_conceded'] / max(0.5, cs2 ** 0.5))
+
+    lam1_dc = min(2.5, max(0.3, atk1 * vul2 / LEAGUE_AVG))
+    lam2_dc = min(2.5, max(0.3, atk2 * vul1 / LEAGUE_AVG))
 
     pts1, pts2 = team_pts(team1), team_pts(team2)
     rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.20
-    lam1 = min(2.2, max(0.4, lam1_dc * rank_factor))
-    lam2 = min(2.2, max(0.3, lam2_dc / rank_factor))
+    lam1 = min(2.8, max(0.3, lam1_dc * rank_factor))
+    lam2 = min(2.8, max(0.3, lam2_dc / rank_factor))
 
     # ── 主將 OVR 調整（第四層）：依主將平均能力值輕微修正 λ ──
     # 幂次 0.18 保守調整，避免單一球星過度主導結果
     ovr1, ovr2 = squad_ovr(team1), squad_ovr(team2)
     squad_factor = (ovr1 / ovr2) ** 0.18
-    lam1 = min(2.2, max(0.4, lam1 * squad_factor))
-    lam2 = min(2.2, max(0.3, lam2 / squad_factor))
+    lam1 = min(2.8, max(0.3, lam1 * squad_factor))
+    lam2 = min(2.8, max(0.3, lam2 / squad_factor))
 
     # 從 λ 積分出 Poisson 勝/平/負機率（0~7 進球範圍涵蓋 99.9%+ 機率）
     poi_win = poi_draw = poi_loss = 0.0
