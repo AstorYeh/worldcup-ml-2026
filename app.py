@@ -1927,12 +1927,17 @@ elif page == "📈 數據分析":
             })
 
     hist_df_full = pd.DataFrame(team_hist)
-    # 計算每組總勝率（用於識別死亡之組）
+    # 三種分類指標：
+    #   - 平均勝率：整體強度（死亡之組 = 所有隊都強）
+    #   - 強弱差距 (max-min)：勝率分布（強弱懸殊組 = 一隊獨大）
+    #   - 強隊數 (>50%)：高勝率隊伍計數
     group_stats = hist_df_full.groupby('組別').agg(
         平均勝率=('_win', 'mean'),
         最強隊勝率=('_win', 'max'),
+        最弱隊勝率=('_win', 'min'),
         強隊數=('_win', lambda x: (x > 0.50).sum()),
-    ).reset_index().sort_values('平均勝率', ascending=False)
+    ).reset_index()
+    group_stats['強弱差距'] = group_stats['最強隊勝率'] - group_stats['最弱隊勝率']
 
     c5, c6 = st.columns([1, 1])
     with c5:
@@ -1941,22 +1946,34 @@ elif page == "📈 數據分析":
         st.dataframe(hist_df, use_container_width=True, hide_index=True, height=400)
 
     with c6:
-        st.markdown("**🔥 死亡之組排行**")
+        st.markdown("**🔥 各組強度與懸殊度**")
         group_stats_display = group_stats.copy()
-        group_stats_display['平均勝率'] = group_stats_display['平均勝率'].apply(lambda x: f"{x:.1%}")
-        group_stats_display['最強隊勝率'] = group_stats_display['最強隊勝率'].apply(lambda x: f"{x:.1%}")
-        st.dataframe(group_stats_display, use_container_width=True, hide_index=True, height=400)
+        for col in ['平均勝率', '最強隊勝率', '最弱隊勝率', '強弱差距']:
+            group_stats_display[col] = group_stats_display[col].apply(lambda x: f"{x:.1%}")
+        # 按平均勝率排序顯示
+        group_stats_display = group_stats_display.sort_values('平均勝率', ascending=False)
+        st.dataframe(
+            group_stats_display[['組別', '平均勝率', '強弱差距', '強隊數', '最強隊勝率']],
+            use_container_width=True, hide_index=True, height=400
+        )
 
-    deadly_groups = group_stats.head(3)['組別'].tolist()
-    easy_groups = group_stats.tail(3)['組別'].tolist()
+    # 死亡之組：平均勝率最高（所有隊都強）
+    deadly_groups = group_stats.sort_values('平均勝率', ascending=False).head(3)['組別'].tolist()
+    # 強弱懸殊組：強弱差距最大（一隊獨大 → 強隊好出線）
+    lopsided_groups = group_stats.sort_values('強弱差距', ascending=False).head(3)['組別'].tolist()
     st.markdown(
-        f"##### 💡 解讀\n"
-        f"- **死亡之組（強隊密集）**：Group **{', '.join(deadly_groups)}** — "
-        f"平均勝率最高、強隊數多 → 出線競爭最激烈\n"
-        f"- **輕鬆之組（強弱懸殊）**：Group **{', '.join(easy_groups)}** — "
-        f"強隊容易壓制 → 出線機率高度傾斜\n"
-        f"- **模型意義**：Monte Carlo 模擬 10,000 次小組賽時，死亡之組的「黑馬出線」"
-        f"次數會明顯偏高，反映真實不確定性"
+        f"##### 💡 解讀（兩種「易出線」概念）\n"
+        f"- **🔥 死亡之組（強隊密集）**：Group **{', '.join(deadly_groups)}**\n"
+        f"  - 判定依據：**平均勝率最高**（所有隊都是強隊）\n"
+        f"  - 特性：出線競爭最激烈，黑馬機率高\n\n"
+        f"- **⚖️ 強弱懸殊組（一隊獨大）**：Group **{', '.join(lopsided_groups)}**\n"
+        f"  - 判定依據：**強弱差距最大**（max勝率 − min勝率）\n"
+        f"  - 特性：強隊面對弱隊容易壓制，前 2 名出線早早鎖定\n\n"
+        f"- **📌 為何分兩種定義？**\n"
+        f"  - 「平均勝率低」≠ 強隊容易出線（可能整組都很爛沒人脫穎而出）\n"
+        f"  - 真正「好走」的組是「一強三弱」型，強弱差距大才是關鍵\n\n"
+        f"- **🎲 模型意義**：Monte Carlo 模擬 10,000 次小組賽時，"
+        f"死亡之組的「黑馬出線」次數明顯偏高；強弱懸殊組的前 2 名出線機率則高度集中。"
     )
 
     # ── 模型評估區塊（v2.3 新增）──
