@@ -1418,19 +1418,32 @@ elif page == "🔮 2026 預測":
                         marker=dict(color=C2),
                     ))
                     fig_bar.update_layout(
-                        barmode='group', height=260,
-                        margin=dict(l=0, r=0, t=30, b=0),
-                        legend=dict(orientation='h', y=1.12,
-                                    font=dict(color='#ffffff', size=13)),
+                        barmode='group', height=280,
+                        margin=dict(l=0, r=0, t=40, b=40),
+                        legend=dict(orientation='h', y=1.15,
+                                    font=dict(color='#ffffff', size=14)),
                         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='#ffffff'),
-                        xaxis=dict(tickfont=dict(color='#ffffff', size=12)),
-                        yaxis=dict(gridcolor='rgba(255,255,255,0.1)',
-                                   tickfont=dict(color='#cbd5e1', size=11)),
+                        font=dict(color='#ffffff', size=13),
+                        xaxis=dict(tickfont=dict(color='#ffffff', size=13)),
+                        yaxis=dict(gridcolor='rgba(255,255,255,0.12)',
+                                   tickfont=dict(color='#e2e8f0', size=12)),
                     )
                     st.plotly_chart(fig_bar, use_container_width=True)
 
-                    # 數字表：純白數字 + 較強者黃底高亮
+                    # 緊湊三欄表格：指標 | 球隊1 | 球隊2 — 較強值黃底高亮
+                    rows_html = []
+                    # 表頭
+                    rows_html.append(
+                        f"<tr style='background:#1a1a2e;color:#f7c948;font-size:0.85rem'>"
+                        f"<th style='padding:8px 12px;text-align:left;border-bottom:2px solid #e94560'>指標</th>"
+                        f"<th style='padding:8px 12px;text-align:center;border-bottom:2px solid {C1};color:#ff8a8a'>"
+                        f"<span style='display:inline-block;width:10px;height:10px;background:{C1};border-radius:2px;margin-right:6px;vertical-align:middle'></span>"
+                        f"{info1['cn']}</th>"
+                        f"<th style='padding:8px 12px;text-align:center;border-bottom:2px solid {C2};color:#7aa8ff'>"
+                        f"<span style='display:inline-block;width:10px;height:10px;background:{C2};border-radius:2px;margin-right:6px;vertical-align:middle'></span>"
+                        f"{info2['cn']}</th>"
+                        f"</tr>"
+                    )
                     for label, v1, v2, fmt, direction in metrics_list:
                         if direction == 'high':
                             t1_better = v1 > v2
@@ -1438,37 +1451,48 @@ elif page == "🔮 2026 預測":
                             t1_better = v1 < v2
                         else:
                             t1_better = None
-                        base_style = f"font-weight:800;font-size:0.95rem;padding:2px 10px;border-radius:4px"
+                        dir_icon = ('▲' if direction == 'high'
+                                    else '▼' if direction == 'low' else '·')
+                        # 較強者：黃底黑字 → 對比最強，蒙版下也清楚
+                        win_cell = ("background:#facc15;color:#1a1a2e;font-weight:900;"
+                                    "border-radius:4px;padding:6px 12px")
+                        # 普通者：白字無底
+                        norm_cell = "color:#ffffff;font-weight:700;padding:6px 12px"
+                        # 輸者：灰字
+                        dim_cell = "color:#94a3b8;font-weight:600;padding:6px 12px"
+
                         if t1_better is True:
-                            v1_html = f"<span style='{base_style};background:{WIN_BG};color:{WIN_TX}'>{fmt.format(v1)}</span>"
-                            v2_html = f"<span style='{base_style};color:{DIM}'>{fmt.format(v2)}</span>"
+                            v1_style, v2_style = win_cell, dim_cell
                         elif t1_better is False:
-                            v1_html = f"<span style='{base_style};color:{DIM}'>{fmt.format(v1)}</span>"
-                            v2_html = f"<span style='{base_style};background:{WIN_BG};color:{WIN_TX}'>{fmt.format(v2)}</span>"
+                            v1_style, v2_style = dim_cell, win_cell
                         else:
-                            v1_html = f"<span style='{base_style};color:{TX}'>{fmt.format(v1)}</span>"
-                            v2_html = f"<span style='{base_style};color:{TX}'>{fmt.format(v2)}</span>"
-                        dir_tag = ('▲ 高者強' if direction == 'high'
-                                   else '▼ 低者強' if direction == 'low' else '— 中性')
-                        dir_color = ('#facc15' if direction != 'neutral' else '#94a3b8')
-                        st.markdown(
-                            f"<div style='display:grid;grid-template-columns:1fr auto auto auto auto;"
-                            f"gap:10px;align-items:center;"
-                            f"padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.08)'>"
-                            f"<span style='color:#e2e8f0;font-weight:600;font-size:0.9rem'>{label}</span>"
-                            f"<span style='font-size:0.7rem;color:{dir_color};white-space:nowrap'>{dir_tag}</span>"
-                            f"{v1_html}"
-                            f"<span style='color:#64748b;font-size:0.78rem'>vs</span>"
-                            f"{v2_html}"
-                            f"</div>", unsafe_allow_html=True)
+                            v1_style = v2_style = norm_cell
+
+                        rows_html.append(
+                            f"<tr style='border-bottom:1px solid rgba(255,255,255,0.08)'>"
+                            f"<td style='padding:10px 12px;color:#e2e8f0;font-weight:600;font-size:0.95rem'>"
+                            f"<span style='color:#f7c948;margin-right:6px;font-size:0.85rem'>{dir_icon}</span>{label}</td>"
+                            f"<td style='text-align:center'><span style='{v1_style};display:inline-block;min-width:64px;font-size:1.05rem'>{fmt.format(v1)}</span></td>"
+                            f"<td style='text-align:center'><span style='{v2_style};display:inline-block;min-width:64px;font-size:1.05rem'>{fmt.format(v2)}</span></td>"
+                            f"</tr>"
+                        )
+
+                    st.markdown(
+                        f"<table style='width:100%;border-collapse:collapse;margin-top:8px;"
+                        f"background:rgba(10,10,15,0.55);border-radius:8px;overflow:hidden'>"
+                        + ''.join(rows_html) +
+                        f"</table>",
+                        unsafe_allow_html=True
+                    )
                     st.markdown(
                         f"<div style='font-size:0.78rem;color:#cbd5e1;margin-top:10px;"
                         f"display:flex;align-items:center;gap:6px;flex-wrap:wrap'>"
-                        f"<span style='width:12px;height:12px;background:{C1};border-radius:2px;display:inline-block'></span>"
-                        f"<b style='color:#ffffff'>{info1['cn']}</b> {s1['matches']} 場"
+                        f"📊 樣本場數："
+                        f"<b style='color:#ff8a8a'>{info1['cn']}</b> {s1['matches']} 場"
                         f"<span style='margin:0 6px;color:#475569'>·</span>"
-                        f"<span style='width:12px;height:12px;background:{C2};border-radius:2px;display:inline-block'></span>"
-                        f"<b style='color:#ffffff'>{info2['cn']}</b> {s2['matches']} 場"
+                        f"<b style='color:#7aa8ff'>{info2['cn']}</b> {s2['matches']} 場"
+                        f"<span style='margin-left:8px;color:#94a3b8'>"
+                        f"（<span style='background:#facc15;color:#1a1a2e;padding:1px 6px;border-radius:3px;font-weight:800'>黃底</span> = 該指標較強）</span>"
                         f"</div>",
                         unsafe_allow_html=True)
 
