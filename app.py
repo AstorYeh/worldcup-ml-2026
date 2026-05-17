@@ -124,6 +124,166 @@ section[data-testid="stSidebarNav"] + div {
     padding: 16px 20px;
     margin-bottom: 12px;
 }
+
+/* ── 版面優化：統一字級／間距／視覺層級 ── */
+
+/* 主容器內距 */
+.main .block-container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+    max-width: 1280px;
+}
+
+/* 標題層級 */
+h1 {
+    font-weight: 800 !important;
+    letter-spacing: -0.5px;
+    border-bottom: 3px solid var(--accent-red);
+    padding-bottom: 10px;
+    margin-bottom: 18px !important;
+}
+h2 {
+    font-weight: 700 !important;
+    color: #f7c948 !important;
+    margin-top: 1.5rem !important;
+}
+h3 {
+    font-weight: 700 !important;
+    color: var(--accent-cyan) !important;
+    margin-top: 1.2rem !important;
+}
+
+/* 分隔線更精緻 */
+hr {
+    border: none !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, transparent, rgba(233,69,96,0.4), transparent) !important;
+    margin: 1.6rem 0 !important;
+}
+
+/* Tabs 樣式：更明顯的選中狀態 */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 6px;
+    background: rgba(18,18,26,0.6);
+    padding: 6px;
+    border-radius: 10px;
+    border: 1px solid rgba(233,69,96,0.1);
+}
+.stTabs [data-baseweb="tab"] {
+    background: transparent;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 600;
+    color: #8899aa;
+    transition: all 0.2s;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    background: rgba(233,69,96,0.08);
+    color: #f0f0f0;
+}
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #e94560 0%, #c23a52 100%) !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(233,69,96,0.3);
+}
+
+/* Metric 卡片更立體 */
+div[data-testid="stMetric"] {
+    background: linear-gradient(135deg, #12121a 0%, #1a1a2e 100%);
+    border: 1px solid rgba(233,69,96,0.15);
+    border-radius: 12px;
+    padding: 14px 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+div[data-testid="stMetricLabel"] {
+    color: #8899aa !important;
+    font-weight: 600;
+}
+div[data-testid="stMetricValue"] {
+    color: var(--accent-cyan) !important;
+    font-weight: 800 !important;
+}
+
+/* Dataframe 樣式 */
+div[data-testid="stDataFrame"] {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(233,69,96,0.12);
+}
+
+/* Expander */
+div[data-testid="stExpander"] {
+    border: 1px solid rgba(233,69,96,0.12) !important;
+    border-radius: 10px !important;
+    background: rgba(18,18,26,0.5);
+}
+div[data-testid="stExpander"] summary {
+    font-weight: 600;
+    color: #f0f0f0;
+}
+
+/* Sidebar 樣式 */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0a0a0f 0%, #12121a 100%);
+    border-right: 1px solid rgba(233,69,96,0.18);
+}
+section[data-testid="stSidebar"] .stRadio label {
+    padding: 6px 4px;
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+section[data-testid="stSidebar"] .stRadio label:hover {
+    background: rgba(233,69,96,0.08);
+}
+
+/* Selectbox / Multiselect */
+div[data-baseweb="select"] > div {
+    background: rgba(26,26,46,0.8) !important;
+    border-color: rgba(233,69,96,0.2) !important;
+}
+
+/* Button */
+.stButton button {
+    background: linear-gradient(135deg, #e94560 0%, #c23a52 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 8px 18px;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.stButton button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(233,69,96,0.4);
+}
+
+/* Caption 樣式 */
+[data-testid="stCaptionContainer"] {
+    color: #7a8aa0 !important;
+    font-size: 0.82rem !important;
+    line-height: 1.6;
+}
+
+/* Plotly 圖表外框 */
+.js-plotly-plot {
+    border-radius: 10px;
+    background: rgba(18,18,26,0.4);
+    padding: 8px;
+}
+
+/* Progress bar */
+div[data-testid="stProgress"] > div > div {
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+}
+
+/* 響應式：手機版減少 padding */
+@media (max-width: 768px) {
+    .main .block-container { padding: 1rem 0.6rem; }
+    h1 { font-size: 1.6rem !important; }
+    h2 { font-size: 1.3rem !important; }
+    h3 { font-size: 1.1rem !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -924,7 +1084,18 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
 # ============================================================
 # SIDEBAR
 # ============================================================
-st.sidebar.title("🏆 世界盃 ML 導航")
+st.sidebar.markdown(
+    """
+    <div style='text-align:center; padding:6px 0 14px;'>
+        <div style='font-size:2.4rem;'>🏆</div>
+        <div style='font-size:1.05rem; font-weight:800; color:#f7c948; letter-spacing:0.5px;'>2026 World Cup</div>
+        <div style='font-size:0.78rem; color:#8899aa; margin-top:2px;'>ML 勝率分析 v2.3</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.sidebar.markdown("---")
+st.sidebar.markdown("**📍 導航**")
 page = st.sidebar.radio("選擇頁面", [
     "📊 專題總覽",
     "🔮 2026 預測",
@@ -933,7 +1104,28 @@ page = st.sidebar.radio("選擇頁面", [
     "🎯 球隊風格分群",
     "🏅 奪冠預測",
     "📅 完整賽程",
-])
+], label_visibility="collapsed")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown(
+    """
+    <div style='font-size:0.74rem; color:#7a8aa0; line-height:1.7; padding: 6px 4px;'>
+        <div><b style='color:#aabbcc;'>🤖 模型架構</b></div>
+        <div>XGBoost 40% + Dixon-Coles 60%</div>
+        <div>+ Squad OVR + Monte Carlo 10k</div>
+        <br>
+        <div><b style='color:#aabbcc;'>📊 訓練資料</b></div>
+        <div>49,328 場 · 1990-2025</div>
+        <div>67,894 筆 FIFA 排名</div>
+        <br>
+        <div style='font-size:0.7rem; color:#556677;'>
+            資料來源：international football, FIFA<br>
+            最後更新：2026-04
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ============================================================
 # PAGE 1: 專題總覽
@@ -1402,8 +1594,8 @@ elif page == "📈 數據分析":
             f"測試集：**2022 世界盃小組賽** · 共 **{_n}** 場 · "
             f"整體準確率 **{_acc:.1%}**（三向分類：主隊勝 / 平 / 主隊負）"
         )
-        tab_cm, tab_roc, tab_cal, tab_fi = st.tabs(
-            ["📊 混淆矩陣", "📈 ROC 曲線", "🎚 校準曲線", "🔍 特徵重要性"]
+        tab_cm, tab_roc, tab_cal, tab_fi, tab_fisher = st.tabs(
+            ["📊 混淆矩陣", "📈 ROC 曲線", "🎚 校準曲線", "🔍 特徵重要性", "🧪 費雪檢定"]
         )
 
         # ── Tab 1: Confusion Matrix ──
@@ -1506,6 +1698,68 @@ elif page == "📈 數據分析":
             )
             st.plotly_chart(fig_fi, use_container_width=True)
             st.caption("數值越高代表該特徵對模型決策影響越大。FIFA 排名差距（rank_diff）通常是最強預測因子。")
+
+        # ── Tab 5: Fisher's Exact Test ──
+        with tab_fisher:
+            from scipy.stats import fisher_exact, chi2_contingency
+            cm_arr = np.array(em['cm'])
+            total_n = int(cm_arr.sum())
+            class_cn = {'Team1 Lose': '主隊負', 'Draw': '平局', 'Team1 Win': '主隊勝'}
+
+            st.markdown(
+                "**統計檢定方法：**「費雪精確檢定」（Fisher's Exact Test）— "
+                "用 **一對多（One-vs-Rest）** 把 3×3 混淆矩陣拆成三組 2×2，"
+                "檢定模型「預測該類別」與「實際發生該類別」是否有顯著關聯。"
+            )
+
+            fisher_rows = []
+            for c, label in enumerate(em['labels_name']):
+                tp = int(cm_arr[c, c])
+                fn = int(cm_arr[c, :].sum() - tp)
+                fp = int(cm_arr[:, c].sum() - tp)
+                tn = int(total_n - tp - fn - fp)
+                table_2x2 = [[tp, fn], [fp, tn]]
+                try:
+                    odds_ratio, p_value = fisher_exact(table_2x2, alternative='greater')
+                except Exception:
+                    odds_ratio, p_value = float('nan'), float('nan')
+                precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+                recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+                fisher_rows.append({
+                    '類別': class_cn.get(label, label),
+                    'TP': tp, 'FP': fp, 'FN': fn, 'TN': tn,
+                    'Precision': f"{precision:.2%}",
+                    'Recall': f"{recall:.2%}",
+                    'Odds Ratio': f"{odds_ratio:.2f}" if not np.isnan(odds_ratio) else '—',
+                    'p-value': f"{p_value:.4f}" if not np.isnan(p_value) else '—',
+                    '顯著性 (α=0.05)': '✅ 顯著優於隨機' if (not np.isnan(p_value) and p_value < 0.05) else '⚠️ 未達顯著',
+                })
+            fisher_df = pd.DataFrame(fisher_rows)
+            st.dataframe(fisher_df, use_container_width=True, hide_index=True)
+
+            # 全表卡方檢定（3×3 整體獨立性）
+            try:
+                chi2, chi_p, dof, _ = chi2_contingency(cm_arr)
+                chi2_ok = chi_p < 0.05
+            except Exception:
+                chi2, chi_p, dof, chi2_ok = float('nan'), float('nan'), 0, False
+
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.metric("整體卡方統計量 χ²", f"{chi2:.2f}" if not np.isnan(chi2) else '—',
+                          help="3×3 整體獨立性檢定（卡方近似），補充費雪一對多分析")
+            with col_b:
+                st.metric("自由度 (df)", str(dof))
+            with col_c:
+                st.metric("p-value", f"{chi_p:.4f}" if not np.isnan(chi_p) else '—',
+                          delta="顯著" if chi2_ok else "未達顯著",
+                          delta_color="normal" if chi2_ok else "off")
+
+            st.caption(
+                "📖 **判讀方式**：p-value < 0.05 表示在統計上拒絕「模型預測與實際結果獨立」的虛無假設，"
+                "代表該類別模型的預測能力顯著優於隨機。Odds Ratio 越大代表正相關越強（>1 = 預測有效）。"
+                "平局類別 p-value 通常較大，符合足球平局難以預測的直覺。"
+            )
 
 # ============================================================
 # PAGE 4: 各國分析 + 球員能力卡
