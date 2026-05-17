@@ -211,15 +211,36 @@ div[data-testid="stDataFrame"] {
     border: 1px solid rgba(233,69,96,0.12);
 }
 
-/* Expander */
+/* Expander：強化視覺辨識（原本太透明看不見） */
 div[data-testid="stExpander"] {
-    border: 1px solid rgba(233,69,96,0.12) !important;
+    border: 1px solid rgba(0,212,255,0.3) !important;
     border-radius: 10px !important;
-    background: rgba(18,18,26,0.5);
+    background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    margin-bottom: 8px;
 }
 div[data-testid="stExpander"] summary {
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    padding: 12px 18px !important;
+    background: linear-gradient(90deg, rgba(0,212,255,0.12) 0%, transparent 100%) !important;
+    border-left: 3px solid #00d4ff !important;
+}
+div[data-testid="stExpander"] summary:hover {
+    background: linear-gradient(90deg, rgba(0,212,255,0.22) 0%, transparent 100%) !important;
+}
+
+/* Info / Warning / Error 訊息框：強化對比 */
+div[data-testid="stAlert"] {
+    border-radius: 8px !important;
     font-weight: 600;
-    color: #f0f0f0;
+    border-width: 1px !important;
+    border-style: solid !important;
+}
+div[data-testid="stAlert"][data-baseweb="notification"] {
+    background: rgba(0,212,255,0.12) !important;
+    border-color: rgba(0,212,255,0.4) !important;
+    color: #ffffff !important;
 }
 
 /* Sidebar 樣式 */
@@ -1368,17 +1389,20 @@ elif page == "🔮 2026 預測":
                     f'<img src="https://flagcdn.com/40x30/{iso1}.png" style="height:26px;border-radius:3px;">'
                     f'<b style="font-size:1rem">{info1["cn"]}</b>'
                     f'<span style="font-size:1.5rem;font-weight:900;color:{score1_color};min-width:20px;text-align:right">{r["goal1"]}</span>'
-                    f'<span style="color:#8899aa;font-size:0.9rem;margin:0 2px">VS</span>'
+                    f'<span style="color:#e94560;font-size:0.85rem;font-weight:700;margin:0 4px;'
+                    f'padding:2px 8px;background:rgba(233,69,96,0.15);border-radius:4px">VS</span>'
                     f'<span style="font-size:1.5rem;font-weight:900;color:{score2_color};min-width:20px">{r["goal2"]}</span>'
                     f'<b style="font-size:1rem">{info2["cn"]}</b>'
                     f'<img src="https://flagcdn.com/40x30/{iso2}.png" style="height:26px;border-radius:3px;">'
-                    f'<span style="color:#6a8fb0;font-size:0.78rem;margin-left:6px">{round_label}'
-                    f'{" · " if match_time else ""}{match_time}（台灣時間）</span>'
+                    f'<span style="color:#cbd5e1;font-size:0.82rem;margin-left:10px;font-weight:600">'
+                    f'<span style="color:#f7c948">📅 {round_label}</span>'
+                    f'{" · " if match_time else ""}<span style="color:#00d4ff">{match_time}</span>'
+                    f'<span style="color:#94a3b8">（台灣時間）</span></span>'
                     f'</div>', unsafe_allow_html=True)
             with col_draw:
                 st.markdown(
-                    f'<div style="font-size:0.85rem;color:#aabbcc;padding:8px 0;text-align:right">'
-                    f'平局 <b style="color:#f7c948">{r["draw_prob"]:.0%}</b></div>',
+                    f'<div style="font-size:0.88rem;color:#e2e8f0;padding:8px 0;text-align:right;font-weight:600">'
+                    f'平局機率 <b style="color:#f7c948;font-size:1.05rem">{r["draw_prob"]:.0%}</b></div>',
                     unsafe_allow_html=True)
 
             # ── 詳細數據展開 ──
@@ -1453,27 +1477,33 @@ elif page == "🔮 2026 預測":
                             t1_better = None
                         dir_icon = ('▲' if direction == 'high'
                                     else '▼' if direction == 'low' else '·')
-                        # 較強者：黃底黑字加粗
-                        win_cell = ("background:#fef08a;color:#0f172a;font-weight:900;"
-                                    "border-radius:4px;padding:6px 12px")
+                        # 較強者：飽和黃底 + 橘色粗邊框 + ★ 圖示
+                        win_cell = ("background:#fde047;color:#000000;font-weight:900;"
+                                    "border:2px solid #ea580c;border-radius:6px;"
+                                    "padding:6px 14px;box-shadow:0 2px 4px rgba(234,88,12,0.25)")
                         # 普通者：黑字
-                        norm_cell = "color:#0f172a;font-weight:700;padding:6px 12px"
+                        norm_cell = ("background:transparent;color:#0f172a;font-weight:700;"
+                                     "padding:6px 14px;border:2px solid transparent")
                         # 輸者：中灰字
-                        dim_cell = "color:#64748b;font-weight:600;padding:6px 12px"
+                        dim_cell = ("background:transparent;color:#94a3b8;font-weight:600;"
+                                    "padding:6px 14px;border:2px solid transparent")
 
                         if t1_better is True:
                             v1_style, v2_style = win_cell, dim_cell
+                            v1_prefix, v2_prefix = '★ ', ''
                         elif t1_better is False:
                             v1_style, v2_style = dim_cell, win_cell
+                            v1_prefix, v2_prefix = '', '★ '
                         else:
                             v1_style = v2_style = norm_cell
+                            v1_prefix = v2_prefix = ''
 
                         rows_html.append(
                             f"<tr style='border-bottom:1px solid #e2e8f0'>"
-                            f"<td style='padding:10px 12px;color:#0f172a;font-weight:600;font-size:0.95rem'>"
-                            f"<span style='color:#475569;margin-right:6px;font-size:0.85rem'>{dir_icon}</span>{label}</td>"
-                            f"<td style='text-align:center'><span style='{v1_style};display:inline-block;min-width:64px;font-size:1.05rem'>{fmt.format(v1)}</span></td>"
-                            f"<td style='text-align:center'><span style='{v2_style};display:inline-block;min-width:64px;font-size:1.05rem'>{fmt.format(v2)}</span></td>"
+                            f"<td style='padding:12px 14px;color:#0f172a;font-weight:600;font-size:0.95rem'>"
+                            f"<span style='color:#ea580c;margin-right:6px;font-size:0.85rem;font-weight:700'>{dir_icon}</span>{label}</td>"
+                            f"<td style='text-align:center;padding:6px 4px'><span style='{v1_style};display:inline-block;min-width:80px;font-size:1.05rem'>{v1_prefix}{fmt.format(v1)}</span></td>"
+                            f"<td style='text-align:center;padding:6px 4px'><span style='{v2_style};display:inline-block;min-width:80px;font-size:1.05rem'>{v2_prefix}{fmt.format(v2)}</span></td>"
                             f"</tr>"
                         )
 
@@ -1486,14 +1516,15 @@ elif page == "🔮 2026 預測":
                         unsafe_allow_html=True
                     )
                     st.markdown(
-                        f"<div style='font-size:0.78rem;color:#cbd5e1;margin-top:10px;"
+                        f"<div style='font-size:0.82rem;color:#e2e8f0;margin-top:12px;"
                         f"display:flex;align-items:center;gap:6px;flex-wrap:wrap'>"
                         f"📊 樣本場數："
                         f"<b style='color:#ff8a8a'>{info1['cn']}</b> {s1['matches']} 場"
-                        f"<span style='margin:0 6px;color:#475569'>·</span>"
+                        f"<span style='margin:0 6px;color:#64748b'>·</span>"
                         f"<b style='color:#7aa8ff'>{info2['cn']}</b> {s2['matches']} 場"
-                        f"<span style='margin-left:8px;color:#94a3b8'>"
-                        f"（<span style='background:#fef08a;color:#0f172a;padding:1px 6px;border-radius:3px;font-weight:800'>黃底</span> = 該指標較強）</span>"
+                        f"<span style='margin-left:10px;color:#cbd5e1'>"
+                        f"（<span style='background:#fde047;color:#000;border:2px solid #ea580c;"
+                        f"padding:1px 8px;border-radius:4px;font-weight:900'>★ 黃底</span> = 該指標較強）</span>"
                         f"</div>",
                         unsafe_allow_html=True)
 
@@ -1564,31 +1595,37 @@ elif page == "🔮 2026 預測":
                 _attr_labels = {'ovr': '綜合', 'pac': '速度', 'sho': '射門',
                                 'pas': '傳球', 'dri': '盤帶', 'def': '防守', 'phy': '體能'}
                 pc1, pc2 = st.columns(2)
-                for col, plist, color, tinfo in [
-                    (pc1, p1_list, '#dc2626', info1),
-                    (pc2, p2_list, '#2563eb', info2),
+                # 深底用亮色：紅 #ff6b6b、藍 #60a5fa（深底辨識度高）
+                for col, plist, color, accent, tinfo in [
+                    (pc1, p1_list, '#dc2626', '#ff8a8a', info1),
+                    (pc2, p2_list, '#2563eb', '#7aa8ff', info2),
                 ]:
                     with col:
-                        st.markdown(f"<b style='color:{color}'>{tinfo['flag']} {tinfo['cn']}</b>",
-                                    unsafe_allow_html=True)
+                        st.markdown(
+                            f"<div style='background:{color};color:#fff;padding:8px 14px;"
+                            f"border-radius:6px;font-weight:800;font-size:1rem;margin-bottom:6px'>"
+                            f"{tinfo['flag']} {tinfo['cn']}</div>",
+                            unsafe_allow_html=True)
                         for p in plist:
                             ovr = p.get('ovr', 0)
                             bar_w = int(ovr)
                             attrs = ' · '.join(
-                                f"{lbl}<b>{p.get(k,0)}</b>"
+                                f"<span style='color:#cbd5e1'>{lbl}</span>"
+                                f"<b style='color:#ffffff;margin-left:2px'>{p.get(k,0)}</b>"
                                 for k, lbl in _attr_labels.items() if k != 'ovr'
                             )
                             st.markdown(
-                                f"<div style='margin:5px 0;padding:8px 10px;"
-                                f"background:rgba(255,255,255,0.04);border-radius:6px;"
-                                f"border-left:3px solid {color}'>"
+                                f"<div style='margin:6px 0;padding:10px 12px;"
+                                f"background:rgba(255,255,255,0.08);border-radius:8px;"
+                                f"border-left:4px solid {accent}'>"
                                 f"<div style='display:flex;justify-content:space-between;align-items:center'>"
-                                f"<span style='font-weight:600;font-size:0.88rem'>{p['name']}"
-                                f" <span style='color:#888;font-size:0.75rem'>{_pos_cn.get(p['pos'], p['pos'])}</span></span>"
-                                f"<span style='font-size:1rem;font-weight:900;color:{color}'>{ovr}</span></div>"
-                                f"<div style='background:rgba(255,255,255,0.08);border-radius:3px;height:4px;margin:4px 0'>"
-                                f"<div style='width:{bar_w}%;height:4px;background:{color};border-radius:3px'></div></div>"
-                                f"<div style='font-size:0.72rem;color:#999'>{attrs}</div>"
+                                f"<span style='font-weight:700;font-size:0.92rem;color:#ffffff'>{p['name']}"
+                                f" <span style='color:{accent};font-size:0.75rem;font-weight:600;margin-left:4px'>"
+                                f"{_pos_cn.get(p['pos'], p['pos'])}</span></span>"
+                                f"<span style='font-size:1.15rem;font-weight:900;color:{accent}'>{ovr}</span></div>"
+                                f"<div style='background:rgba(255,255,255,0.12);border-radius:3px;height:5px;margin:6px 0'>"
+                                f"<div style='width:{bar_w}%;height:5px;background:{accent};border-radius:3px'></div></div>"
+                                f"<div style='font-size:0.74rem;line-height:1.6'>{attrs}</div>"
                                 f"</div>",
                                 unsafe_allow_html=True
                             )
