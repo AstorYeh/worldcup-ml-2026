@@ -1535,18 +1535,21 @@ elif page == "🔮 2026 預測":
                     cn2 = f"🔵 {info2['cn']}"
                     cmp_rows = []
                     for label, v1, v2, fmt, direction in metrics_list:
+                        # 強制轉 Python bool（避免 numpy bool 與 `is True` 比較失效）
                         if direction == 'high':
-                            t1 = v1 > v2; dir_mk = '▲'
+                            t1 = bool(v1 > v2); dir_mk = '▲'
                         elif direction == 'low':
-                            t1 = v1 < v2; dir_mk = '▼'
+                            t1 = bool(v1 < v2); dir_mk = '▼'
                         else:
                             t1 = None; dir_mk = '·'
                         v1_str = fmt.format(v1)
                         v2_str = fmt.format(v2)
-                        # 用 ★ 前綴標示較強，並用 emoji 在較弱欄位開頭給差異感
+                        # 較強者：⭐ 前綴；較弱者：灰色點點前綴；中性：無前綴
                         if t1 is True:
                             v1_str = f"⭐ {v1_str}"
+                            v2_str = f"  {v2_str}"
                         elif t1 is False:
+                            v1_str = f"  {v1_str}"
                             v2_str = f"⭐ {v2_str}"
                         cmp_rows.append({
                             '指標': f"{dir_mk} {label}",
