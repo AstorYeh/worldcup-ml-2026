@@ -34,21 +34,22 @@ _CLAUDE_PALETTE = ['#c96442', '#1f6e8c', '#b58a3b', '#5f8466',
                    '#7a5fa7', '#a8593e', '#3d6e8a', '#8e6b3f']
 
 def claude_layout(**overrides):
-    """回傳 Claude 主題的 plotly layout dict（暖色淺底）。"""
+    """回傳 Claude 主題的 plotly layout dict（暖色淺底）。
+    注意：title 欄位不在 base 內，避免 None text 被渲染為 "undefined"。
+    如需設標題，用 overrides 傳入 title=dict(text='...')。
+    """
     base = dict(
         paper_bgcolor=_CLAUDE_CARD,
         plot_bgcolor=_CLAUDE_CARD,
         font=dict(family='Inter, system-ui, sans-serif',
                   color=_CLAUDE_TEXT, size=12),
-        title=dict(font=dict(family='Charter, Georgia, serif',
-                             color=_CLAUDE_TEXT, size=15)),
         xaxis=dict(gridcolor=_CLAUDE_GRID, linecolor=_CLAUDE_GRID,
                    tickcolor=_CLAUDE_GRID, color=_CLAUDE_TEXT, zeroline=False),
         yaxis=dict(gridcolor=_CLAUDE_GRID, linecolor=_CLAUDE_GRID,
                    tickcolor=_CLAUDE_GRID, color=_CLAUDE_TEXT, zeroline=False),
         legend=dict(font=dict(color=_CLAUDE_TEXT)),
         colorway=_CLAUDE_PALETTE,
-        margin=dict(l=40, r=20, t=50, b=40),
+        margin=dict(l=40, r=20, t=40, b=40),
     )
     base.update(overrides)
     return base
