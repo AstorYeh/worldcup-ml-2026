@@ -1450,6 +1450,19 @@ if page == "📊 專題總覽":
     st.markdown("**真實資料：49,328 場國際比賽 · 67,894 筆 FIFA 排名**")
     st.markdown("---")
 
+    # ── 開場影片 ──
+    _video_path = os.path.join(os.path.dirname(__file__), 'assets', 'intro.mp4')
+    if os.path.exists(_video_path):
+        v_col_l, v_col_c, v_col_r = st.columns([1, 4, 1])
+        with v_col_c:
+            try:
+                with open(_video_path, 'rb') as _vf:
+                    st.video(_vf.read())
+            except Exception as _e:
+                st.info(f"影片載入失敗：{_e}")
+            st.caption("🎬 2026 世界盃宣傳短片 · 卡通版「足球小將」風格")
+        st.markdown("---")
+
     match_df = load_match_data()
     fifa_df = load_fifa_ranking()
 
