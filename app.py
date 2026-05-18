@@ -2265,12 +2265,43 @@ elif page == "📈 數據分析":
                           help=f"實際主隊負 {int(cm_arr_local[0,:].sum())} 場，"
                                f"模型答對 {int(cm_arr_local[0,0])} 場")
 
-            st.markdown(
-                "##### 💡 為什麼平局 Recall 最低？\n"
-                "平局發生在兩隊實力**接近**時，模型看到「勢均力敵」的特徵反而會猜「強勢方獲勝」。"
-                "這是足球預測的世界性難題 — 所有商業博弈公司都有相同問題。\n"
-                "因此本系統的「平局機率」是**參考值**，不會用平局當主預測。"
-            )
+            with st.expander("📖 詳細解讀（給第一次看混淆矩陣的人）", expanded=False):
+                st.markdown(
+                    f"""
+**🎯 這張表在做什麼？**
+
+把 2022 卡達世界盃小組賽 **{int(cm_arr_local.sum())} 場**全部丟給訓練好的模型猜，
+然後用一張表記錄「模型猜得準不準」。
+
+**📊 怎麼讀？**
+- **每一橫列**＝實際比賽結果（共 3 種：主隊勝 / 平局 / 主隊負）
+- **每一直行**＝模型猜的結果
+- 兩者交叉的格子，就是「實際 A、模型猜 B」的場次數
+
+**✅ 預測正確（對角線）**
+- 主隊勝 → 模型猜勝：**{int(cm_arr_local[2,2])} 場**
+- 平局 → 模型猜平：**{int(cm_arr_local[1,1])} 場**
+- 主隊負 → 模型猜負：**{int(cm_arr_local[0,0])} 場**
+- 三者合計：**{int(cm_arr_local[0,0]+cm_arr_local[1,1]+cm_arr_local[2,2])} 場**（{(cm_arr_local[0,0]+cm_arr_local[1,1]+cm_arr_local[2,2])/cm_arr_local.sum():.1%}）
+
+**❌ 預測錯誤（非對角線）**
+模型誤判最常發生在「實際平局卻被預測為主隊勝/負」與「實際主隊負卻被預測為主隊勝」。
+
+**📐 Recall（召回率）怎麼算？**
+
+`Recall = 該類別答對 / 該類別實際發生總場數`
+
+例如「主隊勝 Recall = {win_recall:.0%}」的意思是：
+**真的是主隊贏球的場次中，模型成功抓出了 {win_recall:.0%}**。
+
+**💡 為什麼平局 Recall 最低（{draw_recall:.0%}）？**
+
+平局發生在兩隊實力**接近**時，模型看到「勢均力敵」的特徵反而會傾向「強勢方獲勝」。
+這是足球預測的**世界性難題** — 連 Bet365 / Pinnacle 等專業博弈公司也都有同樣問題。
+
+因此本系統的「平局機率」是**參考值**，不會用平局當主預測。
+"""
+                )
 
         # ── Tab 2: ROC 曲線 ──
         with tab_roc:
@@ -2316,89 +2347,153 @@ elif page == "📈 數據分析":
                     st.metric(f"{cn} AUC", f"{auc_v:.2f}", delta=_rating(auc_v),
                               delta_color="off")
 
+            with st.expander("📖 詳細解讀（ROC 曲線是什麼？）", expanded=False):
+                auc_pairs = [(class_cn_roc.get(n, n), v) for n, v in auc_summary]
+                auc_lines = "\n".join(
+                    f"- **{cn}** AUC = {v:.2f} {_rating(v)}" for cn, v in auc_pairs
+                )
+                st.markdown(
+                    f"""
+**🎯 ROC 曲線在量什麼？**
+
+ROC 全名 **Receiver Operating Characteristic**（接收者操作特徵曲線）。
+它衡量的不是「猜對幾場」，而是「**模型把機率排序得對不對**」。
+
+**比喻**：如果我把 100 場比賽，依照模型給的「主隊勝機率」由高到低排序，
+真正主隊勝的場次有沒有集中在前段？如果有 → 模型排序能力強 → 曲線靠左上方。
+
+**📐 兩個座標軸的意思**
+
+- **X 軸（假陽性率 FPR）**：本來不會發生的，模型卻誤判會發生的比例
+- **Y 軸（真陽性率 TPR）**：本來會發生的，模型成功抓出來的比例
+- 兩軸都 0~1，理想模型走左上角（FPR=0, TPR=1）
+
+**📊 AUC（曲線下面積）的意思**
+
+| AUC | 鑑別力 | 解讀 |
+|-----|--------|------|
+| 0.90+ | 出色 | 運動預測極少達到 |
+| 0.80–0.89 | 優秀 | 商用模型水準 |
+| 0.70–0.79 | 良好 | 有明顯預測能力 |
+| 0.60–0.69 | 可接受 | 比隨機好，但不穩 |
+| < 0.60 | 偏弱 | 接近瞎猜 |
+
+**📋 本模型各類別 AUC：**
+
+{auc_lines}
+
+**💡 為什麼平局 AUC 通常最低？**
+
+平局沒有清晰的「特徵指紋」— 強強對決可能踢平、弱弱對決也可能踢平。
+模型很難用單一特徵集穩定鎖定平局。所有運動預測模型都面臨此限制。
+"""
+                )
+
         # ── Tab 3: Calibration ──
         with tab_cal:
-            st.markdown(
-                "**🎚 圖表意義**：校準曲線（Calibration Plot）檢驗「**機率本身可不可信**」。"
-                "當模型說「主隊有 70% 勝率」時，這 70% 是真實機率還是亂喊的？\n\n"
-                "**完美校準的模型**：所有預測機率 70% 的場次，最終真的有約 70% 是主隊贏。"
-                "圖中的對角虛線就是「完美校準」。"
-            )
             import plotly.graph_objects as _go3
             cal = em['calibration']
             fig_cal = _go3.Figure()
             fig_cal.add_trace(_go3.Scatter(
                 x=cal['prob_pred'], y=cal['prob_true'],
                 mode='lines+markers',
-                name='XGBoost（勝）',
-                line=dict(color='#e94560', width=2.5),
+                name='XGBoost（主隊勝）',
+                line=dict(color=_CLAUDE_ACCENT, width=2.5),
                 marker=dict(size=10),
             ))
             fig_cal.add_trace(_go3.Scatter(
                 x=[0, 1], y=[0, 1], mode='lines',
-                line=dict(dash='dash', color='gray', width=1),
+                line=dict(dash='dash', color='#9b958a', width=1),
                 name='完美校準',
             ))
-            fig_cal.update_layout(
-                title="校準曲線 — 主隊勝類別",
+            fig_cal.update_layout(**claude_layout(
                 xaxis_title="預測機率（模型說有 X% 機率主隊贏）",
                 yaxis_title="實際頻率（這些場次中真的有 Y% 主隊贏）",
                 height=420,
-                xaxis=dict(range=[0, 1]),
-                yaxis=dict(range=[0, 1]),
-            )
+                xaxis=dict(range=[0, 1], gridcolor=_CLAUDE_GRID,
+                           linecolor=_CLAUDE_GRID, color=_CLAUDE_TEXT, zeroline=False),
+                yaxis=dict(range=[0, 1], gridcolor=_CLAUDE_GRID,
+                           linecolor=_CLAUDE_GRID, color=_CLAUDE_TEXT, zeroline=False),
+                legend=dict(x=0.55, y=0.10,
+                            bgcolor='rgba(255,255,255,0.85)',
+                            bordercolor=_CLAUDE_GRID, borderwidth=1),
+            ))
             st.plotly_chart(fig_cal, use_container_width=True)
-            # 計算 Brier score 或 ECE
+            # 計算 ECE 並用 metric 卡顯示
             try:
                 import numpy as _np
-                pred = _np.array(cal['prob_pred'])
-                true = _np.array(cal['prob_true'])
-                ece = _np.mean(_np.abs(pred - true))
+                pred_arr = _np.array(cal['prob_pred'])
+                true_arr = _np.array(cal['prob_true'])
+                ece = float(_np.mean(_np.abs(pred_arr - true_arr)))
                 if ece < 0.05:
-                    rating = "🟢 校準極佳 (ECE < 5%)"
+                    rating_label = "🟢 校準極佳"
                 elif ece < 0.10:
-                    rating = "🟡 校準良好 (ECE < 10%)"
+                    rating_label = "🟡 校準良好"
                 else:
-                    rating = "🟠 校準偏差較大 (ECE ≥ 10%)"
+                    rating_label = "🟠 偏差較大"
             except Exception:
-                ece = None; rating = "—"
-            st.markdown(
-                f"##### 💡 校準診斷\n"
-                + (f"- **預期校準誤差（ECE）**：{ece:.3f} {rating}\n\n" if ece is not None else "")
-                + "**📌 如何讀圖**\n"
-                "- **紅線在對角線上**：完美 — 預測機率 = 實際發生機率\n"
-                "- **紅線在對角線上方**：保守 — 模型低估勝率（實際比預測高）\n"
-                "- **紅線在對角線下方**：過度自信 — 模型高估勝率（實際比預測低）\n\n"
-                "**📌 為什麼校準很重要？**\n"
-                "對於 Monte Carlo 模擬 10,000 次比賽來說，機率值的「絕對水平」必須準。"
-                "如果模型把 70% 都喊成 90%，10,000 次模擬出來的奪冠分布會嚴重失真。"
-                "校準曲線確保我們的機率「按字面值」可信。"
-            )
+                ece = None; rating_label = "—"
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                st.metric("預期校準誤差 (ECE)", f"{ece:.3f}" if ece is not None else "—",
+                          delta=rating_label, delta_color="off")
+            with cc2:
+                st.metric("目標值", "0.000",
+                          help="ECE 越接近 0 表示預測機率越接近真實發生機率")
+
+            with st.expander("📖 詳細解讀（校準曲線是什麼？）", expanded=False):
+                st.markdown(
+                    """
+**🎯 校準曲線在驗證什麼？**
+
+校準曲線（Calibration Plot）檢驗「**機率本身可不可信**」。
+當模型說「主隊有 70% 勝率」時，這 70% 是真實機率，還是隨便喊的數字？
+
+**📊 怎麼看圖**
+
+| 紅線位置 | 意義 | 範例 |
+|----------|------|------|
+| **貼合虛線** | 完美校準 — 字面值可信 | 喊 70%，真的 70% 場次主隊贏 |
+| **在虛線上方** | 保守 — 低估勝率 | 喊 60%，實際 75% 場次主隊贏 |
+| **在虛線下方** | 過度自信 — 高估勝率 | 喊 80%，實際只有 65% 場次主隊贏 |
+
+**📐 ECE（預期校準誤差）怎麼算？**
+
+`ECE = 平均(|預測機率 − 實際發生頻率|)`
+
+- ECE = 0.000 表示完美校準
+- ECE < 0.05 表示優秀（商用等級）
+- ECE > 0.10 表示機率值不能按字面信賴
+
+**💡 為什麼校準很重要？**
+
+對於 Monte Carlo 模擬 10,000 次比賽來說，**機率的「絕對水平」必須準**。
+
+舉例：如果模型把所有 70% 勝率都喊成 90%，10,000 次模擬出來的奪冠分布會嚴重偏向強隊，
+弱隊根本沒機會出線。校準曲線就是用來驗證「機率值能不能直接拿來算」。
+"""
+                )
 
         # ── Tab 4: Feature Importance ──
         with tab_fi:
-            st.markdown(
-                "**🔍 圖表意義**：特徵重要性（Feature Importance）告訴你「**模型最在意什麼**」。"
-                "XGBoost 的 `gain` 指標衡量每個特徵在所有決策樹分裂節點上「資訊增益」的總和。\n\n"
-                "**白話：分數越高 = 模型越靠這個特徵做判斷**。"
-            )
             import plotly.graph_objects as _go4
             fi = em['feature_importance']
             fig_fi = _go4.Figure(_go4.Bar(
                 x=fi['values'], y=fi['features'],
                 orientation='h',
-                marker_color='#3366cc',
+                marker_color=_CLAUDE_ACCENT,
                 text=[f"{v:.1f}" for v in fi['values']],
                 textposition='outside',
+                textfont=dict(color=_CLAUDE_TEXT),
             ))
-            fig_fi.update_layout(
-                title="特徵重要性（XGBoost gain）",
-                xaxis_title="重要性分數",
+            fig_fi.update_layout(**claude_layout(
+                xaxis_title="重要性分數（gain）",
                 height=max(350, len(fi['features']) * 32),
-                margin=dict(l=180),
-            )
+                margin=dict(l=180, r=40, t=20, b=40),
+            ))
             st.plotly_chart(fig_fi, use_container_width=True)
-            # 找出 top 3 特徵
+
+            # Top 3 特徵
             top_features = sorted(zip(fi['features'], fi['values']),
                                   key=lambda x: x[1], reverse=True)[:3]
             feat_translation = {
@@ -2409,21 +2504,55 @@ elif page == "📈 數據分析":
                 'rank2': '球隊2 FIFA 積分', 'fifa_pts_diff': 'FIFA 積分差',
                 'confed_diff': '足聯差', 'recent_form_diff': '近期狀態差',
             }
-            top_lines = []
-            for name, val in top_features:
+            cols_top = st.columns(3)
+            medals = ['🥇', '🥈', '🥉']
+            for (name, val), col, medal in zip(top_features, cols_top, medals):
                 cn = feat_translation.get(name, name)
-                top_lines.append(f"- **{name}** ({cn}) — 重要性 {val:.1f}")
-            st.markdown(
-                "##### 💡 Top 3 最有影響力的特徵\n"
-                + "\n".join(top_lines)
-                + "\n\n**📌 為什麼 FIFA 排名差距通常排第一？**\n"
-                "FIFA 排名濃縮了一支球隊「過去 4 年所有國際賽」的結果，是最強的「綜合實力指標」。"
-                "兩隊積分差距越大，比賽結果越容易預測。\n\n"
-                "**📌 怎麼解讀低分特徵？**\n"
-                "不代表沒用！XGBoost 的 gain 會把高度相關的特徵分散權重。"
-                "例如「勝率差」和「FIFA 積分差」高度相關，模型只會主要依賴其中一個，"
-                "另一個的 gain 就會偏低。"
-            )
+                with col:
+                    st.metric(f"{medal} {cn}", f"{val:.1f}",
+                              help=f"原始特徵名：{name}")
+
+            with st.expander("📖 詳細解讀（特徵重要性怎麼讀？）", expanded=False):
+                top_lines = "\n".join(
+                    f"- {m} **{feat_translation.get(n, n)}** — 重要性 {v:.1f}"
+                    for (n, v), m in zip(top_features, medals)
+                )
+                st.markdown(
+                    f"""
+**🎯 圖表在說什麼？**
+
+XGBoost 是由很多決策樹組成的模型，每棵樹用「特徵」來分裂節點做判斷。
+**特徵重要性（Feature Importance）** 衡量每個特徵在所有樹的分裂節點中
+「提供了多少資訊增益（gain）」的總和。
+
+**白話：分數越高 = 模型越靠這個特徵做判斷。**
+
+**🏆 本模型 Top 3 最有影響力的特徵**
+
+{top_lines}
+
+**💡 為什麼「FIFA 積分差」通常排第一？**
+
+FIFA 排名濃縮了一支球隊「過去 4 年所有國際賽」的結果，
+是公開資料中**最濃縮的綜合實力指標**。
+兩隊積分差距越大，比賽結果越容易預測 → 模型最常用這個特徵分裂。
+
+**🤔 低分特徵代表沒用嗎？**
+
+**不一定**。XGBoost 的 gain 計算會把高度相關的特徵分散權重 —
+
+例如「勝率差」和「FIFA 積分差」本質上量測相似的東西（強隊勝率高），
+模型只會主要依賴其中一個（通常是 rank_diff），
+另一個的 gain 自然就低了，但**並不代表該特徵沒資訊**。
+
+**📌 怎麼運用這個資訊？**
+
+1. **建模啟發**：低重要性 + 高相關 → 可考慮移除以簡化模型
+2. **業務理解**：知道模型依靠的核心信號是什麼，方便向他人解釋
+3. **新特徵嘗試**：若 Top 3 都是排名類特徵，可考慮加入「球員陣容、傷兵」等
+   排名以外的資訊提升模型多樣性
+"""
+                )
 
         # ── Tab 5: Fisher's Exact Test ──
         with tab_fisher:
