@@ -2478,11 +2478,14 @@ ROC 全名 **Receiver Operating Characteristic**（接收者操作特徵曲線�
         with tab_fi:
             import plotly.graph_objects as _go4
             fi = em['feature_importance']
+            # 自動判斷數值範圍決定精度（gain 通常 0.0-1.0，需要 3 位小數）
+            _max_val = max(fi['values']) if fi['values'] else 1.0
+            _fmt = "{:.3f}" if _max_val < 1.0 else "{:.2f}" if _max_val < 10 else "{:.1f}"
             fig_fi = _go4.Figure(_go4.Bar(
                 x=fi['values'], y=fi['features'],
                 orientation='h',
                 marker_color=_CLAUDE_ACCENT,
-                text=[f"{v:.1f}" for v in fi['values']],
+                text=[_fmt.format(v) for v in fi['values']],
                 textposition='outside',
                 textfont=dict(color=_CLAUDE_TEXT),
             ))
@@ -2506,15 +2509,20 @@ ROC 全名 **Receiver Operating Characteristic**（接收者操作特徵曲線�
             }
             cols_top = st.columns(3)
             medals = ['🥇', '🥈', '🥉']
+            _total_gain = sum(fi['values']) if fi['values'] else 1.0
             for (name, val), col, medal in zip(top_features, cols_top, medals):
                 cn = feat_translation.get(name, name)
+                share = val / _total_gain if _total_gain > 0 else 0
                 with col:
-                    st.metric(f"{medal} {cn}", f"{val:.1f}",
+                    st.metric(f"{medal} {cn}", _fmt.format(val),
+                              delta=f"佔總 gain {share:.1%}",
+                              delta_color="off",
                               help=f"原始特徵名：{name}")
 
             with st.expander("📖 詳細解讀（特徵重要性怎麼讀？）", expanded=False):
                 top_lines = "\n".join(
-                    f"- {m} **{feat_translation.get(n, n)}** — 重要性 {v:.1f}"
+                    f"- {m} **{feat_translation.get(n, n)}** — gain {_fmt.format(v)}"
+                    f" (佔 {v/_total_gain:.1%})"
                     for (n, v), m in zip(top_features, medals)
                 )
                 st.markdown(
