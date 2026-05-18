@@ -1466,8 +1466,7 @@ if page == "📊 專題總覽":
     st.markdown("---")
     st.subheader("📋 2026 世界盃小組分組（🇺🇸🇨🇦🇲🇽 主辦）")
 
-    # 4列格狀佈局
-    # 4列 CSS Grid：小組卡片，格子固定、內容靠上、文字自適應
+    # 4 列 CSS Grid：Claude 風格小組卡片（白底 + 細邊框）
     GRID_CSS = """
     <style>
     .grp-grid {
@@ -1477,22 +1476,26 @@ if page == "📊 專題總覽":
         margin: 14px 0 20px;
     }
     .grp-card {
-        background: linear-gradient(145deg, #1a1a2e 0%, #0f3460 100%);
-        border-radius: 14px;
+        background: #ffffff;
+        border-radius: 12px;
         overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.07);
-        box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+        border: 1px solid #e8e5dd;
+        box-shadow: 0 1px 2px rgba(31,30,28,0.04);
         display: flex;
         flex-direction: column;
-        height: 218px;           /* 固定高度 */
+        height: 218px;
+        transition: box-shadow 0.2s;
+    }
+    .grp-card:hover {
+        box-shadow: 0 4px 16px rgba(31,30,28,0.08);
     }
     .grp-hdr {
-        background: linear-gradient(90deg, #e94560 0%, #533483 100%);
+        background: #c96442;
         padding: 9px 14px;
         font-size: 0.88rem;
-        font-weight: 700;
-        color: #fff;
-        letter-spacing: 0.4px;
+        font-weight: 600;
+        color: #ffffff;
+        letter-spacing: 0.3px;
         flex-shrink: 0;
         height: 36px;
         display: flex;
@@ -1503,22 +1506,24 @@ if page == "📊 專題總覽":
         flex: 1;
         display: flex;
         flex-direction: column;
-        justify-content: flex-start;  /* 靠上對齊 */
+        justify-content: flex-start;
         overflow: hidden;
     }
     .grp-row {
         display: flex;
         align-items: center;
         padding: 7px 14px;
-        border-bottom: 1px solid rgba(255,255,255,0.055);
+        border-bottom: 1px solid #f4f1ea;
         min-height: 42px;
+        transition: background 0.15s;
     }
+    .grp-row:hover { background: #faf9f5; }
     .grp-row:last-child { border-bottom: none; }
     .grp-flag { width: 28px; height: 21px; margin-right: 8px; flex-shrink: 0; object-fit: cover; border-radius: 2px; vertical-align: middle; }
     .grp-nm {
         font-size: 0.82rem;
         font-weight: 600;
-        color: #e8e8e8;
+        color: #1f1e1c;
         line-height: 1.3;
         word-break: break-word;
         overflow-wrap: anywhere;
@@ -1526,7 +1531,7 @@ if page == "📊 專題總覽":
     }
     .grp-en {
         font-size: 0.70rem;
-        color: #7a9ab5;
+        color: #9b958a;
         line-height: 1.25;
         margin-left: 4px;
         flex-shrink: 0;
@@ -1537,11 +1542,11 @@ if page == "📊 專題總覽":
     }
     .grp-rank {
         font-size: 0.68rem;
-        color: #c08aff;
-        background: rgba(138,43,226,0.18);
-        border: 1px solid rgba(138,43,226,0.28);
+        color: #c96442;
+        background: #f3e9e4;
+        border: 1px solid #e8e5dd;
         padding: 1px 7px;
-        border-radius: 20px;
+        border-radius: 999px;
         flex-shrink: 0;
         margin-left: 4px;
         white-space: nowrap;
@@ -1739,11 +1744,11 @@ elif page == "🔮 2026 預測":
 
             # 勝者標色依比分決定（而非機率），確保顏色與顯示比分一致
             if r['goal1'] > r['goal2']:
-                score1_color, score2_color = '#00d4ff', '#8899aa'
+                score1_color, score2_color = '#c96442', '#9b958a'
             elif r['goal1'] < r['goal2']:
-                score1_color, score2_color = '#8899aa', '#00d4ff'
+                score1_color, score2_color = '#9b958a', '#c96442'
             else:
-                score1_color = score2_color = '#f7c948'
+                score1_color = score2_color = '#b58a3b'
 
             # ── 單場摘要列：旗幟 球隊名 預測分 VS 預測分 球隊名 旗幟 ｜ 平局機率 ──
             match_time = r.get('_match_time', '')
@@ -2608,9 +2613,14 @@ elif page == "🌍 各國分析":
             st.markdown(f"##### {info['cn']} 出賽球員能力卡（共 {len(players)} 人）")
             import streamlit.components.v1 as _components
 
+            # Claude 暖色調 6 屬性配色
             ATTR_COLORS = {
-                'pac': '#00d4ff', 'sho': '#e94560', 'pas': '#26de81',
-                'dri': '#f7c948', 'def': '#a29bfe', 'phy': '#fd9644',
+                'pac': '#1f6e8c',  # 速度（暖靛）
+                'sho': '#c96442',  # 射門（珊瑚橘）
+                'pas': '#5f8466',  # 傳球（橄欖綠）
+                'dri': '#b58a3b',  # 盤帶（金棕）
+                'def': '#7a5fa7',  # 防守（淡紫）
+                'phy': '#a8593e',  # 體能（赤陶）
             }
             ATTR_LABELS = {'pac':'PAC','sho':'SHO','pas':'PAS','dri':'DRI','def':'DEF','phy':'PHY'}
 
@@ -2661,24 +2671,22 @@ elif page == "🌍 各國分析":
                     lbl = ATTR_LABELS[attr_key]
                     attrs_rows += (
                         f'<div style="display:flex;align-items:center;margin:3px 0;font-size:0.7rem;">'
-                        f'<span style="color:#8899aa;font-weight:700;width:28px;">{lbl}</span>'
-                        f'<div style="flex:1;background:rgba(255,255,255,0.1);border-radius:4px;height:7px;margin:0 6px;">'
-                        f'<div style="width:{val}%;height:7px;border-radius:4px;background:{bc};"></div></div>'
-                        f'<span style="color:#e8e8e8;font-weight:700;width:22px;text-align:right;">{val}</span>'
+                        f'<span style="color:#6b6760;font-weight:600;width:28px;">{lbl}</span>'
+                        f'<div style="flex:1;background:#f4f1ea;border-radius:4px;height:6px;margin:0 6px;">'
+                        f'<div style="width:{val}%;height:6px;border-radius:4px;background:{bc};"></div></div>'
+                        f'<span style="color:#1f1e1c;font-weight:600;width:22px;text-align:right;">{val}</span>'
                         f'</div>'
                     )
                 # 球員頭像：SOFIFA CDN，未收錄者用姓名縮寫頭像（避免錯誤照片）
                 sid = SOFIFA_IDS.get(p['name'], 0)
                 initials = ''.join(w[0] for w in p['name'].replace('.','').split() if w)[:2].upper()
-                # ui-avatars 用 OVR 等級決定底色
-                avatar_bg = 'f7c948' if ovr >= 85 else ('00d4ff' if ovr >= 78 else '475569')
+                # Claude 配色：高 OVR 珊瑚橘、中 OVR 暖靛、低 OVR 暖灰
+                avatar_bg = 'c96442' if ovr >= 85 else ('1f6e8c' if ovr >= 78 else '9b958a')
                 fallback_url = (
                     f"https://ui-avatars.com/api/?name={initials}"
-                    f"&background={avatar_bg}&color=0a0a0f&size=120&bold=true&length=2"
+                    f"&background={avatar_bg}&color=ffffff&size=120&bold=true&length=2"
                 )
                 if sid:
-                    # 嘗試 FIFA 25 圖片，失敗則 fallback 到縮寫頭像
-                    # 多重 fallback：25 → 24 → 縮寫
                     photo_src_25 = _sofifa_url(sid, 25, 120)
                     photo_src_24 = _sofifa_url(sid, 24, 120)
                     photo_html = (
@@ -2686,27 +2694,31 @@ elif page == "🌍 各國分析":
                         f'onerror="this.onerror=function(){{this.onerror=null;this.src=\'{fallback_url}\';}};'
                         f'this.src=\'{photo_src_24}\';" '
                         f'style="width:72px;height:72px;border-radius:50%;object-fit:cover;'
-                        f'object-position:top;background:#0d1b2e;'
-                        f'border:3px solid #f7c948;margin-bottom:8px;'
-                        f'box-shadow:0 2px 8px rgba(247,201,72,0.3);">'
+                        f'object-position:top;background:#f4f1ea;'
+                        f'border:2px solid #c96442;margin-bottom:8px;'
+                        f'box-shadow:0 2px 6px rgba(201,100,66,0.18);">'
                     )
                 else:
                     photo_html = (
                         f'<img src="{fallback_url}" '
                         f'style="width:72px;height:72px;border-radius:50%;object-fit:cover;'
-                        f'border:3px solid rgba(255,255,255,0.2);margin-bottom:8px;'
-                        f'box-shadow:0 2px 8px rgba(0,0,0,0.4);">'
+                        f'border:2px solid #e8e5dd;margin-bottom:8px;'
+                        f'box-shadow:0 2px 6px rgba(31,30,28,0.06);">'
                     )
+                # Claude 風格 OVR 配色
+                ovr_color = '#c96442' if ovr >= 85 else ('#1f6e8c' if ovr >= 78 else '#6b6760')
                 cards_html += (
-                    f'<div style="background:linear-gradient(145deg,#1a2a4a,#0d1b2e);border:1px solid rgba(255,255,255,0.1);'
-                    f'border-radius:14px;padding:16px 14px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,0.4);">'
+                    f'<div style="background:#ffffff;border:1px solid #e8e5dd;'
+                    f'border-radius:12px;padding:16px 14px;text-align:center;'
+                    f'box-shadow:0 1px 2px rgba(31,30,28,0.04);">'
                     f'{photo_html}'
-                    f'<div style="font-size:2rem;font-weight:900;color:{ovr_color};line-height:1.1;">{ovr}</div>'
-                    f'<div style="font-size:0.72rem;font-weight:700;color:#aabbcc;letter-spacing:1px;">{p["pos"]}</div>'
-                    f'<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:6px 0;">'
-                    f'<div style="font-size:0.88rem;font-weight:700;color:#fff;">{p["name"]}</div>'
-                    f'<div style="font-size:0.7rem;color:#7a9ab5;margin-bottom:8px;">{p["club"]} · {p["age"]}歲</div>'
-                    f'<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:6px 0;">'
+                    f'<div style="font-family:Charter,Georgia,serif;font-size:2rem;font-weight:600;'
+                    f'color:{ovr_color};line-height:1.1;">{ovr}</div>'
+                    f'<div style="font-size:0.72rem;font-weight:600;color:#6b6760;letter-spacing:0.8px;">{p["pos"]}</div>'
+                    f'<hr style="border:none;border-top:1px solid #e8e5dd;margin:8px 0;">'
+                    f'<div style="font-size:0.88rem;font-weight:600;color:#1f1e1c;">{p["name"]}</div>'
+                    f'<div style="font-size:0.7rem;color:#9b958a;margin-bottom:8px;">{p["club"]} · {p["age"]}歲</div>'
+                    f'<hr style="border:none;border-top:1px solid #e8e5dd;margin:8px 0;">'
                     f'{attrs_rows}'
                     f'</div>'
                 )
