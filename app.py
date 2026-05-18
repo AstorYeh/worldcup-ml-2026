@@ -1450,21 +1450,34 @@ if page == "📊 專題總覽":
     st.markdown("**真實資料：49,328 場國際比賽 · 67,894 筆 FIFA 排名**")
     st.markdown("---")
 
-    # ── 開場影片（自動播放、靜音、循環） ──
+    # ── 開場影片（自動播放、靜音、循環、無標題完全融入頁面） ──
     _video_path = os.path.join(os.path.dirname(__file__), 'assets', 'intro.mp4')
     if os.path.exists(_video_path):
-        v_col_l, v_col_c, v_col_r = st.columns([1, 4, 1])
-        with v_col_c:
-            try:
-                # 直接傳路徑：autoplay 需 muted=True（瀏覽器規範）
-                st.video(_video_path, autoplay=True, muted=True, loop=True)
-            except TypeError:
-                # 舊版 Streamlit 不支援 autoplay 參數 → 退回基本播放
-                st.video(_video_path)
-            except Exception as _e:
-                st.info(f"影片載入失敗：{_e}")
-            st.caption("🎬 2026 世界盃宣傳短片 · 卡通版「足球小將」風格（自動播放，可手動開聲音）")
-        st.markdown("---")
+        # 隱藏 video 元件預設的容器邊距/邊框，讓影片像 hero banner 直接接到下方內容
+        st.markdown(
+            """
+            <style>
+            div[data-testid="stVideo"] {
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 4px 16px rgba(31,30,28,0.08);
+                margin-bottom: 1.5rem;
+            }
+            div[data-testid="stVideo"] video {
+                display: block;
+                width: 100%;
+                border-radius: 12px;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        try:
+            st.video(_video_path, autoplay=True, muted=True, loop=True)
+        except TypeError:
+            st.video(_video_path)
+        except Exception:
+            pass
 
     match_df = load_match_data()
     fifa_df = load_fifa_ranking()
