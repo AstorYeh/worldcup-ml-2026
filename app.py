@@ -2569,13 +2569,9 @@ FIFA 排名濃縮了一支球隊「過去 4 年所有國際賽」的結果，
             total_n = int(cm_arr.sum())
             class_cn = {'Team1 Lose': '主隊負', 'Draw': '平局', 'Team1 Win': '主隊勝'}
 
-            st.markdown(
-                "**統計檢定方法：**「費雪精確檢定」（Fisher's Exact Test）— "
-                "用 **一對多（One-vs-Rest）** 把 3×3 混淆矩陣拆成三組 2×2，"
-                "檢定模型「預測該類別」與「實際發生該類別」是否有顯著關聯。"
-            )
-
+            # 主表：三類別費雪檢定結果
             fisher_rows = []
+            fisher_raw = []
             for c, label in enumerate(em['labels_name']):
                 tp = int(cm_arr[c, c])
                 fn = int(cm_arr[c, :].sum() - tp)
@@ -2597,10 +2593,13 @@ FIFA 排名濃縮了一支球隊「過去 4 年所有國際賽」的結果，
                     'p-value': f"{p_value:.4f}" if not np.isnan(p_value) else '—',
                     '顯著性 (α=0.05)': '✅ 顯著優於隨機' if (not np.isnan(p_value) and p_value < 0.05) else '⚠️ 未達顯著',
                 })
+                fisher_raw.append({'label': class_cn.get(label, label),
+                                   'p': p_value, 'or': odds_ratio,
+                                   'tp': tp, 'fp': fp, 'fn': fn, 'tn': tn})
             fisher_df = pd.DataFrame(fisher_rows)
             st.dataframe(fisher_df, use_container_width=True, hide_index=True)
 
-            # 全表卡方檢定（3×3 整體獨立性）
+            # 整體卡方檢定 3 個 metric 卡
             try:
                 chi2, chi_p, dof, _ = chi2_contingency(cm_arr)
                 chi2_ok = chi_p < 0.05
@@ -2614,15 +2613,79 @@ FIFA 排名濃縮了一支球隊「過去 4 年所有國際賽」的結果，
             with col_b:
                 st.metric("自由度 (df)", str(dof))
             with col_c:
-                st.metric("p-value", f"{chi_p:.4f}" if not np.isnan(chi_p) else '—',
-                          delta="顯著" if chi2_ok else "未達顯著",
-                          delta_color="normal" if chi2_ok else "off")
+                st.metric("整體 p-value", f"{chi_p:.4f}" if not np.isnan(chi_p) else '—',
+                          delta="✅ 顯著" if chi2_ok else "⚠️ 未達顯著",
+                          delta_color="off")
 
-            st.caption(
-                "📖 **判讀方式**：p-value < 0.05 表示在統計上拒絕「模型預測與實際結果獨立」的虛無假設，"
-                "代表該類別模型的預測能力顯著優於隨機。Odds Ratio 越大代表正相關越強（>1 = 預測有效）。"
-                "平局類別 p-value 通常較大，符合足球平局難以預測的直覺。"
-            )
+            with st.expander("📖 詳細解讀（費雪檢定是什麼？）", expanded=False):
+                # 動態組成各類別解讀
+                sig_lines = []
+                for r in fisher_raw:
+                    if np.isnan(r['p']):
+                        verdict = '— 無法計算'
+                    elif r['p'] < 0.001:
+                        verdict = f"**p = {r['p']:.4f} → 極顯著 ✓✓✓**（極強證據模型有效）"
+                    elif r['p'] < 0.01:
+                        verdict = f"**p = {r['p']:.4f} → 高度顯著 ✓✓**（強證據模型有效）"
+                    elif r['p'] < 0.05:
+                        verdict = f"**p = {r['p']:.4f} → 顯著 ✓**（達到統計顯著門檻）"
+                    else:
+                        verdict = f"p = {r['p']:.4f} → 未達顯著 ✗（不能拒絕「隨機猜測」假設）"
+                    or_str = f"，OR = {r['or']:.2f}" if not np.isnan(r['or']) else ''
+                    sig_lines.append(f"- **{r['label']}** {verdict}{or_str}")
+
+                st.markdown(
+                    f"""
+**🎯 為什麼要做這個檢定？**
+
+光看「正確率 55%」這個數字，無法回答：
+**「這 55% 是真的有預測能力，還是純粹運氣好剛好猜對？」**
+
+費雪精確檢定（Fisher's Exact Test）就是用嚴格的統計方法，
+**證明模型的預測表現「不是運氣使然」**。
+
+**🧪 怎麼運作？**
+
+由於模型輸出有 3 類（勝/平/負），費雪原版只能處理 2×2 表，
+我們用 **「一對多（One-vs-Rest）」** 策略：
+
+**舉例：檢定「主隊勝」類別**
+把所有比賽分成 4 格（2×2 列聯表）：
+
+|  | 模型預測：主隊勝 | 模型預測：其他 |
+|---|---|---|
+| **實際：主隊勝** | TP（真陽性） | FN（假陰性） |
+| **實際：其他** | FP（假陽性） | TN（真陰性） |
+
+對這個 2×2 表做費雪檢定，得到該類別的 p-value 與 Odds Ratio。
+三個類別各做一次。
+
+**📐 兩個關鍵指標**
+
+- **p-value**：「假設模型在亂猜，會不會看到這麼好或更好的成績？」
+  - p < 0.05 → 不太可能是亂猜（拒絕虛無假設）✓
+  - p ≥ 0.05 → 結果可能來自運氣（無法拒絕虛無假設）✗
+- **Odds Ratio (OR)**：模型預測該類別「成功的機會比」
+  - OR > 1：有正面預測能力（越大越強）
+  - OR ≈ 1：跟亂猜差不多
+  - OR < 1：比亂猜還差
+
+**🏆 本模型各類別檢定結果**
+
+{chr(10).join(sig_lines)}
+
+**📊 整體卡方檢定（補充）**
+
+χ² = {chi2:.2f}，自由度 = {dof}，p = {chi_p:.4f}
+→ {'**整體預測與實際結果有顯著關聯**，證實模型不是亂猜。' if chi2_ok else '**整體未達顯著**，需檢視模型設計或樣本量。'}
+
+**💡 為什麼平局通常不顯著？**
+
+平局發生機率本來就低（世界盃約 25%），加上樣本量小（2022 WC 小組賽只有 {total_n} 場），
+就算模型對平局有些預測能力，也很容易因為「統計檢力不足」而 p > 0.05。
+這不代表模型對平局完全沒能力，只是**無法從這個樣本量證明它**。
+"""
+                )
 
 # ============================================================
 # PAGE 4: 各國分析 + 球員能力卡
