@@ -1,0 +1,11 @@
+[theme]
+# Claude-inspired warm light theme
+base = "light"
+primaryColor = "#c96442"           # Anthropic coral
+backgroundColor = "#faf9f5"        # warm cream
+secondaryBackgroundColor = "#f4f1ea"  # slight elevation cream
+textColor = "#1f1e1c"              # warm near-black
+font = "sans serif"
+
+[server]
+maxUploadSize = 50

@@ -21,6 +21,39 @@ warnings.filterwarnings('ignore')
 from squad_data import SQUAD_DATA
 
 # ============================================================
+# Plotly 全域 Claude 主題（暖色淺底 + 珊瑚橘）
+# ============================================================
+_CLAUDE_BG    = '#faf9f5'
+_CLAUDE_CARD  = '#ffffff'
+_CLAUDE_TEXT  = '#1f1e1c'
+_CLAUDE_MUTE  = '#6b6760'
+_CLAUDE_GRID  = '#e8e5dd'
+_CLAUDE_ACCENT = '#c96442'
+_CLAUDE_ACCENT2 = '#1f6e8c'
+_CLAUDE_PALETTE = ['#c96442', '#1f6e8c', '#b58a3b', '#5f8466',
+                   '#7a5fa7', '#a8593e', '#3d6e8a', '#8e6b3f']
+
+def claude_layout(**overrides):
+    """回傳 Claude 主題的 plotly layout dict（暖色淺底）。"""
+    base = dict(
+        paper_bgcolor=_CLAUDE_CARD,
+        plot_bgcolor=_CLAUDE_CARD,
+        font=dict(family='Inter, system-ui, sans-serif',
+                  color=_CLAUDE_TEXT, size=12),
+        title=dict(font=dict(family='Charter, Georgia, serif',
+                             color=_CLAUDE_TEXT, size=15)),
+        xaxis=dict(gridcolor=_CLAUDE_GRID, linecolor=_CLAUDE_GRID,
+                   tickcolor=_CLAUDE_GRID, color=_CLAUDE_TEXT, zeroline=False),
+        yaxis=dict(gridcolor=_CLAUDE_GRID, linecolor=_CLAUDE_GRID,
+                   tickcolor=_CLAUDE_GRID, color=_CLAUDE_TEXT, zeroline=False),
+        legend=dict(font=dict(color=_CLAUDE_TEXT)),
+        colorway=_CLAUDE_PALETTE,
+        margin=dict(l=40, r=20, t=50, b=40),
+    )
+    base.update(overrides)
+    return base
+
+# ============================================================
 # PAGE CONFIG
 # ============================================================
 st.set_page_config(
@@ -34,50 +67,155 @@ st.set_page_config(
 # ============================================================
 st.markdown("""
 <style>
-/* ── Theme: 熱血體育風 ── */
+/* ============================================================
+   ── Theme: Claude-inspired (warm cream + coral) ──
+   參考 Anthropic claude.ai 設計語言：暖色奶油底、珊瑚橘強調、
+   襯線標題、極簡邊框、低調陰影
+============================================================ */
 :root {
-    --bg-primary:   #0a0a0f;
-    --bg-card:       #12121a;
-    --bg-card2:      #1a1a2e;
-    --accent-red:    #e94560;
-    --accent-blue:   #0f3460;
-    --accent-gold:   #f7c59f;
-    --accent-cyan:   #00d4ff;
-    --text-primary:  #f0f0f0;
-    --text-muted:    #8899aa;
-    --border:        rgba(233,69,96,0.18);
+    --bg-primary:    #faf9f5;       /* 奶油色主背景 */
+    --bg-card:       #ffffff;       /* 卡片純白 */
+    --bg-elevated:   #f4f1ea;       /* 微抬升底色 */
+    --bg-subtle:     #ede9df;       /* 更深一層底色 */
+    --accent:        #c96442;       /* Anthropic 珊瑚橘 */
+    --accent-hover:  #b85838;       /* 深一階珊瑚橘 */
+    --accent-soft:   #f3e9e4;       /* 珊瑚橘微透 */
+    --accent-2:      #1f6e8c;       /* 輔助靛藍 */
+    --text-primary:  #1f1e1c;       /* 暖近黑 */
+    --text-secondary:#6b6760;       /* 中灰 */
+    --text-tertiary: #9b958a;       /* 淺灰 */
+    --border:        #e8e5dd;       /* 柔邊框 */
+    --border-strong: #d4d1c8;       /* 重邊框 */
+    --shadow-sm:     0 1px 2px rgba(31,30,28,0.04);
+    --shadow-md:     0 2px 8px rgba(31,30,28,0.06);
+    --shadow-lg:     0 4px 16px rgba(31,30,28,0.08);
+    --serif: 'Charter', 'Iowan Old Style', 'Georgia', 'Palatino', serif;
+    --sans:  -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter',
+             'Helvetica Neue', 'PingFang TC', 'Noto Sans TC', sans-serif;
 }
 
-/* Metric cards */
+/* 全域字體 */
+html, body, [class*="css"], .stApp {
+    font-family: var(--sans) !important;
+    color: var(--text-primary);
+}
+
+/* 主容器 */
+.main .block-container {
+    padding-top: 2.5rem;
+    padding-bottom: 3rem;
+    max-width: 1240px;
+}
+
+.stApp {
+    background: var(--bg-primary) !important;
+}
+
+/* ── 標題層級：襯線字 + 暖色 ── */
+h1 {
+    font-family: var(--serif) !important;
+    font-weight: 600 !important;
+    font-size: 2.1rem !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.4px;
+    line-height: 1.25;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 20px !important;
+}
+h2 {
+    font-family: var(--serif) !important;
+    font-weight: 600 !important;
+    font-size: 1.5rem !important;
+    color: var(--text-primary) !important;
+    margin-top: 1.8rem !important;
+    letter-spacing: -0.2px;
+}
+h3 {
+    font-family: var(--serif) !important;
+    font-weight: 600 !important;
+    font-size: 1.2rem !important;
+    color: var(--accent) !important;
+    margin-top: 1.4rem !important;
+}
+h4, h5, h6 {
+    font-family: var(--sans) !important;
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+}
+
+/* 一般段落 */
+p, li {
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+strong, b { color: var(--text-primary); font-weight: 600; }
+
+/* ── 分隔線：極簡 ── */
+hr {
+    border: none !important;
+    height: 1px !important;
+    background: var(--border) !important;
+    margin: 2rem 0 !important;
+}
+
+/* ── 預測卡片（殘留遺產樣式） ── */
+.pred-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+/* ── 自訂指標卡 .metric-card ── */
 .metric-card {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    border-radius: 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
     padding: 18px 20px;
     text-align: center;
-    color: white;
     margin: 8px 0;
-    border: 1px solid rgba(233,69,96,0.15);
-    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s, border-color 0.2s;
 }
-.metric-card h2 { margin: 0; font-size: 2.2rem; color: #00d4ff; }
-.metric-card p { margin: 4px 0 0; color: #8899aa; font-size: 0.85rem; }
+.metric-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-strong);
+}
+.metric-card h2 {
+    margin: 0 !important;
+    border: none !important;
+    padding: 0 !important;
+    font-size: 2rem !important;
+    color: var(--accent) !important;
+    font-family: var(--serif) !important;
+}
+.metric-card p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
 
 /* ── 小組卡片 ── */
 .group-card {
-    background: linear-gradient(145deg, #12121a 0%, #1a1a2e 100%);
-    border-radius: 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
     overflow: hidden;
     margin-bottom: 16px;
-    border: 1px solid rgba(233,69,96,0.12);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s;
 }
+.group-card:hover { box-shadow: var(--shadow-md); }
 .group-header {
-    background: linear-gradient(90deg, #e94560 0%, #c23a52 100%);
-    padding: 8px 16px;
-    font-size: 0.95rem;
-    font-weight: 700;
+    background: var(--accent);
+    padding: 10px 16px;
+    font-size: 0.92rem;
+    font-weight: 600;
     color: #fff;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -85,163 +223,194 @@ st.markdown("""
 .team-row {
     display: flex;
     align-items: center;
-    padding: 8px 16px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    color: #e0e0e0;
-    font-size: 0.90rem;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 0.9rem;
     transition: background 0.15s;
 }
 .team-row:last-child { border-bottom: none; }
-.team-row:hover { background: rgba(233,69,96,0.06); }
+.team-row:hover { background: var(--bg-elevated); }
 .team-flag { font-size: 1.3rem; margin-right: 10px; flex-shrink: 0; }
-.team-cn { font-weight: 600; color: #f0f0f0; margin-right: 6px; min-width: 60px; }
-.team-en { color: #8899aa; flex: 1; font-size: 0.82rem; }
+.team-cn { font-weight: 600; color: var(--text-primary); margin-right: 6px; min-width: 60px; }
+.team-en { color: var(--text-secondary); flex: 1; font-size: 0.82rem; }
 .team-rank {
     font-size: 0.72rem;
-    color: #00d4ff;
-    background: rgba(0,212,255,0.08);
-    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--border);
     padding: 2px 8px;
-    border-radius: 20px;
+    border-radius: 999px;
     flex-shrink: 0;
 }
 
-/* Progress bar 勝率 */
-div[data-testid="stProgressBar"] > div > div {
-    background: linear-gradient(90deg, #e94560, #00d4ff);
-}
-
-/* 分頁分隔線 */
-section[data-testid="stSidebarNav"] + div {
-    border-left: 1px solid rgba(233,69,96,0.15);
-}
-
-/* 預測卡片 */
-.pred-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 12px;
-}
-
-/* ── 版面優化：統一字級／間距／視覺層級 ── */
-
-/* 主容器內距 */
-.main .block-container {
-    padding-top: 2rem;
-    padding-bottom: 3rem;
-    max-width: 1280px;
-}
-
-/* 標題層級 */
-h1 {
-    font-weight: 800 !important;
-    letter-spacing: -0.5px;
-    border-bottom: 3px solid var(--accent-red);
-    padding-bottom: 10px;
-    margin-bottom: 18px !important;
-}
-h2 {
-    font-weight: 700 !important;
-    color: #f7c948 !important;
-    margin-top: 1.5rem !important;
-}
-h3 {
-    font-weight: 700 !important;
-    color: var(--accent-cyan) !important;
-    margin-top: 1.2rem !important;
-}
-
-/* 分隔線更精緻 */
-hr {
-    border: none !important;
-    height: 1px !important;
-    background: linear-gradient(90deg, transparent, rgba(233,69,96,0.4), transparent) !important;
-    margin: 1.6rem 0 !important;
-}
-
-/* Tabs 樣式：更明顯的選中狀態 */
+/* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 6px;
-    background: rgba(18,18,26,0.6);
-    padding: 6px;
-    border-radius: 10px;
-    border: 1px solid rgba(233,69,96,0.1);
+    gap: 4px;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--border);
 }
 .stTabs [data-baseweb="tab"] {
     background: transparent;
-    border-radius: 8px;
+    border-radius: 6px 6px 0 0;
     padding: 8px 16px;
-    font-weight: 600;
-    color: #8899aa;
-    transition: all 0.2s;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: color 0.15s, background 0.15s;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
 }
 .stTabs [data-baseweb="tab"]:hover {
-    background: rgba(233,69,96,0.08);
-    color: #f0f0f0;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
 }
 .stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, #e94560 0%, #c23a52 100%) !important;
-    color: #fff !important;
-    box-shadow: 0 2px 8px rgba(233,69,96,0.3);
+    background: transparent !important;
+    color: var(--accent) !important;
+    border-bottom: 2px solid var(--accent) !important;
+    font-weight: 600 !important;
+    box-shadow: none;
 }
 
-/* Metric 卡片更立體 */
+/* ── Metric ── */
 div[data-testid="stMetric"] {
-    background: linear-gradient(135deg, #12121a 0%, #1a1a2e 100%);
-    border: 1px solid rgba(233,69,96,0.15);
-    border-radius: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
     padding: 14px 18px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    box-shadow: var(--shadow-sm);
 }
 div[data-testid="stMetricLabel"] {
-    color: #8899aa !important;
-    font-weight: 600;
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+    font-size: 0.82rem !important;
 }
 div[data-testid="stMetricValue"] {
-    color: var(--accent-cyan) !important;
-    font-weight: 800 !important;
+    color: var(--accent) !important;
+    font-weight: 600 !important;
+    font-family: var(--serif) !important;
+}
+div[data-testid="stMetricDelta"] {
+    color: var(--text-secondary) !important;
 }
 
-/* Dataframe 樣式 */
+/* ── Dataframe ── */
 div[data-testid="stDataFrame"] {
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
-    border: 1px solid rgba(233,69,96,0.12);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
 }
 
-/* Expander：強化視覺辨識（原本太透明看不見） */
+/* ── Expander ── */
 div[data-testid="stExpander"] {
-    border: 1px solid rgba(0,212,255,0.3) !important;
+    border: 1px solid var(--border) !important;
     border-radius: 10px !important;
-    background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    background: var(--bg-card) !important;
+    box-shadow: var(--shadow-sm);
     margin-bottom: 8px;
 }
 div[data-testid="stExpander"] summary {
-    font-weight: 700 !important;
-    color: #ffffff !important;
+    font-weight: 500 !important;
+    color: var(--text-primary) !important;
     padding: 12px 18px !important;
-    background: linear-gradient(90deg, rgba(0,212,255,0.12) 0%, transparent 100%) !important;
-    border-left: 3px solid #00d4ff !important;
+    background: transparent !important;
+    border-left: none !important;
 }
 div[data-testid="stExpander"] summary:hover {
-    background: linear-gradient(90deg, rgba(0,212,255,0.22) 0%, transparent 100%) !important;
+    background: var(--bg-elevated) !important;
 }
 
-/* Info / Warning / Error 訊息框：強化對比 */
+/* ── Alerts / Info ── */
 div[data-testid="stAlert"] {
     border-radius: 8px !important;
+    font-weight: 400;
+    border: 1px solid var(--border) !important;
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+}
+div[data-testid="stAlert"] p {
+    color: var(--text-primary) !important;
+}
+
+/* ── 球隊對比表（保留白底結構） ── */
+.cmp-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    margin-top: 10px;
+    background: var(--bg-card);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+}
+.cmp-head {
+    background: var(--bg-elevated) !important;
+    color: var(--text-primary) !important;
     font-weight: 600;
-    border-width: 1px !important;
-    border-style: solid !important;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
 }
-div[data-testid="stAlert"][data-baseweb="notification"] {
-    background: rgba(0,212,255,0.12) !important;
-    border-color: rgba(0,212,255,0.4) !important;
-    color: #ffffff !important;
+.cmp-head-c { text-align: center; }
+.cmp-head-red { border-bottom: 2px solid var(--accent) !important; }
+.cmp-head-blue { border-bottom: 2px solid var(--accent-2) !important; }
+.cmp-label {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 14px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
 }
+.cmp-cell {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    font-weight: 600;
+    text-align: center;
+    padding: 14px;
+    font-size: 1.05rem;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+.cmp-dim {
+    background: var(--bg-card) !important;
+    color: var(--text-tertiary) !important;
+    font-weight: 400;
+    text-align: center;
+    padding: 14px;
+    font-size: 1.05rem;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+.cmp-win {
+    background: var(--accent-soft) !important;
+    color: var(--accent-hover) !important;
+    font-weight: 700 !important;
+    text-align: center;
+    padding: 14px;
+    font-size: 1.15rem;
+    border-top: 2px solid var(--accent) !important;
+    border-bottom: 2px solid var(--accent) !important;
+}
+.cmp-dir {
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: 6px;
+}
+.cmp-chip {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+.cmp-chip-red { background: var(--accent); }
+.cmp-chip-blue { background: var(--accent-2); }
 
 /* ── 球隊對比表 cell classes（避開 Streamlit inline-style 被剝離問題） ── */
 .cmp-grid {
@@ -318,67 +487,96 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
 .cmp-chip-red { background: #dc2626; }
 .cmp-chip-blue { background: #2563eb; }
 
-/* Sidebar 樣式 */
+/* ── Sidebar ── */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0a0a0f 0%, #12121a 100%);
-    border-right: 1px solid rgba(233,69,96,0.18);
+    background: var(--bg-elevated) !important;
+    border-right: 1px solid var(--border);
+}
+section[data-testid="stSidebar"] * {
+    color: var(--text-primary);
 }
 section[data-testid="stSidebar"] .stRadio label {
-    padding: 6px 4px;
-    border-radius: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
     transition: background 0.15s;
+    color: var(--text-primary);
 }
 section[data-testid="stSidebar"] .stRadio label:hover {
-    background: rgba(233,69,96,0.08);
+    background: var(--bg-card);
+}
+section[data-testid="stSidebar"] hr {
+    margin: 1rem 0 !important;
+    background: var(--border) !important;
 }
 
-/* Selectbox / Multiselect */
+/* ── Selectbox / Multiselect ── */
 div[data-baseweb="select"] > div {
-    background: rgba(26,26,46,0.8) !important;
-    border-color: rgba(233,69,96,0.2) !important;
+    background: var(--bg-card) !important;
+    border-color: var(--border) !important;
+}
+div[data-baseweb="select"] * {
+    color: var(--text-primary) !important;
 }
 
-/* Button */
+/* ── Button ── */
 .stButton button {
-    background: linear-gradient(135deg, #e94560 0%, #c23a52 100%);
+    background: var(--accent);
     color: #fff;
-    border: none;
+    border: 1px solid var(--accent);
     border-radius: 8px;
-    font-weight: 600;
+    font-weight: 500;
     padding: 8px 18px;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: background 0.15s, transform 0.15s;
+    box-shadow: var(--shadow-sm);
 }
 .stButton button:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: #fff;
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(233,69,96,0.4);
+    box-shadow: var(--shadow-md);
 }
 
-/* Caption 樣式 */
+/* ── Caption ── */
 [data-testid="stCaptionContainer"] {
-    color: #7a8aa0 !important;
+    color: var(--text-secondary) !important;
     font-size: 0.82rem !important;
     line-height: 1.6;
 }
 
-/* Plotly 圖表外框 */
+/* ── Plotly 圖表外框（極簡） ── */
 .js-plotly-plot {
-    border-radius: 10px;
-    background: rgba(18,18,26,0.4);
+    border-radius: 8px;
+    background: var(--bg-card);
     padding: 8px;
+    border: 1px solid var(--border);
 }
 
-/* Progress bar */
+/* ── Progress bar ── */
 div[data-testid="stProgress"] > div > div {
-    background: rgba(255,255,255,0.06);
+    background: var(--bg-subtle);
     border-radius: 4px;
 }
+div[data-testid="stProgressBar"] > div > div {
+    background: var(--accent) !important;
+}
 
-/* 響應式：手機版減少 padding */
+/* ── Markdown links ── */
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+/* ── 響應式：手機版 ── */
 @media (max-width: 768px) {
     .main .block-container { padding: 1rem 0.6rem; }
     h1 { font-size: 1.6rem !important; }
-    h2 { font-size: 1.3rem !important; }
-    h3 { font-size: 1.1rem !important; }
+    h2 { font-size: 1.25rem !important; }
+    h3 { font-size: 1.05rem !important; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -1199,16 +1397,19 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
 # ============================================================
 st.sidebar.markdown(
     """
-    <div style='text-align:center; padding:6px 0 14px;'>
-        <div style='font-size:2.4rem;'>🏆</div>
-        <div style='font-size:1.05rem; font-weight:800; color:#f7c948; letter-spacing:0.5px;'>2026 World Cup</div>
-        <div style='font-size:0.78rem; color:#8899aa; margin-top:2px;'>ML 勝率分析 v2.3</div>
+    <div style='padding:8px 4px 18px;'>
+        <div style='font-family: Charter, Georgia, serif; font-size:1.2rem;
+                    font-weight:600; color:#1f1e1c; letter-spacing:-0.2px;'>
+            World Cup 2026
+        </div>
+        <div style='font-size:0.78rem; color:#6b6760; margin-top:2px;'>
+            ML 勝率分析 · v2.3
+        </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 st.sidebar.markdown("---")
-st.sidebar.markdown("**📍 導航**")
 page = st.sidebar.radio("選擇頁面", [
     "📊 專題總覽",
     "🔮 2026 預測",
@@ -1222,16 +1423,16 @@ page = st.sidebar.radio("選擇頁面", [
 st.sidebar.markdown("---")
 st.sidebar.markdown(
     """
-    <div style='font-size:0.74rem; color:#7a8aa0; line-height:1.7; padding: 6px 4px;'>
-        <div><b style='color:#aabbcc;'>🤖 模型架構</b></div>
+    <div style='font-size:0.78rem; color:#6b6760; line-height:1.7; padding: 4px;'>
+        <div style='color:#1f1e1c; font-weight:600; margin-bottom:4px;'>模型架構</div>
         <div>XGBoost 20% + Dixon-Coles 80%</div>
         <div>+ Squad OVR + Monte Carlo 10k</div>
-        <br>
-        <div><b style='color:#aabbcc;'>📊 訓練資料</b></div>
-        <div>49,328 場 · 1990-2025</div>
+        <div style='height:14px;'></div>
+        <div style='color:#1f1e1c; font-weight:600; margin-bottom:4px;'>訓練資料</div>
+        <div>49,328 場 · 1990–2025</div>
         <div>67,894 筆 FIFA 排名</div>
-        <br>
-        <div style='font-size:0.7rem; color:#556677;'>
+        <div style='height:14px;'></div>
+        <div style='font-size:0.72rem; color:#9b958a;'>
             資料來源：international football, FIFA<br>
             最後更新：2026-04
         </div>
@@ -1587,37 +1788,26 @@ elif page == "🔮 2026 預測":
                         ('場均進球', s1['avg_goals'],    s2['avg_goals'],    '{:.2f}', 'high'),
                         ('場均失球', s1['avg_conceded'], s2['avg_conceded'], '{:.2f}', 'low'),
                     ]
-                    # 傳統高對比配色：標準紅 + 標準藍 + 黃色高亮
-                    C1 = '#dc2626'   # 球隊1（標準紅，類似中華隊紅）
-                    C2 = '#2563eb'   # 球隊2（標準藍）
-                    WIN_BG = 'rgba(250, 204, 21, 0.22)'  # 較強值底色
-                    WIN_TX = '#facc15'                    # 較強值文字（金黃）
-                    TX = '#ffffff'                        # 普通值（純白）
-                    DIM = '#94a3b8'                       # 輸者灰
+                    # Claude 主題配色：珊瑚橘 vs 靛藍
+                    C1 = _CLAUDE_ACCENT   # 球隊1（Claude 珊瑚橘）
+                    C2 = _CLAUDE_ACCENT2  # 球隊2（暖靛藍）
 
                     fig_bar = go.Figure()
                     cats = [m[0] for m in metrics_list]
                     v1s = [m[1] for m in metrics_list]
                     v2s = [m[2] for m in metrics_list]
                     fig_bar.add_trace(go.Bar(
-                        name=info1['cn'], x=cats, y=v1s,
-                        marker=dict(color=C1),
+                        name=info1['cn'], x=cats, y=v1s, marker=dict(color=C1),
                     ))
                     fig_bar.add_trace(go.Bar(
-                        name=info2['cn'], x=cats, y=v2s,
-                        marker=dict(color=C2),
+                        name=info2['cn'], x=cats, y=v2s, marker=dict(color=C2),
                     ))
-                    fig_bar.update_layout(
+                    fig_bar.update_layout(**claude_layout(
                         barmode='group', height=280,
-                        margin=dict(l=0, r=0, t=40, b=40),
+                        margin=dict(l=10, r=10, t=40, b=40),
                         legend=dict(orientation='h', y=1.15,
-                                    font=dict(color='#ffffff', size=14)),
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='#ffffff', size=13),
-                        xaxis=dict(tickfont=dict(color='#ffffff', size=13)),
-                        yaxis=dict(gridcolor='rgba(255,255,255,0.12)',
-                                   tickfont=dict(color='#e2e8f0', size=12)),
-                    )
+                                    font=dict(color=_CLAUDE_TEXT, size=13)),
+                    ))
                     st.plotly_chart(fig_bar, use_container_width=True)
 
                     # 純文字標記方案：Streamlit 原生 dataframe + 文字內 ★ 與 ⬇
@@ -1679,15 +1869,15 @@ elif page == "🔮 2026 預測":
                                for j in range(mg)] for i in range(mg)]
                     fig_h = go.Figure(go.Heatmap(
                         z=z, x=[str(j) for j in range(mg)], y=[str(i) for i in range(mg)],
-                        colorscale='Blues', showscale=False,
+                        colorscale=[[0, '#faf9f5'], [0.5, '#f3e9e4'], [1, '#c96442']],
+                        showscale=False,
                         text=text_z, texttemplate='%{text}', textfont=dict(size=10),
                     ))
-                    fig_h.update_layout(
-                        xaxis_title=f'{info2["cn"]} 進球', yaxis_title=f'{info1["cn"]} 進球',
-                        height=280, margin=dict(l=40, r=0, t=10, b=40),
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='#ccc'),
-                    )
+                    fig_h.update_layout(**claude_layout(
+                        xaxis_title=f'{info2["cn"]} 進球',
+                        yaxis_title=f'{info1["cn"]} 進球',
+                        height=280, margin=dict(l=50, r=10, t=10, b=40),
+                    ))
                     st.plotly_chart(fig_h, use_container_width=True)
                     st.caption(f"★ = 預測最可能比分 {r['goal1']}-{r['goal2']}　λ₁={lam1:.2f} λ₂={lam2:.2f}")
 
@@ -2581,22 +2771,18 @@ elif page == "🎯 球隊風格分群":
             hover_data={'style_en': True, 'cluster_label': True, 'pca1': False, 'pca2': False},
             text='team_cn',
             title=f'球隊風格分群 — PCA 二維投影  (k={k}, Silhouette={sil:.2f})',
-            color_discrete_sequence=['#e94560', '#f5a623', '#3366cc', '#0f6e6e'],
+            color_discrete_sequence=_CLAUDE_PALETTE,
             height=540,
         )
         fig_pca.update_traces(textposition='top center', marker=dict(size=11),
-                              textfont=dict(size=9))
-        fig_pca.update_layout(
-            legend_title_text='風格',
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#ccc'),
-            xaxis=dict(gridcolor='rgba(255,255,255,0.08)'),
-            yaxis=dict(gridcolor='rgba(255,255,255,0.08)'),
-        )
+                              textfont=dict(size=9, color=_CLAUDE_TEXT))
+        fig_pca.update_layout(**claude_layout(
+            legend_title_text='風格', height=540,
+        ))
         st.plotly_chart(fig_pca, use_container_width=True)
 
         # ── 分群說明：類型定義 + 各群中心數據 ──
-        style_colors = {'攻擊型': '#e94560', '防守型': '#3366cc', '平衡型': '#f5a623'}
+        style_colors = {'攻擊型': _CLAUDE_ACCENT, '防守型': _CLAUDE_ACCENT2, '平衡型': '#b58a3b'}
         style_icons  = {'攻擊型': '⚡', '防守型': '🛡️', '平衡型': '⚖️'}
         style_criteria = {
             '攻擊型': '場均進球最高 → 主動進攻、以攻代守',
@@ -2686,18 +2872,25 @@ elif page == "🎯 球隊風格分群":
             fig_radar.add_trace(_go_r.Scatterpolar(
                 r=norm_a + [norm_a[0]], theta=radar_labels + [radar_labels[0]],
                 fill='toself', name=TEAM_INFO.get(team_a, {'cn': team_a})['cn'],
-                line_color='#e94560',
+                line_color=_CLAUDE_ACCENT, fillcolor='rgba(201,100,66,0.15)',
             ))
             fig_radar.add_trace(_go_r.Scatterpolar(
                 r=norm_b + [norm_b[0]], theta=radar_labels + [radar_labels[0]],
                 fill='toself', name=TEAM_INFO.get(team_b, {'cn': team_b})['cn'],
-                line_color='#3366cc', opacity=0.7,
+                line_color=_CLAUDE_ACCENT2, fillcolor='rgba(31,110,140,0.15)',
             ))
-            fig_radar.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+            fig_radar.update_layout(**claude_layout(
+                polar=dict(
+                    bgcolor=_CLAUDE_CARD,
+                    radialaxis=dict(visible=True, range=[0, 1],
+                                    gridcolor=_CLAUDE_GRID, color=_CLAUDE_TEXT),
+                    angularaxis=dict(gridcolor=_CLAUDE_GRID, color=_CLAUDE_TEXT),
+                ),
                 showlegend=True, height=450,
-                title='兩隊攻守風格雷達比較（正規化）',
-            )
+                title=dict(text='兩隊攻守風格雷達比較（正規化）',
+                           font=dict(family='Charter, Georgia, serif',
+                                     color=_CLAUDE_TEXT, size=15)),
+            ))
             st.plotly_chart(fig_radar, use_container_width=True)
 
 # ============================================================
