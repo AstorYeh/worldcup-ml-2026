@@ -2205,50 +2205,81 @@ elif page == "📈 數據分析":
         # ── Tab 1: Confusion Matrix ──
         with tab_cm:
             st.markdown(
-                "**📊 圖表意義**：混淆矩陣（Confusion Matrix）是分類問題的「成績單」。"
-                "Y 軸是「實際結果」，X 軸是「模型預測結果」。**對角線格子代表預測正確**，"
-                "其他格子是錯誤類型。"
+                "##### 📖 怎麼讀這張表？\n"
+                "**每一橫列**代表「**實際比賽的結果**」（共 3 種情境），"
+                "**每一直行**代表「**模型猜的結果**」。\n\n"
+                "- **對角線**（左上→右下）：實際發生什麼，模型也猜對什麼 → **預測正確 ✓**\n"
+                "- **其他格子**：實際是 A，但模型誤判為 B → **預測錯誤 ✗**\n\n"
+                "⚠️ **常見誤讀**：「Team1 Win × Team1 Lose = 5」**不是**「同一場既贏又輸」，"
+                "而是「實際上主隊贏的 28 場裡，有 5 場被模型誤判成主隊輸」。"
             )
+
             cm_data = em['cm']
-            lbls = em['labels_name']
+            cm_arr_local = np.array(cm_data)
+            # 中文化標籤
+            label_map_x = ['預測：主隊負', '預測：平局', '預測：主隊勝']
+            label_map_y = ['實際：主隊負', '實際：平局', '實際：主隊勝']
             import plotly.graph_objects as _go
+            # row-wise 百分比
             cm_norm = [[round(v / max(sum(row), 1) * 100, 1) for v in row] for row in cm_data]
-            text_vals = [
-                [f"{cm_data[i][j]}<br>({cm_norm[i][j]}%)" for j in range(3)]
-                for i in range(3)
-            ]
+            # 每格加上 ✓/✗ + 場數 + 百分比
+            text_vals = []
+            for i in range(3):
+                row_txt = []
+                for j in range(3):
+                    mark = '✓ 正確' if i == j else '✗ 誤判'
+                    row_txt.append(
+                        f"<b>{mark}</b><br>{cm_data[i][j]} 場 ({cm_norm[i][j]}%)"
+                    )
+                text_vals.append(row_txt)
+            # 自訂色階：對角線深珊瑚橘，誤判格淺灰
             fig_cm = _go.Figure(data=_go.Heatmap(
                 z=[[cm_data[i][j] for j in range(3)] for i in range(3)],
-                x=lbls, y=lbls,
-                colorscale='Reds',
+                x=label_map_x, y=label_map_y,
+                colorscale=[[0, '#faf9f5'], [0.3, '#f3e9e4'],
+                            [0.7, '#e0a48a'], [1, '#c96442']],
                 text=text_vals,
                 texttemplate="%{text}",
-                textfont={"size": 14},
-                showscale=True,
+                textfont={"size": 13, "color": "#1f1e1c"},
+                showscale=False,
+                hovertemplate='%{y}<br>%{x}<br>場數: %{z}<extra></extra>',
             ))
-            fig_cm.update_layout(
-                title=f"混淆矩陣 — 2022 世界盃（正確率={_acc:.2f}）",
-                xaxis_title="預測結果", yaxis_title="實際結果",
+            fig_cm.update_layout(**claude_layout(
+                xaxis_title="↓ 模型預測（X 軸）",
+                yaxis_title="實際結果（Y 軸） →",
                 height=420,
-            )
+                margin=dict(l=110, r=20, t=20, b=70),
+            ))
+            # Y 軸反轉，讓主隊勝在上方更直觀
+            fig_cm.update_yaxes(autorange='reversed')
             st.plotly_chart(fig_cm, use_container_width=True)
-            # 計算每類正確率
-            cm_arr_local = np.array(cm_data)
+
+            # 各類別 Recall + 直觀解釋
             lose_recall = cm_arr_local[0, 0] / max(cm_arr_local[0, :].sum(), 1)
             draw_recall = cm_arr_local[1, 1] / max(cm_arr_local[1, :].sum(), 1)
             win_recall = cm_arr_local[2, 2] / max(cm_arr_local[2, :].sum(), 1)
+
+            col_r1, col_r2, col_r3 = st.columns(3)
+            with col_r1:
+                st.metric("主隊勝 Recall", f"{win_recall:.0%}",
+                          help=f"實際主隊勝 {int(cm_arr_local[2,:].sum())} 場，"
+                               f"模型答對 {int(cm_arr_local[2,2])} 場")
+            with col_r2:
+                st.metric("平局 Recall", f"{draw_recall:.0%}",
+                          delta="難預測",
+                          delta_color="off",
+                          help=f"實際平局 {int(cm_arr_local[1,:].sum())} 場，"
+                               f"模型答對 {int(cm_arr_local[1,1])} 場")
+            with col_r3:
+                st.metric("主隊負 Recall", f"{lose_recall:.0%}",
+                          help=f"實際主隊負 {int(cm_arr_local[0,:].sum())} 場，"
+                               f"模型答對 {int(cm_arr_local[0,0])} 場")
+
             st.markdown(
-                f"##### 💡 逐類別解讀\n"
-                f"- **主隊負**：實際發生 {int(cm_arr_local[0,:].sum())} 場，"
-                f"模型答對 {int(cm_arr_local[0,0])} 場（**{lose_recall:.0%} Recall**）\n"
-                f"- **平局**：實際發生 {int(cm_arr_local[1,:].sum())} 場，"
-                f"模型答對 {int(cm_arr_local[1,1])} 場（**{draw_recall:.0%} Recall**）"
-                f" ← 最難預測\n"
-                f"- **主隊勝**：實際發生 {int(cm_arr_local[2,:].sum())} 場，"
-                f"模型答對 {int(cm_arr_local[2,2])} 場（**{win_recall:.0%} Recall**）\n\n"
-                f"**📌 為什麼平局最難預測？** 平局發生在兩隊實力接近時，模型看到「勢均力敵」"
-                f"的特徵反而會傾向猜「強勢方獲勝」。這是足球預測的世界性難題，所有商業博弈"
-                f"公司也都有此問題。"
+                "##### 💡 為什麼平局 Recall 最低？\n"
+                "平局發生在兩隊實力**接近**時，模型看到「勢均力敵」的特徵反而會猜「強勢方獲勝」。"
+                "這是足球預測的世界性難題 — 所有商業博弈公司都有相同問題。\n"
+                "因此本系統的「平局機率」是**參考值**，不會用平局當主預測。"
             )
 
         # ── Tab 2: ROC 曲線 ──
