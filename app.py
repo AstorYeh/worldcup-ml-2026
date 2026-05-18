@@ -2274,64 +2274,47 @@ elif page == "📈 數據分析":
 
         # ── Tab 2: ROC 曲線 ──
         with tab_roc:
-            st.markdown(
-                "**📈 圖表意義**：ROC 曲線（Receiver Operating Characteristic）衡量「機率排序能力」。"
-                "曲線越向左上方靠近 = 模型越能把「真正會發生的類別」排在「不會發生的類別」前面。"
-                "**AUC（曲線下面積）** 是核心指標：1.0 = 完美、0.5 = 隨機猜測、< 0.5 = 比隨機還差。"
-            )
             import plotly.graph_objects as _go2
+            class_cn_roc = {'Team1 Lose': '主隊負', 'Draw': '平局', 'Team1 Win': '主隊勝'}
+            colors_roc = [_CLAUDE_ACCENT, '#b58a3b', _CLAUDE_ACCENT2]
             fig_roc = _go2.Figure()
-            colors_roc = ['#e94560', '#0f6e6e', '#3366cc']
             auc_summary = []
             for idx, (name, rd) in enumerate(em['roc'].items()):
+                cn = class_cn_roc.get(name, name)
                 fig_roc.add_trace(_go2.Scatter(
                     x=rd['fpr'], y=rd['tpr'],
                     mode='lines',
-                    name=f"{name} (AUC = {rd['auc']:.2f})",
+                    name=f"{cn} (AUC = {rd['auc']:.2f})",
                     line=dict(width=2.5, color=colors_roc[idx % 3]),
                 ))
                 auc_summary.append((name, rd['auc']))
             fig_roc.add_trace(_go2.Scatter(
                 x=[0, 1], y=[0, 1], mode='lines',
-                line=dict(dash='dash', color='gray', width=1),
-                showlegend=False, name='隨機基準',
+                line=dict(dash='dash', color='#9b958a', width=1),
+                name='隨機基準 (AUC=0.5)', showlegend=True,
             ))
-            fig_roc.update_layout(
-                title="ROC 曲線 — 一對多（2022 世界盃測試集）",
-                xaxis_title="假陽性率 (False Positive Rate)",
-                yaxis_title="真陽性率 (True Positive Rate)",
+            fig_roc.update_layout(**claude_layout(
+                xaxis_title="假陽性率 (FPR)",
+                yaxis_title="真陽性率 (TPR)",
                 height=420,
-                legend=dict(x=0.55, y=0.10),
-            )
+                legend=dict(x=0.50, y=0.08,
+                            bgcolor='rgba(255,255,255,0.85)',
+                            bordercolor=_CLAUDE_GRID, borderwidth=1),
+            ))
             st.plotly_chart(fig_roc, use_container_width=True)
-            # AUC 解讀
-            class_cn_roc = {'Team1 Lose': '主隊負', 'Draw': '平局', 'Team1 Win': '主隊勝'}
-            auc_lines = []
-            for name, auc_v in auc_summary:
+
+            # AUC 評等 — 三欄 metric 卡
+            def _rating(v):
+                if v >= 0.8: return "🟢 優秀"
+                if v >= 0.7: return "🟡 良好"
+                if v >= 0.6: return "🟠 可接受"
+                return "🔴 偏弱"
+            cols_auc = st.columns(len(auc_summary))
+            for col, (name, auc_v) in zip(cols_auc, auc_summary):
                 cn = class_cn_roc.get(name, name)
-                if auc_v >= 0.8:
-                    rating = "🟢 優秀"
-                elif auc_v >= 0.7:
-                    rating = "🟡 良好"
-                elif auc_v >= 0.6:
-                    rating = "🟠 可接受"
-                else:
-                    rating = "🔴 偏弱"
-                auc_lines.append(f"- **{cn}** AUC = {auc_v:.2f} {rating}")
-            st.markdown(
-                "##### 💡 各類別 AUC 評等\n"
-                + "\n".join(auc_lines)
-                + "\n\n**📌 AUC 判讀標準**\n"
-                "| AUC 範圍 | 鑑別力 |\n"
-                "|---------|--------|\n"
-                "| 0.90+ | 出色（極少在運動預測達到）|\n"
-                "| 0.80-0.89 | 優秀 |\n"
-                "| 0.70-0.79 | 良好 |\n"
-                "| 0.60-0.69 | 可接受 |\n"
-                "| < 0.60 | 偏弱 |\n\n"
-                "**為何平局 AUC 通常最低？** 平局沒有清晰的「特徵指紋」— "
-                "強隊互踢可能平局、弱隊互踢也可能平局。模型很難用單一特徵集鎖定平局。"
-            )
+                with col:
+                    st.metric(f"{cn} AUC", f"{auc_v:.2f}", delta=_rating(auc_v),
+                              delta_color="off")
 
         # ── Tab 3: Calibration ──
         with tab_cal:
