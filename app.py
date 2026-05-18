@@ -2863,6 +2863,25 @@ elif page == "🌍 各國分析":
                 s = str(sid).zfill(6)
                 return f"https://cdn.sofifa.net/players/{s[:3]}/{s[3:6]}/{version}_{size}.png"
 
+            # 守備位置 中英對照
+            POS_NAME_CN = {
+                'GK':  '門將',     'CB':  '中後衛',   'LB':  '左後衛',
+                'RB':  '右後衛',   'LWB': '左翼衛',   'RWB': '右翼衛',
+                'CDM': '防守中場', 'CM':  '中場',     'CAM': '攻擊中場',
+                'LM':  '左中場',   'RM':  '右中場',   'LW':  '左翼',
+                'RW':  '右翼',     'CF':  '中鋒',     'ST':  '前鋒',
+            }
+            POS_NAME_EN = {
+                'GK':  'Goalkeeper',         'CB':  'Centre-Back',
+                'LB':  'Left-Back',          'RB':  'Right-Back',
+                'LWB': 'Left Wing-Back',     'RWB': 'Right Wing-Back',
+                'CDM': 'Defensive Mid',      'CM':  'Centre Mid',
+                'CAM': 'Attacking Mid',
+                'LM':  'Left Mid',           'RM':  'Right Mid',
+                'LW':  'Left Winger',        'RW':  'Right Winger',
+                'CF':  'Centre Forward',     'ST':  'Striker',
+            }
+
             # 整批建一個 HTML，用 CSS Grid 排列，交給 components.html 完整渲染
             cards_html = ""
             for p in players:
@@ -2911,6 +2930,10 @@ elif page == "🌍 各國分析":
                     )
                 # Claude 風格 OVR 配色
                 ovr_color = '#c96442' if ovr >= 85 else ('#1f6e8c' if ovr >= 78 else '#6b6760')
+                # 守備位置中英對照
+                pos_code = p["pos"]
+                pos_cn = POS_NAME_CN.get(pos_code, pos_code)
+                pos_en = POS_NAME_EN.get(pos_code, pos_code)
                 cards_html += (
                     f'<div style="background:#ffffff;border:1px solid #e8e5dd;'
                     f'border-radius:12px;padding:16px 14px;text-align:center;'
@@ -2918,7 +2941,13 @@ elif page == "🌍 各國分析":
                     f'{photo_html}'
                     f'<div style="font-family:Charter,Georgia,serif;font-size:2rem;font-weight:600;'
                     f'color:{ovr_color};line-height:1.1;">{ovr}</div>'
-                    f'<div style="font-size:0.72rem;font-weight:600;color:#6b6760;letter-spacing:0.8px;">{p["pos"]}</div>'
+                    # 位置：代碼徽章 + 中文名
+                    f'<div style="margin-top:4px;display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;">'
+                    f'<span style="background:#f3e9e4;color:#c96442;font-size:0.7rem;font-weight:700;'
+                    f'padding:2px 8px;border-radius:999px;letter-spacing:0.6px;">{pos_code}</span>'
+                    f'<span style="font-size:0.78rem;font-weight:600;color:#1f1e1c;">{pos_cn}</span>'
+                    f'</div>'
+                    f'<div style="font-size:0.66rem;color:#9b958a;margin-top:2px;font-style:italic;">{pos_en}</div>'
                     f'<hr style="border:none;border-top:1px solid #e8e5dd;margin:8px 0;">'
                     f'<div style="font-size:0.88rem;font-weight:600;color:#1f1e1c;">{p["name"]}</div>'
                     f'<div style="font-size:0.7rem;color:#9b958a;margin-bottom:8px;">{p["club"]} · {p["age"]}歲</div>'
@@ -2931,7 +2960,7 @@ elif page == "🌍 各國分析":
                 f'<div style="display:grid;grid-template-columns:repeat({min(len(players),5)},1fr);gap:12px;">'
                 f'{cards_html}</div>'
             )
-            _components.html(full_html, height=490, scrolling=False)
+            _components.html(full_html, height=540, scrolling=False)
             st.caption(
                 "📷 球員頭像來源：SOFIFA（FIFA 25 / EAFC 25 資料庫）。"
                 "未收錄的球員顯示英文姓名縮寫頭像（黃底=OVR ≥85，青底=78-84，灰底<78）。"
