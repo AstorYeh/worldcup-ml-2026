@@ -1399,14 +1399,29 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
 # LOGO 圖（最上方）
 _logo_path = os.path.join(os.path.dirname(__file__), 'assets', 'logo.png')
 if os.path.exists(_logo_path):
-    # 隱藏 sidebar image 元件預設邊距，讓 LOGO 貼滿寬度
+    # 完全移除 sidebar image 預設的背景框 / padding / 邊框
     st.sidebar.markdown(
         """
         <style>
+        section[data-testid="stSidebar"] div[data-testid="stImage"],
+        section[data-testid="stSidebar"] div[data-testid="stImageContainer"],
+        section[data-testid="stSidebar"] [data-testid="stImage"] > div,
+        section[data-testid="stSidebar"] figure {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
         section[data-testid="stSidebar"] div[data-testid="stImage"] img {
             width: 100%;
-            border-radius: 8px;
-            margin-bottom: 4px;
+            display: block;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0;
+            margin: 0;
+            padding: 0;
         }
         </style>
         """,
