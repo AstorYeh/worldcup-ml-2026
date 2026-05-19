@@ -1450,6 +1450,24 @@ if page == "📊 專題總覽":
     st.markdown("**真實資料：49,328 場國際比賽 · 67,894 筆 FIFA 排名**")
     st.markdown("---")
 
+    # ── 主視覺圖（hero banner，全寬融入頁面） ──
+    _hero_path = os.path.join(os.path.dirname(__file__), 'assets', 'hero.jpg')
+    if os.path.exists(_hero_path):
+        st.markdown(
+            """
+            <style>
+            div[data-testid="stImage"] img {
+                border-radius: 12px;
+                box-shadow: 0 4px 16px rgba(31,30,28,0.08);
+                width: 100%;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.image(_hero_path, use_container_width=True)
+        st.markdown("")
+
     match_df = load_match_data()
     fifa_df = load_fifa_ranking()
 
