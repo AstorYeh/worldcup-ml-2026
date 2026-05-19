@@ -1396,9 +1396,27 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
 # ============================================================
 # SIDEBAR
 # ============================================================
+# LOGO 圖（最上方）
+_logo_path = os.path.join(os.path.dirname(__file__), 'assets', 'logo.png')
+if os.path.exists(_logo_path):
+    # 隱藏 sidebar image 元件預設邊距，讓 LOGO 貼滿寬度
+    st.sidebar.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] div[data-testid="stImage"] img {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 4px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.sidebar.image(_logo_path, use_container_width=True)
+
 st.sidebar.markdown(
     """
-    <div style='padding:8px 4px 18px;'>
+    <div style='padding:4px 4px 14px;'>
         <div style='font-family: Charter, Georgia, serif; font-size:1.2rem;
                     font-weight:600; color:#1f1e1c; letter-spacing:-0.2px;'>
             World Cup 2026
