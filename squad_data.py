@@ -56,7 +56,7 @@ SQUAD_DATA = {
         {'name':'I. Šehić',     'pos':'GK', 'age':36,'club':'Čukarički',     'ovr':74,'pac':36,'sho':10,'pas':50,'dri':36,'def':70,'phy':66},
         {'name':'S. Kolašinac', 'pos':'LB', 'age':31,'club':'Marseille',     'ovr':79,'pac':72,'sho':52,'pas':68,'dri':70,'def':79,'phy':82},
         {'name':'M. Pjanić',    'pos':'CM', 'age':35,'club':'Sharjah FC',    'ovr':82,'pac':62,'sho':70,'pas':88,'dri':82,'def':58,'phy':68},
-        {'name':'E. Džeko',     'pos':'ST', 'age':39,'club':'Fenerbahçe',    'ovr':80,'pac':64,'sho':82,'pas':76,'dri':74,'def':30,'phy':74},
+        {'name':'E. Džeko',     'pos':'ST', 'age':40,'club':'Başakşehir',   'ovr':78,'pac':60,'sho':80,'pas':74,'dri':72,'def':30,'phy':74},
         {'name':'E. Demirović', 'pos':'ST', 'age':26,'club':'Stuttgart',     'ovr':78,'pac':78,'sho':80,'pas':66,'dri':76,'def':28,'phy':74},
     ],
     # ── GROUP C ──
@@ -115,7 +115,7 @@ SQUAD_DATA = {
         {'name':'M. Demiral',   'pos':'CB', 'age':26,'club':'Al Qadsiah',    'ovr':81,'pac':80,'sho':36,'pas':66,'dri':62,'def':82,'phy':84},
         {'name':'H. Çalhanoğlu','pos':'CM', 'age':31,'club':'Inter Milan',   'ovr':85,'pac':72,'sho':78,'pas':87,'dri':83,'def':70,'phy':76},
         {'name':'A. Yıldız',    'pos':'CAM','age':19,'club':'Juventus',      'ovr':80,'pac':82,'sho':78,'pas':76,'dri':84,'def':36,'phy':64},
-        {'name':'B. Yılmaz',    'pos':'ST', 'age':39,'club':'Adana DS',      'ovr':79,'pac':72,'sho':82,'pas':68,'dri':72,'def':24,'phy':72},
+        {'name':'A. Yıldız',    'pos':'CAM','age':21,'club':'Juventus',      'ovr':80,'pac':80,'sho':78,'pas':78,'dri':84,'def':40,'phy':70},
     ],
     # ── GROUP E ──
     'Germany': [
@@ -129,7 +129,7 @@ SQUAD_DATA = {
         {'name':'H. Domínguez', 'pos':'GK', 'age':30,'club':'Independiente', 'ovr':74,'pac':36,'sho':10,'pas':52,'dri':38,'def':70,'phy':68},
         {'name':'P. Estupiñán', 'pos':'LB', 'age':26,'club':'Brighton',      'ovr':81,'pac':88,'sho':62,'pas':76,'dri':78,'def':78,'phy':72},
         {'name':'M. Caicedo',   'pos':'CM', 'age':22,'club':'Chelsea',       'ovr':83,'pac':78,'sho':66,'pas':78,'dri':80,'def':82,'phy':82},
-        {'name':'Énner Valencia','pos':'ST','age':35,'club':'Liga de Quito',  'ovr':78,'pac':76,'sho':80,'pas':66,'dri':72,'def':28,'phy':74},
+        {'name':'K. Plata',      'pos':'RW','age':24,'club':'Real Salt Lake', 'ovr':77,'pac':84,'sho':74,'pas':70,'dri':80,'def':36,'phy':70},
         {'name':'A. Preciado',  'pos':'RW', 'age':23,'club':'Genoa',         'ovr':76,'pac':88,'sho':70,'pas':68,'dri':78,'def':32,'phy':66},
     ],
     'Ivory Coast': [
@@ -170,7 +170,7 @@ SQUAD_DATA = {
     ],
     'Sweden': [
         {'name':'R. Olsen',     'pos':'GK', 'age':34,'club':'Ajax',         'ovr':78,'pac':38,'sho':10,'pas':56,'dri':40,'def':75,'phy':70},
-        {'name':'A. Ekdal',     'pos':'CDM','age':35,'club':'Malmö FF',     'ovr':78,'pac':64,'sho':60,'pas':76,'dri':72,'def':76,'phy':72},
+        {'name':'M. Svanberg',  'pos':'CM', 'age':26,'club':'Wolfsburg',    'ovr':78,'pac':72,'sho':68,'pas':76,'dri':74,'def':70,'phy':76},
         {'name':'D. Kulusevski','pos':'RW', 'age':24,'club':'Tottenham',    'ovr':83,'pac':82,'sho':78,'pas':80,'dri':84,'def':48,'phy':72},
         {'name':'V. Gyökeres', 'pos':'ST', 'age':26,'club':'Sporting CP',  'ovr':85,'pac':84,'sho':88,'pas':68,'dri':80,'def':28,'phy':84},
         {'name':'E. Forsberg',  'pos':'CAM','age':33,'club':'RB Leipzig',   'ovr':82,'pac':78,'sho':78,'pas':82,'dri':82,'def':44,'phy':68},
@@ -188,7 +188,7 @@ SQUAD_DATA = {
         {'name':'S. Hosseini',  'pos':'CB', 'age':33,'club':'Sharjah FC',   'ovr':74,'pac':68,'sho':28,'pas':58,'dri':54,'def':73,'phy':76},
         {'name':'S. Jahanbakhsh','pos':'RW','age':31,'club':'Feyenoord',    'ovr':78,'pac':82,'sho':72,'pas':74,'dri':78,'def':38,'phy':66},
         {'name':'M. Taremi',    'pos':'ST', 'age':32,'club':'Inter Milan',  'ovr':81,'pac':74,'sho':82,'pas':70,'dri':76,'def':28,'phy':72},
-        {'name':'A. Ansarifard','pos':'ST', 'age':33,'club':'Nottm Forest', 'ovr':74,'pac':70,'sho':74,'pas':58,'dri':66,'def':24,'phy':70},
+        {'name':'M. Mohebi',    'pos':'ST', 'age':27,'club':'Strømsgodset', 'ovr':74,'pac':82,'sho':74,'pas':62,'dri':74,'def':24,'phy':70},
     ],
     'Egypt': [
         {'name':'M. El-Shenawy','pos':'GK', 'age':36,'club':'Al Ahly',      'ovr':77,'pac':38,'sho':10,'pas':52,'dri':36,'def':74,'phy':70},
@@ -230,7 +230,7 @@ SQUAD_DATA = {
         {'name':'V. Fernandes', 'pos':'GK', 'age':26,'club':'Estrela Amadora','ovr':68,'pac':34,'sho':8,'pas':44,'dri':30,'def':64,'phy':62},
         {'name':'D. Tavares',   'pos':'CB', 'age':24,'club':'Benfica',       'ovr':76,'pac':74,'sho':32,'pas':60,'dri':58,'def':76,'phy':80},
         {'name':'R. Tavares',   'pos':'LB', 'age':24,'club':'Marseille',     'ovr':75,'pac':80,'sho':48,'pas':68,'dri':70,'def':72,'phy':68},
-        {'name':'G. Ramos',     'pos':'ST', 'age':23,'club':'PSG',           'ovr':82,'pac':82,'sho':84,'pas':68,'dri':76,'def':26,'phy':76},
+        {'name':'Garry Rodrigues','pos':'LW','age':35,'club':'Al-Ittihad',   'ovr':76,'pac':78,'sho':72,'pas':72,'dri':80,'def':36,'phy':68},
         {'name':'J. Lopes',     'pos':'CAM','age':26,'club':'Club Brugge',   'ovr':72,'pac':74,'sho':68,'pas':72,'dri':74,'def':32,'phy':60},
     ],
     # ── GROUP I ──
@@ -244,7 +244,7 @@ SQUAD_DATA = {
     'Senegal': [
         {'name':'E. Mendy',     'pos':'GK', 'age':32,'club':'Rennes',       'ovr':84,'pac':48,'sho':12,'pas':60,'dri':44,'def':82,'phy':76},
         {'name':'K. Coulibaly', 'pos':'CB', 'age':27,'club':'Napoli',       'ovr':82,'pac':80,'sho':36,'pas':66,'dri':62,'def':82,'phy':86},
-        {'name':'I. Gueye',     'pos':'CM', 'age':35,'club':'Everton',      'ovr':79,'pac':72,'sho':60,'pas':74,'dri':72,'def':78,'phy':80},
+        {'name':'P. Gueye',     'pos':'CM', 'age':26,'club':'Villarreal',   'ovr':78,'pac':74,'sho':64,'pas':76,'dri':74,'def':76,'phy':80},
         {'name':'S. Mané',      'pos':'LW', 'age':32,'club':'Al Nassr',     'ovr':85,'pac':92,'sho':84,'pas':80,'dri':88,'def':42,'phy':74},
         {'name':'N. Jackson',   'pos':'ST', 'age':23,'club':'Chelsea',      'ovr':80,'pac':84,'sho':80,'pas':68,'dri':80,'def':24,'phy':74},
     ],
@@ -267,7 +267,7 @@ SQUAD_DATA = {
         {'name':'E. Martínez',  'pos':'GK', 'age':32,'club':'Aston Villa',  'ovr':89,'pac':50,'sho':14,'pas':66,'dri':50,'def':87,'phy':82},
         {'name':'N. Otamendi',  'pos':'CB', 'age':36,'club':'Benfica',      'ovr':81,'pac':72,'sho':38,'pas':66,'dri':60,'def':83,'phy':80},
         {'name':'R. De Paul',   'pos':'CM', 'age':30,'club':'Atlético Madrid','ovr':84,'pac':74,'sho':72,'pas':82,'dri':82,'def':68,'phy':76},
-        {'name':'L. Messi',     'pos':'RW', 'age':37,'club':'Inter Miami',  'ovr':90,'pac':72,'sho':87,'pas':91,'dri':94,'def':34,'phy':64},
+        {'name':'L. Messi',     'pos':'RW', 'age':38,'club':'Inter Miami',  'ovr':88,'pac':68,'sho':86,'pas':91,'dri':93,'def':34,'phy':62},
         {'name':'J. Álvarez',   'pos':'ST', 'age':24,'club':'Atlético Madrid','ovr':84,'pac':86,'sho':83,'pas':72,'dri':82,'def':32,'phy':76},
     ],
     'Austria': [
@@ -296,14 +296,14 @@ SQUAD_DATA = {
         {'name':'D. Costa',     'pos':'GK', 'age':32,'club':'Al Nassr',     'ovr':86,'pac':50,'sho':14,'pas':68,'dri':50,'def':85,'phy':78},
         {'name':'R. Dias',      'pos':'CB', 'age':27,'club':'Man City',     'ovr':88,'pac':78,'sho':42,'pas':74,'dri':70,'def':89,'phy':84},
         {'name':'B. Fernandes', 'pos':'CAM','age':30,'club':'Man Utd',      'ovr':86,'pac':72,'sho':82,'pas':88,'dri':82,'def':52,'phy':72},
-        {'name':'C. Ronaldo',   'pos':'ST', 'age':40,'club':'Al Nassr',     'ovr':88,'pac':80,'sho':93,'pas':78,'dri':86,'def':24,'phy':74},
+        {'name':'C. Ronaldo',   'pos':'ST', 'age':41,'club':'Al Nassr',     'ovr':86,'pac':74,'sho':92,'pas':76,'dri':84,'def':24,'phy':72},
         {'name':'R. Leão',      'pos':'LW', 'age':25,'club':'AC Milan',     'ovr':84,'pac':91,'sho':78,'pas':76,'dri':86,'def':32,'phy':72},
     ],
     'Colombia': [
         {'name':'C. Vargas',    'pos':'GK', 'age':27,'club':'Atalanta',     'ovr':81,'pac':42,'sho':12,'pas':58,'dri':42,'def':79,'phy':72},
         {'name':'D. Sánchez',   'pos':'RB', 'age':27,'club':'Toulouse',     'ovr':78,'pac':82,'sho':54,'pas':70,'dri':72,'def':74,'phy':68},
         {'name':'L. Díaz',      'pos':'LW', 'age':27,'club':'Liverpool',    'ovr':85,'pac':91,'sho':80,'pas':76,'dri':87,'def':36,'phy':72},
-        {'name':'J. Cuadrado',  'pos':'RW', 'age':36,'club':'Inter Miami',  'ovr':80,'pac':82,'sho':72,'pas':78,'dri':82,'def':50,'phy':66},
+        {'name':'L. Sinisterra','pos':'LW', 'age':26,'club':'Bournemouth',  'ovr':80,'pac':88,'sho':74,'pas':74,'dri':84,'def':38,'phy':70},
         {'name':'J. Durán',     'pos':'ST', 'age':21,'club':'Aston Villa',   'ovr':77,'pac':80,'sho':81,'pas':60,'dri':74,'def':24,'phy':78},
     ],
     'Uzbekistan': [
@@ -331,7 +331,7 @@ SQUAD_DATA = {
     'Croatia': [
         {'name':'D. Livaković',  'pos':'GK','age':29,'club':'Fenerbahçe',   'ovr':83,'pac':46,'sho':12,'pas':58,'dri':44,'def':81,'phy':72},
         {'name':'J. Gvardiol',  'pos':'CB', 'age':22,'club':'Man City',     'ovr':85,'pac':84,'sho':40,'pas':72,'dri':70,'def':85,'phy':82},
-        {'name':'L. Modrić',    'pos':'CM', 'age':39,'club':'Real Madrid',  'ovr':87,'pac':72,'sho':76,'pas':91,'dri':89,'def':62,'phy':66},
+        {'name':'L. Modrić',    'pos':'CM', 'age':40,'club':'AC Milan',     'ovr':85,'pac':68,'sho':74,'pas':90,'dri':87,'def':62,'phy':64},
         {'name':'M. Kovačić',   'pos':'CM', 'age':30,'club':'Man City',     'ovr':84,'pac':72,'sho':68,'pas':82,'dri':82,'def':68,'phy':72},
         {'name':'A. Kramarić',  'pos':'ST', 'age':33,'club':'Hoffenheim',   'ovr':81,'pac':72,'sho':80,'pas':72,'dri':76,'def':28,'phy':68},
     ],
