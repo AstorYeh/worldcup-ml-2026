@@ -1648,69 +1648,206 @@ if page == "📊 專題總覽":
     st.markdown("---")
     st.subheader("🔬 模型架構")
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.info(
-            "🤖 **第一層：XGBoost 分類**\n\n"
-            "**外層權重 20%**\n\n"
-            "直接輸出 P(勝/平/負)\n\n"
-            "**輸入特徵**\n"
-            "• FIFA 積分差\n"
-            "• 近 8 年勝率差\n"
-            "• 場均進球差\n"
-            "• 足聯歸屬\n\n"
-            "**訓練設定**\n"
-            "• 樣本：1990-2025 國際賽\n"
-            "• Walk-Forward 滾動驗證\n"
-            "• 正向＋反向對稱平均\n"
-            "  → 消除主場偏差"
-        )
-    with col2:
-        st.info(
-            "📊 **第二層：Dixon-Coles Poisson**\n\n"
-            "**外層權重 80%**\n\n"
-            "從攻防推導期望進球 λ\n\n"
-            "**核心公式**\n"
-            "`λ_A = atk_A × vul_B / μ`\n\n"
-            "• μ = 1.35（國際賽進球均值）\n"
-            "• atk = 場均進球 × 足聯係數\n"
-            "• vul = 場均失球 / √足聯係數\n\n"
-            "**足聯係數 (cs)**\n"
-            "CONMEBOL 1.00 / UEFA 0.96\n"
-            "CONCACAF 0.88 / AFC 0.84\n"
-            "CAF 0.78 / OFC 0.72\n\n"
-            "→ 從 λ 積分 Poisson 矩陣得 P(W/D/L)"
-        )
-    with col3:
-        st.info(
-            "⭐ **第三層：λ 多因素複合修正**\n\n"
-            "**修正係數 (乘在 λ_DC 上)**\n\n"
-            "`λ_final = λ_DC × Π factors`\n\n"
-            "| 因素 | 次方 | 解讀 |\n"
-            "|------|------|------|\n"
-            "| 主將 OVR | **0.35** | 巨星陣容權重最高 |\n"
-            "| FIFA 積分 | 0.22 | 排名差距 |\n"
-            "| 近 2 年勝率 | 0.18 | 球隊狀態 |\n"
-            "| 淘汰賽經驗 | 0.08 | 大賽 DNA |\n\n"
-            "**範例**：主將 OVR 85 vs 79\n"
-            "→ (85/79)^0.35 ≈ **1.027** (λ ＋2.7%)"
-        )
-    with col4:
-        st.info(
-            "🎲 **第四層：融合 + Monte Carlo**\n\n"
-            "**最終機率公式**\n"
-            "`P = 0.2×XGB + 0.8×Poisson`\n\n"
-            "**MAP 比分（方向約束）**\n"
-            "1. 依 P(W/D/L) 取主預測方向\n"
-            "2. 在該方向 cells 中找最強 Poisson cell\n"
-            "3. ★ 標記該比分\n\n"
-            "→ 比分方向與機率方向永遠一致\n"
-            "→ 避免「20%平局卻每場都平」悖論\n\n"
-            "**Monte Carlo 奪冠模擬**\n"
-            "• 10,000 次完整賽程\n"
-            "• 小組賽 → 32強淘汰賽\n"
-            "• 累計奪冠次數 → 機率"
-        )
+    st.caption("四層垂直階層：每層處理結果送入下一層，形成完整推論管線")
+
+    # ── 階層式樣式 ──
+    st.markdown(
+        """
+        <style>
+        .arch-layer { background:#fff;border:1px solid #e8e5dd;border-left:4px solid #c96442;
+                      border-radius:8px;padding:16px 20px;margin:6px 0;
+                      box-shadow:0 1px 2px rgba(31,30,28,0.04); }
+        .arch-layer-header { display:flex;align-items:center;gap:14px;margin-bottom:10px;
+                             padding-bottom:8px;border-bottom:1px solid #f3e9e4; }
+        .arch-badge { display:inline-flex;align-items:center;justify-content:center;
+                      width:40px;height:40px;background:#1a2b5c;color:#f9c846;
+                      border-radius:50%;font-weight:800;font-size:13px;
+                      font-family:Charter,Georgia,serif;flex-shrink:0; }
+        .arch-title { font-size:17px;font-weight:700;color:#1f1e1c;margin:0; }
+        .arch-subtitle { font-size:12px;color:#6b6760;margin-top:2px; }
+        .arch-weight-chip { margin-left:auto;background:#c96442;color:#fff;
+                            padding:5px 14px;border-radius:999px;font-size:12px;
+                            font-weight:700;letter-spacing:0.5px; }
+        .arch-content { display:grid;grid-template-columns:1fr 1fr;gap:20px; }
+        .arch-block-title { font-size:13px;font-weight:700;color:#1a2b5c;margin-bottom:6px; }
+        .arch-block-body { font-size:13px;color:#1f1e1c;line-height:1.7; }
+        .arch-formula { background:#1a2b5c;color:#f9c846;padding:10px 14px;border-radius:6px;
+                        font-family:Consolas,'Courier New',monospace;font-size:14px;
+                        text-align:center;margin:8px 0;font-weight:700; }
+        .arch-arrow { display:flex;justify-content:center;align-items:center;
+                      margin:-4px 0;color:#c96442;font-size:24px;font-weight:700; }
+        .arch-output { background:linear-gradient(135deg,#1a2b5c 0%,#2a3b6c 100%);
+                       color:#fff;border-radius:10px;padding:20px 24px;margin-top:4px;
+                       text-align:center;box-shadow:0 4px 16px rgba(26,43,92,0.2); }
+        .arch-output-label { color:#f9c846;font-size:12px;font-weight:700;
+                             letter-spacing:2px;margin-bottom:6px; }
+        .arch-output-content { font-size:16px;color:#fff;line-height:1.7; }
+        .arch-output-content code { background:rgba(249,200,70,0.2);color:#f9c846;
+                                    padding:2px 8px;border-radius:4px;
+                                    font-family:Consolas,'Courier New',monospace; }
+        .arch-table { width:100%;border-collapse:collapse;font-size:12px;margin-top:4px; }
+        .arch-table th { background:#f3e9e4;color:#1a2b5c;padding:6px 8px;
+                         text-align:left;font-weight:700; }
+        .arch-table td { padding:5px 8px;border-bottom:1px solid #f3e9e4; }
+        .arch-table .pow { color:#c96442;font-weight:700;
+                           font-family:Consolas,'Courier New',monospace; }
+        .arch-tip { background:#fef1c9;border-left:3px solid #f9c846;padding:8px 12px;
+                    margin-top:10px;border-radius:4px;font-size:12px;color:#1f1e1c; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Layer 1: XGBoost ──
+    st.markdown(
+        """
+        <div class="arch-layer">
+            <div class="arch-layer-header">
+                <span class="arch-badge">L1</span>
+                <div>
+                    <div class="arch-title">🤖 XGBoost 分類器</div>
+                    <div class="arch-subtitle">直接輸出 P(勝 / 平 / 負) 三向機率分布</div>
+                </div>
+                <span class="arch-weight-chip">外層權重 20%</span>
+            </div>
+            <div class="arch-content">
+                <div>
+                    <div class="arch-block-title">📥 輸入特徵</div>
+                    <div class="arch-block-body">
+                        • FIFA 積分差 (pts_diff)<br>
+                        • 近 8 年勝率差 (win_rate_diff)<br>
+                        • 場均進球差 (avg_goals_diff)<br>
+                        • 足聯歸屬 (confed_bonus)
+                    </div>
+                </div>
+                <div>
+                    <div class="arch-block-title">⚙️ 訓練設定</div>
+                    <div class="arch-block-body">
+                        • 樣本：1990-2025 國際賽（49,328 場）<br>
+                        • Walk-Forward 滾動驗證<br>
+                        • 正向＋反向對稱平均<br>
+                        &nbsp;&nbsp;&nbsp;→ 消除主場偏差
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Layer 2: Dixon-Coles ──
+    st.markdown(
+        """
+        <div class="arch-layer">
+            <div class="arch-layer-header">
+                <span class="arch-badge">L2</span>
+                <div>
+                    <div class="arch-title">📊 Dixon-Coles Poisson</div>
+                    <div class="arch-subtitle">從球隊攻防強度推導期望進球 λ</div>
+                </div>
+                <span class="arch-weight-chip">外層權重 80%</span>
+            </div>
+            <div class="arch-formula">λ_A = atk_A × vul_B / μ</div>
+            <div class="arch-content">
+                <div>
+                    <div class="arch-block-title">📐 變數定義</div>
+                    <div class="arch-block-body">
+                        • <b>μ</b> = 1.35（國際賽進球均值）<br>
+                        • <b>atk</b> = 場均進球 × 足聯係數<br>
+                        • <b>vul</b> = 場均失球 ÷ √足聯係數<br>
+                        • 從 λ 積分 Poisson 矩陣得 P(W/D/L)
+                    </div>
+                </div>
+                <div>
+                    <div class="arch-block-title">🌐 足聯係數 (cs)</div>
+                    <div class="arch-block-body">
+                        CONMEBOL 1.00 · UEFA 0.96<br>
+                        CONCACAF 0.88 · AFC 0.84<br>
+                        CAF 0.78 · OFC 0.72<br>
+                        <i style="color:#6b6760">弱聯盟攻擊打折、防守實際更弱</i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Layer 3: λ 多因素修正 ──
+    st.markdown(
+        """
+        <div class="arch-layer">
+            <div class="arch-layer-header">
+                <span class="arch-badge">L3</span>
+                <div>
+                    <div class="arch-title">⭐ λ 多因素複合修正</div>
+                    <div class="arch-subtitle">在純 DC λ 基礎上疊加 4 個現實因子</div>
+                </div>
+                <span class="arch-weight-chip">乘法修正</span>
+            </div>
+            <div class="arch-formula">λ_final = λ_DC × Π (rank · squad · form · exp)</div>
+            <table class="arch-table">
+                <tr><th style="width:30%">因素</th><th style="width:25%">次方</th><th>意義</th></tr>
+                <tr><td>🥇 主將 OVR</td><td class="pow">^0.35</td><td>陣容明星密度（權重最大）</td></tr>
+                <tr><td>🥈 FIFA 積分</td><td class="pow">^0.22</td><td>歷史排名差距</td></tr>
+                <tr><td>🥉 近 2 年勝率</td><td class="pow">^0.18</td><td>球隊近期狀態</td></tr>
+                <tr><td>🏅 淘汰賽經驗</td><td class="pow">^0.08</td><td>大賽 DNA（影響最小）</td></tr>
+            </table>
+            <div class="arch-tip">
+                💡 <b>範例</b>：主將 OVR 85 vs 79 → (85/79)<sup>0.35</sup> ≈ <b style="color:#c96442">1.027</b>（λ 提升 +2.7%）
+            </div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Layer 4: 融合 + Monte Carlo ──
+    st.markdown(
+        """
+        <div class="arch-layer">
+            <div class="arch-layer-header">
+                <span class="arch-badge">L4</span>
+                <div>
+                    <div class="arch-title">🎲 融合機率 + Monte Carlo 模擬</div>
+                    <div class="arch-subtitle">合併 L1 與 L2 機率 + 賽程級模擬</div>
+                </div>
+                <span class="arch-weight-chip">最終輸出</span>
+            </div>
+            <div class="arch-content">
+                <div>
+                    <div class="arch-block-title">🎯 MAP 比分（方向約束）</div>
+                    <div class="arch-block-body">
+                        1. 依 P(W/D/L) 取主預測方向<br>
+                        2. 在該方向 cells 找最強 Poisson cell<br>
+                        3. ★ 標記該比分<br>
+                        <i style="color:#5f8466">→ 避免「20% 平局卻每場都平」悖論</i>
+                    </div>
+                </div>
+                <div>
+                    <div class="arch-block-title">🎲 Monte Carlo 奪冠模擬</div>
+                    <div class="arch-block-body">
+                        • 10,000 次完整賽程模擬<br>
+                        • 小組賽 → 32 強淘汰賽<br>
+                        • 累計奪冠次數 / 10,000 = 機率<br>
+                        <i style="color:#6b6760">→ 約 1,040,000 場虛擬比賽</i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-output">
+            <div class="arch-output-label">FINAL OUTPUT · 最終預測</div>
+            <div class="arch-output-content">
+                <code>P(勝/平/負) = 0.20 × XGB + 0.80 × Poisson(λ)</code><br>
+                <span style="font-size:13px;color:#fff;opacity:0.9">＋ 預測比分　＋　奪冠機率</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     # ── 權重結構總覽 ──
     st.markdown("")
