@@ -33,6 +33,16 @@ _CLAUDE_ACCENT2 = '#1f6e8c'
 _CLAUDE_PALETTE = ['#c96442', '#1f6e8c', '#b58a3b', '#5f8466',
                    '#7a5fa7', '#a8593e', '#3d6e8a', '#8e6b3f']
 
+
+def _hex_to_rgba(hex_color: str, alpha: float = 1.0) -> str:
+    """轉 #RRGGBB → rgba(r,g,b,alpha) 字串供 plotly fillcolor 使用。"""
+    h = hex_color.lstrip('#')
+    if len(h) != 6:
+        return f"rgba(201,100,66,{alpha})"
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
+
 def claude_layout(**overrides):
     """回傳 Claude 主題的 plotly layout dict（暖色淺底）。
     注意：title 欄位不在 base 內，避免 None text 被渲染為 "undefined"。
@@ -3118,16 +3128,55 @@ elif page == "🎯 球隊風格分群":
                 )
 
         st.markdown("---")
-        st.markdown("### 📡 分群靜態雷達圖")
-        radar_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures', '14_cluster_radar.png')
-        pca_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures', '15_cluster_pca.png')
-        col_r, col_p = st.columns(2)
-        with col_r:
-            if os.path.exists(radar_path):
-                st.image(radar_path, caption='各群風格雷達圖（攻守特徵）', use_column_width=True)
-        with col_p:
-            if os.path.exists(pca_path):
-                st.image(pca_path, caption='PCA 靜態散點（含球隊標籤）', use_column_width=True)
+        st.markdown("### 📡 分群風格雷達圖")
+        # 動態繪製：用 48 隊的整體分布做正規化（修正 pretrain.py 用 3 群極端值正規化的 bug）
+        import plotly.graph_objects as _go_cr
+        radar_feats_cn = ['勝率', '場均進球', '防守強度', '淨勝球', 'FIFA 積分']
+        radar_feats_en = ['win_rate', 'avg_goals', 'avg_conceded', 'goal_diff', 'fifa_pts']
+        # 用整體 48 隊（df_c）做 min-max 而非僅 3 個 cluster center
+        # 注意：avg_conceded 越低越好，所以反向（1 - normalized）
+        feat_min = df_c[radar_feats_en].min()
+        feat_max = df_c[radar_feats_en].max()
+        center_data = centers[radar_feats_en].copy()
+        center_norm = (center_data - feat_min) / (feat_max - feat_min + 1e-9)
+        center_norm['avg_conceded'] = 1 - center_norm['avg_conceded']  # 反向：低失球 → 高分
+
+        cluster_palette = {'攻擊型': '#c96442', '防守型': '#1f6e8c', '平衡型': '#b58a3b'}
+        fig_clu_radar = _go_cr.Figure()
+        for cid in sorted(cluster_names.keys()):
+            cn_raw = cluster_names[cid]
+            cn_pure = cn_raw.replace('⚡', '').replace('🛡️', '').replace('⚖️', '').strip()
+            color = cluster_palette.get(cn_pure, _CLAUDE_ACCENT)
+            vals = center_norm.iloc[cid].tolist()
+            fig_clu_radar.add_trace(_go_cr.Scatterpolar(
+                r=vals + [vals[0]],
+                theta=radar_feats_cn + [radar_feats_cn[0]],
+                fill='toself',
+                name=cn_pure,
+                line=dict(color=color, width=2.5),
+                fillcolor=color.replace('#', 'rgba(') if False else _hex_to_rgba(color, 0.15),
+            ))
+        fig_clu_radar.update_layout(**claude_layout(
+            polar=dict(
+                bgcolor=_CLAUDE_CARD,
+                radialaxis=dict(visible=True, range=[0, 1],
+                                gridcolor=_CLAUDE_GRID, color=_CLAUDE_TEXT,
+                                tickfont=dict(size=10)),
+                angularaxis=dict(gridcolor=_CLAUDE_GRID, color=_CLAUDE_TEXT,
+                                 tickfont=dict(size=12)),
+            ),
+            showlegend=True, height=480,
+            legend=dict(bgcolor='rgba(255,255,255,0.85)',
+                        bordercolor=_CLAUDE_GRID, borderwidth=1),
+            title=dict(text=f'三類風格中心雷達（k={k}, Silhouette={sil:.2f}）',
+                       font=dict(family='Charter, Georgia, serif',
+                                 color=_CLAUDE_TEXT, size=15)),
+        ))
+        st.plotly_chart(fig_clu_radar, use_container_width=True)
+        st.caption(
+            "📖 **怎麼讀**：5 個維度都用 **48 隊整體分布** 做 0-1 正規化（非僅 3 群極值）。"
+            "離中心越遠 = 該指標越強；「防守強度」已反向，越外圈代表越少失球。"
+        )
 
         st.markdown("---")
         st.markdown("### 📋 各群球隊列表")
