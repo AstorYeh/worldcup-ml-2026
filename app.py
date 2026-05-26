@@ -892,32 +892,28 @@ def create_features_v2(team1, team2, year, match_df, fifa_df):
 
 
 def _make_wc_dataset_v2(match_df, fifa_df, year):
-    """取出某屆世界盃小組賽，並用歷史資料當特徵"""
+    """取出某屆世界盃實際比賽，用歷史資料當特徵（用於 walk-forward 驗證）"""
     samples = []
-    for g, teams in WC_2026_GROUPS.items():
-        for i, t1 in enumerate(teams):
-            for t2 in teams[i+1:]:
-                try:
-                    feat = create_features_v2(t1, t2, year, match_df, fifa_df)
-                    m = match_df[
-                        (((match_df['home_team']==t1)&(match_df['away_team']==t2)) |
-                         ((match_df['home_team']==t2)&(match_df['away_team']==t1))) &
-                        (match_df['year']==year) &
-                        (match_df['tournament'].str.contains('World Cup', na=False))
-                    ]
-                    if len(m) == 0:
-                        continue
-                    row = m.iloc[0]
-                    gf = row['home_score'] if row['home_team'] == t1 else row['away_score']
-                    ga = row['away_score'] if row['home_team'] == t1 else row['home_score']
-                    samples.append({
-                        'feat': feat,
-                        'label': 0 if gf < ga else (1 if gf == ga else 2),
-                        'gf': gf, 'ga': ga,
-                        'team1': t1, 'team2': t2,
-                    })
-                except Exception:
-                    continue
+    # 直接迭代該年實際 WC 比賽（排除資格賽），不再受限於 2026 分組
+    # 這樣 2010/2014/2018 等屆所有比賽都能進入驗證集
+    wc = match_df[
+        (match_df['year'] == year) &
+        (match_df['tournament'].str.contains('World Cup', na=False)) &
+        (~match_df['tournament'].str.contains('qualif', case=False, na=False))
+    ]
+    for _, row in wc.iterrows():
+        t1, t2 = row['home_team'], row['away_team']
+        try:
+            feat = create_features_v2(t1, t2, year, match_df, fifa_df)
+            gf, ga = row['home_score'], row['away_score']
+            samples.append({
+                'feat': feat,
+                'label': 0 if gf < ga else (1 if gf == ga else 2),
+                'gf': gf, 'ga': ga,
+                'team1': t1, 'team2': t2,
+            })
+        except Exception:
+            continue
     return samples
 
 
@@ -1212,20 +1208,24 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
 
     # ── λ 多因素融合：DC 基礎 × FIFA 排名 × 主將 × 近期狀態 × 淘汰賽經驗 ──
     pts1, pts2 = team_pts(team1), team_pts(team2)
-    rank_factor = ((pts1 + 300) / (pts2 + 300)) ** 0.22       # FIFA 積分差距
+    # 防呆：分母最小 1 避免 ZeroDivision；pts 經驗範圍 0-2000 + 300 緩衝
+    rank_factor = ((max(pts1, 0) + 300) / max(pts2 + 300, 1)) ** 0.22
 
     ovr1, ovr2 = squad_ovr(team1), squad_ovr(team2)
-    squad_factor = (ovr1 / ovr2) ** 0.35                       # 主將能力（提高權重 0.18→0.35）
+    squad_factor = (max(ovr1, 1.0) / max(ovr2, 1.0)) ** 0.35
 
     form1 = compute_recent_form(match_df, team1, year)
     form2 = compute_recent_form(match_df, team2, year)
-    form_factor = ((form1 + 0.3) / (form2 + 0.3)) ** 0.18      # 近 2 年勝率（新增）
+    form_factor = ((form1 + 0.3) / max(form2 + 0.3, 0.1)) ** 0.18
 
     exp1 = compute_knockout_exp(match_df, team1)
     exp2 = compute_knockout_exp(match_df, team2)
-    exp_factor = ((exp1 + 10) / (exp2 + 10)) ** 0.08           # 世界盃淘汰賽經驗（新增）
+    exp_factor = ((exp1 + 10) / max(exp2 + 10, 1)) ** 0.08
 
-    composite_factor = rank_factor * squad_factor * form_factor * exp_factor
+    # 浮點下溢保護：composite_factor 限制在合理區間 [0.5, 2.0]
+    # 即使所有因子同向極端疊加也不會讓單側 λ 被打到極值
+    composite_factor = max(0.5, min(2.0,
+                                     rank_factor * squad_factor * form_factor * exp_factor))
     lam1 = min(2.8, max(0.3, lam1_dc * composite_factor))
     lam2 = min(2.8, max(0.3, lam2_dc / composite_factor))
 
@@ -1353,24 +1353,30 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
 
     for _ in range(n_sims):
         # ── 小組賽：取各組前2晉級 + 記錄各組第3名 ──
+        # 平局打破機制：用 random tiebreak（模擬 FIFA 進球差/淨進球的隨機性）
         sim_qualifiers = []
-        third_place_info = []  # (pts, team) 各組第3名
+        third_place_info = []  # (pts, random_tiebreak, team) 各組第3名
         for g, teams in WC_2026_GROUPS.items():
             pts = {t: 0 for t in teams}
             for i, t1 in enumerate(teams):
                 for t2 in teams[i+1:]:
                     p1, p2 = sim_group_match(t1, t2)
                     pts[t1] += p1; pts[t2] += p2
-            sorted_pts = sorted(pts.items(), key=lambda x: x[1], reverse=True)
+            # 平局時用隨機數打破（避免字母序的系統性偏差）
+            sorted_pts = sorted(
+                pts.items(),
+                key=lambda x: (x[1], np.random.random()),
+                reverse=True,
+            )
             qualifiers = [t for t, _ in sorted_pts[:2]]
             sim_qualifiers.extend(qualifiers)
             win_count[qualifiers[0]] += 1
             third_team, third_pts = sorted_pts[2]
-            third_place_info.append((third_pts, third_team))
+            third_place_info.append((third_pts, np.random.random(), third_team))
 
-        # 2026 世界盃：24支小組前2 + 8支最佳第3名（按積分排序）= 32強
+        # 2026 世界盃：24支小組前2 + 8支最佳第3名（按積分+隨機 tiebreak 排序）= 32強
         best_thirds = sorted(third_place_info, reverse=True)[:8]
-        bracket = sim_qualifiers + [t for _, t in best_thirds]
+        bracket = sim_qualifiers + [t for _, _, t in best_thirds]
         np.random.shuffle(bracket)
 
         # ── 淘汰賽 R32 → R16 → QF → SF → Final ──
