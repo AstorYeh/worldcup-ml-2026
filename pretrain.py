@@ -1,23 +1,24 @@
 """
-🏆 Pretrain Script — 世界盃 ML v2.1
-=====================================
-把 app.py 內 walk-forward 訓練 + Monte Carlo + 新增的球隊風格分群
-全部 offline 跑一遍，產出 pkl 檔放在 models/。
+🏆 Pretrain Script — 2026 World Cup ML
+========================================
+把所有 ML 任務 offline 跑一遍，產出 pkl 檔供 app.py 直接讀取，
+徹底消除 Streamlit Cloud 冷啟動 30 秒等待。
 
-執行：python pretrain.py
-產出：
-    models/clf.pkl              XGBoost 分類器
-    models/poisson1.pkl         主隊進球 Poisson
-    models/poisson2.pkl         客隊進球 Poisson
-    models/feat_cols.pkl        特徵欄位
-    models/val_accs.pkl         Walk-Forward 驗證準確率
-    models/mc_results.pkl       Monte Carlo 10,000 次奪冠機率
-    models/team_clusters.pkl    球隊風格分群（KMeans）
-    models/cluster_profiles.pkl 各群中心與描述
-    figures/cluster_radar.png   雷達圖（4 群）
-    figures/cluster_tsne.png    t-SNE 視覺化
-    data_cache/match_df.pkl     比賽資料快取
-    data_cache/fifa_df.pkl      FIFA 排名快取
+執行：python pretrain.py（約 1-2 分鐘）
+
+產出 models/ 內 8 個 pkl：
+    clf.pkl              XGBoost 三向分類器
+    poisson1.pkl         Team1 進球 Poisson
+    poisson2.pkl         Team2 進球 Poisson
+    feat_cols.pkl        特徵欄位列表
+    val_accs.pkl         Walk-Forward 4 屆 WC 驗證準確率
+    mc_results.pkl       Monte Carlo 10,000 次奪冠機率
+    team_clusters.pkl    K-Means + PCA 球隊風格分群
+    eval_metrics.pkl     混淆矩陣 / ROC / 校準 / 特徵重要性
+
+副產品（仅本機除錯用，已在 .gitignore）：
+    figures/14-18_*.png  matplotlib 靜態圖（app.py 不使用，全用 Plotly 重畫）
+    data_cache/*.pkl     歷史資料快取
 """
 import os
 import pickle

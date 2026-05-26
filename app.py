@@ -1,8 +1,20 @@
 """
-🏆 2026 世界盃 ML 勝率分析與比分預測系統 v2.1
-World Cup 2026 — ML Win Probability & Score Prediction
+🏆 2026 World Cup ML Prediction System — Streamlit 主程式
 ============================================================
-真實資料：49,328場國際賽事 + 67,894筆FIFA排名
+
+四層融合模型 + Monte Carlo 賽程模擬：
+    L1  XGBoost 分類器        (外層權重 20%)
+    L2  Dixon-Coles Poisson  (外層權重 80%)
+    L3  λ 多因素複合修正     (主將/FIFA/狀態/經驗)
+    L4  融合機率 + MC 10,000 次
+
+7 個分頁：
+    📊 專題總覽 · 🔮 2026 預測 · 📈 數據分析 · 🌍 各國分析
+    🎯 球隊風格分群 · 🏅 奪冠預測 · 📅 完整賽程
+
+執行：
+    1) python pretrain.py   ← 必須先跑一次，產出 models/*.pkl
+    2) streamlit run app.py
 """
 
 import os
@@ -168,16 +180,6 @@ hr {
     height: 1px !important;
     background: var(--border) !important;
     margin: 2rem 0 !important;
-}
-
-/* ── 預測卡片（殘留遺產樣式） ── */
-.pred-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px 20px;
-    margin-bottom: 12px;
-    box-shadow: var(--shadow-sm);
 }
 
 /* ── 自訂指標卡 .metric-card ── */
@@ -1879,7 +1881,7 @@ elif page == "🔮 2026 預測":
     match_df = load_match_data()
     fifa_df  = load_fifa_ranking()
 
-    # v2.2：先試讀預訓練 pkl，0.5 秒搞定；否則 fallback 即時訓練
+    # 先試讀預訓練 pkl（< 1 秒）；若不存在則 fallback 到即時訓練
     pre = load_pretrained()
     if pre is not None:
         st.caption("⚡ 使用預訓練模型（models/*.pkl）— 跳過冷啟動")

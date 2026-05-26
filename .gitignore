@@ -1,7 +1,31 @@
+## Python
 __pycache__/
 *.pyc
-.DS_Store
-.env
+*.pyo
+*.pyd
+
+## Virtual envs
 .venv/
+venv/
+env/
+
+## Jupyter
 .ipynb_checkpoints/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Secrets
+.env
+.env.local
+
+## 資料快取（首次執行會自動下載/生成）
 data_cache/*.pkl
+
+## pretrain 副產品（圖檔，app.py 不使用，僅供本機除錯）
+figures/
+
+## PPT 中間檔
+presentation/*.pdf
+presentation/slide-*.jpg
