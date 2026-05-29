@@ -1336,16 +1336,16 @@ const TOTAL = 24;
   addTitle(s, "奪冠機率 Top 10", "10,000 次完整賽程模擬的累計結果");
 
   const champs = [
-    { rank: 1, team: "🇦🇷 阿根廷",     en: "Argentina",    champ: 6.14, final: 18.37, grp: 77.6 },
-    { rank: 2, team: "🇧🇷 巴西",       en: "Brazil",       champ: 6.01, final: 18.79, grp: 77.5 },
-    { rank: 3, team: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 英格蘭",     en: "England",      champ: 5.80, final: 18.10, grp: 76.2 },
-    { rank: 4, team: "🇫🇷 法國",       en: "France",       champ: 5.75, final: 18.59, grp: 76.8 },
-    { rank: 5, team: "🇪🇸 西班牙",     en: "Spain",        champ: 5.01, final: 16.67, grp: 76.0 },
-    { rank: 6, team: "🇧🇪 比利時",     en: "Belgium",      champ: 4.99, final: 16.35, grp: 76.5 },
-    { rank: 7, team: "🇵🇹 葡萄牙",     en: "Portugal",     champ: 4.65, final: 15.57, grp: 75.8 },
-    { rank: 8, team: "🇳🇱 荷蘭",       en: "Netherlands",  champ: 4.62, final: 15.55, grp: 72.8 },
-    { rank: 9, team: "🇩🇪 德國",       en: "Germany",      champ: 4.44, final: 15.76, grp: 76.2 },
-    { rank: 10, team: "🇨🇴 哥倫比亞",  en: "Colombia",     champ: 3.41, final: 12.22, grp: 62.4 },
+    { rank: 1, team: "🇦🇷 阿根廷",     en: "Argentina",    champ: 6.22, final: 18.37, grp: 77.3 },
+    { rank: 2, team: "🇧🇷 巴西",       en: "Brazil",       champ: 6.03, final: 18.78, grp: 77.4 },
+    { rank: 3, team: "🇫🇷 法國",       en: "France",       champ: 5.65, final: 18.57, grp: 76.6 },
+    { rank: 4, team: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 英格蘭",     en: "England",      champ: 5.49, final: 17.96, grp: 76.8 },
+    { rank: 5, team: "🇪🇸 西班牙",     en: "Spain",        champ: 5.01, final: 16.50, grp: 76.0 },
+    { rank: 6, team: "🇧🇪 比利時",     en: "Belgium",      champ: 4.96, final: 16.49, grp: 76.3 },
+    { rank: 7, team: "🇳🇱 荷蘭",       en: "Netherlands",  champ: 4.80, final: 15.85, grp: 73.0 },
+    { rank: 8, team: "🇵🇹 葡萄牙",     en: "Portugal",     champ: 4.69, final: 15.55, grp: 75.7 },
+    { rank: 9, team: "🇩🇪 德國",       en: "Germany",      champ: 4.57, final: 16.04, grp: 75.9 },
+    { rank: 10, team: "🇺🇾 烏拉圭",    en: "Uruguay",      champ: 3.58, final: 13.62, grp: 64.2 },
   ];
 
   const table = [
@@ -1392,9 +1392,9 @@ const TOTAL = 24;
 
   const data = [{
     name: "奪冠機率 (%)",
-    labels: ["阿根廷", "巴西", "英格蘭", "法國", "西班牙", "比利時", "葡萄牙",
-             "荷蘭", "德國", "哥倫比亞", "烏拉圭", "克羅埃西亞", "摩洛哥", "墨西哥", "瑞士"],
-    values: [6.14, 6.01, 5.80, 5.75, 5.01, 4.99, 4.65, 4.62, 4.44, 3.41, 3.39, 3.30, 2.89, 2.78, 2.57],
+    labels: ["阿根廷", "巴西", "法國", "英格蘭", "西班牙", "比利時", "荷蘭",
+             "葡萄牙", "德國", "烏拉圭", "哥倫比亞", "克羅埃西亞", "摩洛哥", "墨西哥", "瑞士"],
+    values: [6.22, 6.03, 5.65, 5.49, 5.01, 4.96, 4.80, 4.69, 4.57, 3.58, 3.48, 3.17, 2.89, 2.73, 2.56],
   }];
   s.addChart(pres.charts.BAR, data, {
     x: 0.6, y: 2.0, w: 12.1, h: 4.5,
@@ -1663,7 +1663,7 @@ const TOTAL = 24;
     {
       num: "02", color: C.gold,
       title: "Top 10 奪冠機率分散合理",
-      detail: "阿根廷 6.14% / 巴西 6.01% / 英格蘭 5.80% / 法國 5.75% — 前 10 累計約 50%。符合世界盃高度不確定性的本質，沒有出現單一球隊獨大的失真。",
+      detail: "阿根廷 6.22% / 巴西 6.03% / 法國 5.65% / 英格蘭 5.49% — 前 10 累計約 51%。符合世界盃高度不確定性的本質，沒有出現單一球隊獨大的失真。",
     },
     {
       num: "03", color: C.green,

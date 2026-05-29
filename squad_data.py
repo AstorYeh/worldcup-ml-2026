@@ -114,8 +114,8 @@ SQUAD_DATA = {
         {'name':'M. Çakır',     'pos':'GK', 'age':30,'club':'Trabzonspor',   'ovr':74,'pac':38,'sho':10,'pas':50,'dri':36,'def':70,'phy':68},
         {'name':'M. Demiral',   'pos':'CB', 'age':26,'club':'Al Qadsiah',    'ovr':81,'pac':80,'sho':36,'pas':66,'dri':62,'def':82,'phy':84},
         {'name':'H. Çalhanoğlu','pos':'CM', 'age':31,'club':'Inter Milan',   'ovr':85,'pac':72,'sho':78,'pas':87,'dri':83,'def':70,'phy':76},
-        {'name':'A. Yıldız',    'pos':'CAM','age':19,'club':'Juventus',      'ovr':80,'pac':82,'sho':78,'pas':76,'dri':84,'def':36,'phy':64},
-        {'name':'A. Yıldız',    'pos':'CAM','age':21,'club':'Juventus',      'ovr':80,'pac':80,'sho':78,'pas':78,'dri':84,'def':40,'phy':70},
+        {'name':'K. Yıldız',    'pos':'CAM','age':20,'club':'Juventus',      'ovr':82,'pac':84,'sho':80,'pas':78,'dri':86,'def':38,'phy':66},
+        {'name':'A. Güler',     'pos':'CAM','age':21,'club':'Real Madrid',  'ovr':82,'pac':78,'sho':80,'pas':84,'dri':86,'def':40,'phy':62},
     ],
     # ── GROUP E ──
     'Germany': [

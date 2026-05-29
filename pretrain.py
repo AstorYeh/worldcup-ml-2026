@@ -344,8 +344,14 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
 
     # ── 主將陣容修正（v2 新增）──
     # 原本 MC 完全靠 FIFA 積分 + XGBoost，零陣容資訊 → 南美被高估、法國等被低估。
-    # 對每組對戰的期望進球 λ 乘上 (ovr1/ovr2)^0.35（與 predict_match 同邏輯），
-    # 讓奪冠模擬與單場預測一致，並把「市場最看重的陣容」納入。
+    # 對每組對戰的期望進球 λ 乘上 (ovr1/ovr2)^0.35，把「市場最看重的陣容」納入。
+    #
+    # ⚠️ 設計說明：為何這裡「只」注入 squad、而非 predict_match 的完整四因素？
+    #   MC 的 λ 來自 Poisson 迴歸（poisson1/2），其特徵已含 pts_diff / recent_form /
+    #   knockout_exp → FIFA 積分、近期狀態、淘汰賽經驗「已被模型學進去」。
+    #   若在此再乘 rank/form/exp factor 會「重複計算」。唯獨 squad OVR 不在特徵裡，
+    #   故只補這一項。predict_match 的基底是 Dixon-Coles 純攻防公式（無這些特徵），
+    #   才需要完整四因素 composite。兩條路徑因「基底不同」而修正項不同，並非 bug。
     SQUAD_POW = 0.35
     def _squad_adjust(t1, t2, lam1, lam2):
         sf = (squad_ovr(t1) / max(squad_ovr(t2), 1.0)) ** SQUAD_POW
