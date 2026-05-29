@@ -1345,12 +1345,16 @@ st.sidebar.markdown(
     section[data-testid="stSidebar"] div[data-testid="stSidebarUserContent"] {{
         padding-top: 0 !important;
     }}
-    /* 固定置頂的 LOGO + 標題區塊 */
-    .wc-side-head {{
-        position: sticky;
+    /* 關鍵：讓「包住 LOGO 區塊的 Streamlit 元素容器」本身 sticky
+       （sticky 必須套在捲動容器的直接子層，套內層 div 無效）*/
+    section[data-testid="stSidebar"] [data-testid="element-container"]:has(.wc-side-head) {{
+        position: sticky !important;
         top: 0;
         z-index: 999;
         background: #f4f1ea;            /* 與側邊欄底色一致，遮住下方捲動內容 */
+    }}
+    .wc-side-head {{
+        background: #f4f1ea;
         padding: 12px 4px 12px;
         margin: 0 -8px 6px;            /* 抵銷側邊欄左右內距，讓底色貼滿寬度 */
         border-bottom: 1px solid #e2ddd0;
