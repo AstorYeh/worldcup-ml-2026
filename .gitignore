@@ -29,3 +29,6 @@ figures/
 ## PPT 中間檔
 presentation/*.pdf
 presentation/slide-*.jpg
+
+## Docker updater secrets
+docker/odds-updater/.env
