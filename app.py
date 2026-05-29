@@ -19,6 +19,7 @@
 """
 
 import os
+import base64
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -1330,49 +1331,48 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
 # ============================================================
 # SIDEBAR
 # ============================================================
-# LOGO 圖（最上方）
+# LOGO + 標題：固定（sticky）於側邊欄頂端，捲動時不跟著移動
 _logo_path = os.path.join(os.path.dirname(__file__), 'assets', 'logo.png')
+_logo_b64 = ''
 if os.path.exists(_logo_path):
-    # 完全移除 sidebar image 預設的背景框 / padding / 邊框
-    st.sidebar.markdown(
-        """
-        <style>
-        section[data-testid="stSidebar"] div[data-testid="stImage"],
-        section[data-testid="stSidebar"] div[data-testid="stImageContainer"],
-        section[data-testid="stSidebar"] [data-testid="stImage"] > div,
-        section[data-testid="stSidebar"] figure {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-        section[data-testid="stSidebar"] div[data-testid="stImage"] img {
-            width: 100%;
-            display: block;
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            border-radius: 0;
-            margin: 0;
-            padding: 0;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.sidebar.image(_logo_path, use_container_width=True)
+    with open(_logo_path, 'rb') as _lf:
+        _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 st.sidebar.markdown(
-    """
-    <div style='padding:4px 4px 14px;'>
-        <div style='font-family: Charter, Georgia, serif; font-size:1.2rem;
-                    font-weight:600; color:#1f1e1c; letter-spacing:-0.2px;'>
-            World Cup 2026
-        </div>
-        <div style='font-size:0.78rem; color:#6b6760; margin-top:2px;'>
-            ML 勝率分析 · v2.3
-        </div>
+    f"""
+    <style>
+    /* 移除側邊欄內容頂部留白，讓 sticky 區塊貼齊頂端 */
+    section[data-testid="stSidebar"] div[data-testid="stSidebarUserContent"] {{
+        padding-top: 0 !important;
+    }}
+    /* 固定置頂的 LOGO + 標題區塊 */
+    .wc-side-head {{
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        background: #f4f1ea;            /* 與側邊欄底色一致，遮住下方捲動內容 */
+        padding: 12px 4px 12px;
+        margin: 0 -8px 6px;            /* 抵銷側邊欄左右內距，讓底色貼滿寬度 */
+        border-bottom: 1px solid #e2ddd0;
+    }}
+    .wc-side-head img {{
+        display: block; width: 78%; margin: 0 auto 8px;
+        border-radius: 10px;
+    }}
+    .wc-side-title {{
+        text-align: center;
+        font-family: Charter, Georgia, serif; font-size: 1.2rem;
+        font-weight: 600; color: #1f1e1c; letter-spacing: -0.2px;
+    }}
+    .wc-side-sub {{
+        text-align: center;
+        font-size: 0.76rem; color: #6b6760; margin-top: 2px;
+    }}
+    </style>
+    <div class="wc-side-head">
+        {'<img src="data:image/png;base64,' + _logo_b64 + '" alt="logo">' if _logo_b64 else ''}
+        <div class="wc-side-title">World Cup 2026</div>
+        <div class="wc-side-sub">ML 勝率分析 · v2.3</div>
     </div>
     """,
     unsafe_allow_html=True,
