@@ -1343,6 +1343,7 @@ st.sidebar.markdown(
     <style>
     section[data-testid="stSidebar"] div[data-testid="stSidebarUserContent"] {{
         padding-top: 8px !important;
+        padding-bottom: 16px !important;
     }}
     .wc-side-head {{
         padding: 4px 4px 10px;
@@ -1370,25 +1371,29 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 # ── 分割版面：LOGO 固定於上，導航 + 資訊放進「固定高度可捲動容器」──
-# st.container(height=N) 是原生捲動容器；用 CSS 讓它填滿 LOGO 下方剩餘高度，
-# 容器內部捲動、LOGO 永遠釘在頂端（真正的「固定不跟隨」）
+# st.container(height=N, key=...) 是原生捲動容器；用 key 對應的穩定 class（st-key-…）
+# 把它的高度改為「填滿 LOGO 下方剩餘空間」，使整個側邊欄不外捲、LOGO 永遠釘在頂端。
 st.sidebar.markdown(
     """
     <style>
-    /* 側邊欄捲動容器：填滿 LOGO 下方到視窗底，去邊框 */
-    section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {
-        height: calc(100vh - 215px) !important;
-        border: none !important;
-        background: transparent !important;
-        padding: 0 !important;
+    /* 導航容器：填滿 LOGO 下方到視窗底（內部捲動，外層側邊欄不捲）。
+       同時鎖定容器本體＋其外層 layout wrapper，否則 wrapper 仍保留固定 600px
+       導致整個側邊欄外捲、LOGO 被一起捲走。 */
+    section[data-testid="stSidebar"] .st-key-wc_navbox,
+    section[data-testid="stSidebar"] div[data-testid="stLayoutWrapper"]:has(> .st-key-wc_navbox) {
+        height: calc(100vh - 314px) !important;
+        max-height: calc(100vh - 314px) !important;
     }
-    /* 容器內捲軸細一點 */
-    section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] ::-webkit-scrollbar { width: 6px; }
+    /* 容器內捲軸細一點、不突兀 */
+    section[data-testid="stSidebar"] .st-key-wc_navbox ::-webkit-scrollbar { width: 6px; }
+    section[data-testid="stSidebar"] .st-key-wc_navbox ::-webkit-scrollbar-thumb {
+        background: #d8d2c8; border-radius: 3px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
-_nav_box = st.sidebar.container(height=600, border=False)
+_nav_box = st.sidebar.container(height=600, border=False, key="wc_navbox")
 with _nav_box:
     page = st.radio("選擇頁面", [
         "📊 專題總覽",

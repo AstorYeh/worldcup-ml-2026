@@ -16,6 +16,9 @@ env/
 .DS_Store
 Thumbs.db
 
+## 本機除錯日誌（streamlit run 輸出）
+*.log
+
 ## Secrets
 .env
 .env.local
