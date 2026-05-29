@@ -29,12 +29,14 @@ git pull --rebase --autostash origin "$BRANCH" 2>/dev/null || echo "[update] git
 # 2) 抓賠率（無 ODDS_API_KEY 時 fetch 會優雅跳過、不改檔）
 python fetch_market_odds.py
 
-# 3) 有變動才 commit & push（用 -c 注入身分，不動掛載 repo 設定）
+# 3) 有變動才 commit & push
+#    ⚠️ 只 add/commit market_odds.py（絕不用 -a，避免掃到無關的工作目錄變更）
 if git diff --quiet market_odds.py; then
   echo "[update] 賠率無變動，略過 commit"
 else
+  git add market_odds.py
   git -c user.name="$GH_USER" -c user.email="$GH_EMAIL" \
-      commit -am "chore(odds): Docker 每日自動更新世界盃冠軍賠率快照"
+      commit market_odds.py -m "chore(odds): Docker 每日自動更新世界盃冠軍賠率快照"
   git push "$PUSH_URL" "HEAD:$BRANCH"
   echo "[update] ✅ 已推送更新"
 fi

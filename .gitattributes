@@ -1,0 +1,11 @@
+# 統一所有文字檔以 LF 行尾存於 repo（跨平台一致，避免 CRLF/LF churn）
+* text=auto eol=lf
+
+# 明確標記二進位檔（不做行尾轉換）
+*.pkl   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.pptx  binary
+*.pdf   binary
+*.ico   binary

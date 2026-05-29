@@ -4,7 +4,7 @@ fetch_market_odds.py — 每日自動抓取世界盃冠軍盤口賠率
 從 The Odds API 抓 2026 世界盃冠軍盤口，覆寫 market_odds.py 的
 MARKET_ODDS 與 AS_OF，達成「每天凌晨自動浮動更新」。
 
-由 .github/workflows/update-odds.yml 每日 cron 觸發。
+由 docker/odds-updater/ 容器每日 cron 觸發（見該目錄 README）。
 需要環境變數 ODDS_API_KEY（GitHub repo secret）。
 免費方案：https://the-odds-api.com（每月 500 次，每天 1 次綽綽有餘）
 

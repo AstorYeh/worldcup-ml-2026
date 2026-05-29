@@ -5,8 +5,8 @@ market_odds.py — 2026 世界盃冠軍盤口快照（市場情緒量化來源�
 
 這是 app.py 奪冠預測頁「市場校準層」的資料來源。
 
-🔄 自動更新：.github/workflows/update-odds.yml 每天凌晨用 The Odds API
-   重抓賠率並覆寫本檔 MARKET_ODDS / AS_OF，再 commit。
+🔄 自動更新：docker/odds-updater/ 容器每天凌晨用 The Odds API
+   重抓賠率並覆寫本檔 MARKET_ODDS / AS_OF，再 git push。
    （未設定 API key 時，沿用此手動快照 — app 仍正常運作）
 
 ⚠️ 賠率為十進位（decimal）：美式 +N → N/100 + 1（例：+430 → 5.30）
