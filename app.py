@@ -1377,12 +1377,24 @@ st.sidebar.markdown(
     """
     <style>
     /* 導航容器：填滿 LOGO 下方到視窗底（內部捲動，外層側邊欄不捲）。
-       同時鎖定容器本體＋其外層 layout wrapper，否則 wrapper 仍保留固定 600px
-       導致整個側邊欄外捲、LOGO 被一起捲走。 */
-    section[data-testid="stSidebar"] .st-key-wc_navbox,
+       同時鎖定容器本體＋其外層包裝層，否則包裝層仍保留固定 600px
+       導致整個側邊欄外捲、LOGO 被一起捲走。
+       為相容不同 Streamlit 版本（DOM 包裝層不同），三種選擇器都寫上，
+       各版本只有對應者命中、其餘為無害的 no-op： */
+    /* (a) 容器根元素：所有版本都有 st-key class */
+    section[data-testid="stSidebar"] .st-key-wc_navbox {
+        height: calc(100vh - 314px) !important;
+        max-height: calc(100vh - 314px) !important;
+    }
+    /* (b) 新版（1.5x）：st-key 即捲動層，外層 stLayoutWrapper 也要縮 */
     section[data-testid="stSidebar"] div[data-testid="stLayoutWrapper"]:has(> .st-key-wc_navbox) {
         height: calc(100vh - 314px) !important;
         max-height: calc(100vh - 314px) !important;
+    }
+    /* (c) 舊版：st-key 為外框，內層 stVerticalBlock 才是捲動層 → 撐滿外框 */
+    section[data-testid="stSidebar"] .st-key-wc_navbox > div[data-testid="stVerticalBlock"] {
+        height: 100% !important;
+        max-height: 100% !important;
     }
     /* 容器內捲軸細一點、不突兀 */
     section[data-testid="stSidebar"] .st-key-wc_navbox ::-webkit-scrollbar { width: 6px; }
