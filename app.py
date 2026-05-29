@@ -33,6 +33,9 @@ warnings.filterwarnings('ignore')
 from squad_data import SQUAD_DATA
 # 單一資料來源：48 隊 FIFA 資料、分組、足聯（與 pretrain.py 共用，避免漂移）
 from constants import TEAM_INFO, WC_2026_GROUPS, CONFED_MAP, CONFED_BONUS
+# 市場情緒量化：博彩賠率去抽水後的隱含奪冠機率（奪冠頁市場校準層用）
+import market_odds as MARKET
+from datetime import date as _date
 
 # ============================================================
 # Plotly 全域 Claude 主題（暖色淺底 + 珊瑚橘）
@@ -3353,6 +3356,118 @@ elif page == "🏅 奪冠預測":
         for col in ['奪冠', '進決賽', '進四強']:
             display_df[col] = display_df[col].apply(lambda x: f'{x:.1f}%')
         st.dataframe(display_df, use_container_width=True)
+
+        # ════════════════════════════════════════════════════════
+        # 市場校準層（Layer 5）：模型 ⊕ 博彩市場共識
+        # ════════════════════════════════════════════════════════
+        st.markdown("---")
+        st.markdown("### 🎰 市場校準：模型 ⊕ 博彩賠率")
+
+        # 時間衰減權重：離開賽越近，市場越準 → α 從 0.20 漸增到 0.50
+        try:
+            _start = _date.fromisoformat(MARKET.TOURNAMENT_START)
+            _days = (_start - _date.today()).days
+        except Exception:
+            _days = 0
+        alpha = max(0.20, min(0.50, 0.50 - 0.30 * max(_days, 0) / 120.0))
+
+        # 模型機率（champ_pct/100，總和=1）vs 市場去抽水機率
+        model_p = {r['team']: r['champ_pct'] / 100.0 for _, r in mc_df.iterrows()}
+        market_p = MARKET.market_implied_probs()
+        all_t = set(model_p) | set(market_p)
+        blended = {t: (1 - alpha) * model_p.get(t, 0.0) + alpha * market_p.get(t, 0.0)
+                   for t in all_t}
+        _bs = sum(blended.values()) or 1.0
+        blended = {t: v / _bs for t, v in blended.items()}
+
+        # 時間衰減說明卡
+        cc1, cc2, cc3 = st.columns(3)
+        with cc1:
+            st.metric("距開賽天數", f"{max(_days,0)} 天",
+                      help=f"開賽日 {MARKET.TOURNAMENT_START}")
+        with cc2:
+            st.metric("市場權重 α", f"{alpha:.0%}",
+                      delta="越近賽事越高", delta_color="off",
+                      help="α 隨開賽逼近從 20% 漸增至 50%")
+        with cc3:
+            st.metric("莊家抽水", f"{MARKET.market_overround()*100:.0f}%",
+                      help=f"賠率快照 {MARKET.AS_OF}；已用 de-vig 去除")
+
+        st.caption(
+            f"📐 **融合公式**：最終 = (1−α)×模型 + α×市場　|　目前 "
+            f"**{1-alpha:.0%} 模型 + {alpha:.0%} 市場**（α 隨開賽逼近上升）。"
+            f"市場機率來自運彩冠軍盤口賠率去除莊家抽水（快照 {MARKET.AS_OF}，每日自動更新）。"
+        )
+
+        # 三欄對照表：模型 / 市場 / 融合（依融合排序）
+        cmp_rows = []
+        for t in sorted(blended, key=lambda x: -blended[x])[:15]:
+            info = TEAM_INFO.get(t, {'flag': '🏳️', 'cn': t})
+            cmp_rows.append({
+                '球隊': f"{info['flag']} {info['cn']}",
+                '🤖 模型': f"{model_p.get(t,0)*100:.1f}%",
+                '🎰 市場': f"{market_p.get(t,0)*100:.1f}%",
+                '⊕ 融合': f"{blended[t]*100:.1f}%",
+            })
+        st.dataframe(pd.DataFrame(cmp_rows), use_container_width=True, hide_index=True)
+
+        # 融合 vs 模型 vs 市場 分組長條圖
+        import plotly.graph_objects as _go_mk
+        topn = sorted(blended, key=lambda x: -blended[x])[:10]
+        labels = [TEAM_INFO.get(t, {'cn': t})['cn'] for t in topn]
+        fig_mk = _go_mk.Figure()
+        fig_mk.add_trace(_go_mk.Bar(name='🤖 模型', x=labels,
+                                    y=[model_p.get(t, 0)*100 for t in topn],
+                                    marker_color=_CLAUDE_ACCENT2))
+        fig_mk.add_trace(_go_mk.Bar(name='🎰 市場', x=labels,
+                                    y=[market_p.get(t, 0)*100 for t in topn],
+                                    marker_color='#b58a3b'))
+        fig_mk.add_trace(_go_mk.Bar(name='⊕ 融合', x=labels,
+                                    y=[blended[t]*100 for t in topn],
+                                    marker_color=_CLAUDE_ACCENT))
+        fig_mk.update_layout(**claude_layout(
+            barmode='group', height=420,
+            yaxis_title='奪冠機率 (%)',
+            legend=dict(orientation='h', y=1.12,
+                        bgcolor='rgba(255,255,255,0.85)',
+                        bordercolor=_CLAUDE_GRID, borderwidth=1),
+        ))
+        st.plotly_chart(fig_mk, use_container_width=True)
+
+        with st.expander("📖 詳細解讀（市場校準在做什麼？）", expanded=False):
+            st.markdown(
+                f"""
+**🎯 為什麼要校準？**
+
+我們的 ML 模型是「**歷史結構模型**」—— 重 FIFA 積分、攻防數據、陣容 OVR。
+但它**看不到**：傷病、即時俱樂部狀態、戰術成熟度、抽籤路徑這些「當下」資訊。
+
+博彩市場用**真金白銀**把這些難量化的因素濃縮成一個數字（賠率）。
+學術上博彩市場被視為**最強的單一預測基準**（efficient market）。
+
+**📐 怎麼量化市場？（純數據，無主觀）**
+
+1. 十進位賠率 → 隱含機率 = 1 / 賠率
+2. 加總得 overround（含莊家抽水 {MARKET.market_overround()*100:.0f}%）
+3. 除以 overround → 去抽水的「真實市場機率」（總和 = 1）
+
+**🔄 兩層浮動設計**
+
+- **賠率浮動**：`market_odds.py` 每天凌晨由 GitHub Action 自動重抓更新
+- **權重浮動**：α 隨開賽逼近從 20% 升到 50%
+  （離賽越近，市場資訊越完整越準 → 該更信市場）
+  目前距開賽 {max(_days,0)} 天 → α = {alpha:.0%}
+
+**💡 結果怎麼看**
+
+- 🤖 模型：純歷史結構觀點（巴西/阿根廷因 FIFA 積分領先）
+- 🎰 市場：當下共識（西班牙/法國因近期狀態+陣容深度領先）
+- ⊕ 融合：兩者加權 —— 兼顧「長期實力」與「當下狀態」
+
+這不是用市場「作弊」，而是把「市場情緒」當成一個**可量化、會浮動的特徵**納入，
+正是你要的「以數據推論 + 隨時間浮動」。
+"""
+            )
 
 # ============================================================
 # PAGE 6: 完整賽程
