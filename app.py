@@ -1341,26 +1341,14 @@ if os.path.exists(_logo_path):
 st.sidebar.markdown(
     f"""
     <style>
-    /* 移除側邊欄內容頂部留白，讓 sticky 區塊貼齊頂端 */
     section[data-testid="stSidebar"] div[data-testid="stSidebarUserContent"] {{
-        padding-top: 0 !important;
-    }}
-    /* 關鍵：讓「包住 LOGO 區塊的 Streamlit 元素容器」本身 sticky
-       （sticky 必須套在捲動容器的直接子層，套內層 div 無效）*/
-    section[data-testid="stSidebar"] [data-testid="element-container"]:has(.wc-side-head) {{
-        position: sticky !important;
-        top: 0;
-        z-index: 999;
-        background: #f4f1ea;            /* 與側邊欄底色一致，遮住下方捲動內容 */
+        padding-top: 8px !important;
     }}
     .wc-side-head {{
-        background: #f4f1ea;
-        padding: 12px 4px 12px;
-        margin: 0 -8px 6px;            /* 抵銷側邊欄左右內距，讓底色貼滿寬度 */
-        border-bottom: 1px solid #e2ddd0;
+        padding: 4px 4px 10px;
     }}
     .wc-side-head img {{
-        display: block; width: 78%; margin: 0 auto 8px;
+        display: block; width: 72%; margin: 0 auto 8px;
         border-radius: 10px;
     }}
     .wc-side-title {{
@@ -1393,25 +1381,27 @@ page = st.sidebar.radio("選擇頁面", [
 ], label_visibility="collapsed")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown(
-    """
-    <div style='font-size:0.78rem; color:#6b6760; line-height:1.7; padding: 4px;'>
-        <div style='color:#1f1e1c; font-weight:600; margin-bottom:4px;'>模型架構</div>
-        <div>XGBoost 20% + Dixon-Coles 80%</div>
-        <div>+ Squad OVR + Monte Carlo 10k</div>
-        <div style='height:14px;'></div>
-        <div style='color:#1f1e1c; font-weight:600; margin-bottom:4px;'>訓練資料</div>
-        <div>49,257 場 · 1990–2025</div>
-        <div>67,894 筆 FIFA 排名</div>
-        <div style='height:14px;'></div>
-        <div style='font-size:0.72rem; color:#9b958a;'>
-            資料來源：international football, FIFA<br>
-            最後更新：2026-04
+# 模型/資料資訊收進收合區，縮短側邊欄高度 → LOGO 不被捲走
+with st.sidebar.expander("ℹ️ 模型與資料資訊", expanded=False):
+    st.markdown(
+        """
+        <div style='font-size:0.78rem; color:#6b6760; line-height:1.7;'>
+            <div style='color:#1f1e1c; font-weight:600; margin-bottom:4px;'>模型架構</div>
+            <div>XGBoost 20% + Dixon-Coles 80%</div>
+            <div>+ Squad OVR + Monte Carlo 10k</div>
+            <div style='height:12px;'></div>
+            <div style='color:#1f1e1c; font-weight:600; margin-bottom:4px;'>訓練資料</div>
+            <div>49,257 場 · 1990–2025</div>
+            <div>67,894 筆 FIFA 排名</div>
+            <div style='height:12px;'></div>
+            <div style='font-size:0.72rem; color:#9b958a;'>
+                資料來源：international football, FIFA<br>
+                最後更新：2026-04
+            </div>
         </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+        """,
+        unsafe_allow_html=True,
+    )
 
 # ============================================================
 # PAGE 1: 專題總覽
