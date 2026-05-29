@@ -51,8 +51,19 @@ from constants import (
     TEAM_INFO, WC_2026_GROUPS, CONFED_MAP, CONFED_BONUS,
     TEAM_PTS, TEAM_RANK,
 )
+from squad_data import SQUAD_DATA
 
 ALL_TEAMS = sorted({t for teams in WC_2026_GROUPS.values() for t in teams})
+
+# ── 主將陣容平均 OVR（Monte Carlo 注入用，與 app.py predict_match 同邏輯）──
+_SQUAD_OVR_BASELINE = 79.0
+
+def squad_ovr(team):
+    """回傳球隊主將平均 OVR；無資料則回基準值 79。"""
+    players = SQUAD_DATA.get(team, [])
+    if not players:
+        return _SQUAD_OVR_BASELINE
+    return float(np.mean([p['ovr'] for p in players]))
 
 
 # ============================================================
@@ -330,6 +341,16 @@ def train_models(match_df, fifa_df):
 # ============================================================
 def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10000):
     print(f"\n[2/4] Monte Carlo {n_sims} 次模擬")
+
+    # ── 主將陣容修正（v2 新增）──
+    # 原本 MC 完全靠 FIFA 積分 + XGBoost，零陣容資訊 → 南美被高估、法國等被低估。
+    # 對每組對戰的期望進球 λ 乘上 (ovr1/ovr2)^0.35（與 predict_match 同邏輯），
+    # 讓奪冠模擬與單場預測一致，並把「市場最看重的陣容」納入。
+    SQUAD_POW = 0.35
+    def _squad_adjust(t1, t2, lam1, lam2):
+        sf = (squad_ovr(t1) / max(squad_ovr(t2), 1.0)) ** SQUAD_POW
+        return max(0.1, lam1 * sf), max(0.1, lam2 / sf)
+
     # 預先算 2026 所有可能對戰的勝率與進球期望
     strength_cache, form_cache, ko_cache = {}, {}, {}
     pairs = {}
@@ -342,6 +363,7 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
                 prob = clf.predict_proba(X)[0]  # [L, D, W from team1]
                 lam1 = max(0.1, float(poisson1.predict(X)[0]))
                 lam2 = max(0.1, float(poisson2.predict(X)[0]))
+                lam1, lam2 = _squad_adjust(t1, t2, lam1, lam2)
                 pairs[(t1, t2)] = (prob, lam1, lam2)
                 pairs[(t2, t1)] = (prob[[2,1,0]], lam2, lam1)
 
@@ -357,6 +379,7 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
                 prob = clf.predict_proba(X)[0]
                 lam1 = max(0.1, float(poisson1.predict(X)[0]))
                 lam2 = max(0.1, float(poisson2.predict(X)[0]))
+                lam1, lam2 = _squad_adjust(ta, tb, lam1, lam2)
                 pairs[(ta, tb)] = (prob, lam1, lam2)
             except Exception:
                 continue

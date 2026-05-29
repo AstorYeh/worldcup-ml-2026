@@ -597,10 +597,10 @@ const TOTAL = 24;
   });
   // 訓練 → 驗證 step
   const trainSteps = [
-    { train: "1990-2009", val: "WC 2010", acc: "49.3%" },
-    { train: "1990-2013", val: "WC 2014", acc: "51.6%" },
+    { train: "1990-2009", val: "WC 2010", acc: "53.3%" },
+    { train: "1990-2013", val: "WC 2014", acc: "48.4%" },
     { train: "1990-2017", val: "WC 2018", acc: "50.0%" },
-    { train: "1990-2021", val: "WC 2022", acc: "54.7%" },
+    { train: "1990-2021", val: "WC 2022", acc: "56.2%" },
   ];
   trainSteps.forEach((st, i) => {
     const y = 2.8 + i * 0.55;
@@ -631,12 +631,12 @@ const TOTAL = 24;
     x: 7.3, y: 5.3, w: 3, h: 0.4,
     fontSize: 12, bold: true, color: C.navy, fontFace: FONT_TITLE, margin: 0,
   });
-  s.addText("51.4%", {
+  s.addText("52.0%", {
     x: 10.0, y: 5.2, w: 2.4, h: 0.5,
     fontSize: 28, bold: true, color: C.primary, align: "right",
     fontFace: FONT_TITLE, margin: 0,
   });
-  s.addText("vs 隨機猜測 33.3% · 提升 +18.1%", {
+  s.addText("vs 隨機猜測 33.3% · 提升 +18.7%", {
     x: 7.3, y: 5.85, w: 5.1, h: 0.4,
     fontSize: 11, italic: true, color: C.green, fontFace: FONT_BODY, margin: 0,
   });
@@ -926,10 +926,10 @@ const TOTAL = 24;
 
   // 4 輪驗證的視覺化（時間軸）
   const rounds = [
-    { train: "1990-2009", val: "WC 2010", acc: 49.3 },
-    { train: "1990-2013", val: "WC 2014", acc: 51.6 },
+    { train: "1990-2009", val: "WC 2010", acc: 53.3 },
+    { train: "1990-2013", val: "WC 2014", acc: 48.4 },
     { train: "1990-2017", val: "WC 2018", acc: 50.0 },
-    { train: "1990-2021", val: "WC 2022", acc: 54.7 },
+    { train: "1990-2021", val: "WC 2022", acc: 56.2 },
   ];
   const tlY = 3.5;
   rounds.forEach((r, i) => {
@@ -973,9 +973,9 @@ const TOTAL = 24;
   });
   s.addText([
     { text: "✅ 平均驗證準確率 ", options: { bold: true, color: C.green } },
-    { text: "51.4%", options: { bold: true, color: C.green, fontSize: 18 } },
+    { text: "52.0%", options: { bold: true, color: C.green, fontSize: 18 } },
     { text: "    vs 隨機猜測基準 33.3%    →    ", options: { color: C.muted } },
-    { text: "顯著優於隨機 +18.1 個百分點", options: { bold: true, color: C.navy } },
+    { text: "顯著優於隨機 +18.7 個百分點", options: { bold: true, color: C.navy } },
   ], {
     x: 0.85, y: 6.4, w: 11.6, h: 0.6,
     fontSize: 12, fontFace: FONT_BODY, valign: "middle", margin: 0,
@@ -1336,16 +1336,16 @@ const TOTAL = 24;
   addTitle(s, "奪冠機率 Top 10", "10,000 次完整賽程模擬的累計結果");
 
   const champs = [
-    { rank: 1, team: "🇧🇷 巴西",       en: "Brazil",       champ: 6.60, final: 18.69, grp: 74.0 },
-    { rank: 2, team: "🇦🇷 阿根廷",     en: "Argentina",    champ: 6.00, final: 18.40, grp: 75.4 },
-    { rank: 3, team: "🇫🇷 法國",       en: "France",       champ: 5.28, final: 16.36, grp: 73.6 },
-    { rank: 4, team: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 英格蘭",     en: "England",      champ: 5.08, final: 16.14, grp: 75.0 },
-    { rank: 5, team: "🇪🇸 西班牙",     en: "Spain",        champ: 4.95, final: 15.39, grp: 73.0 },
-    { rank: 6, team: "🇧🇪 比利時",     en: "Belgium",      champ: 4.18, final: 15.04, grp: 73.3 },
-    { rank: 7, team: "🇩🇪 德國",       en: "Germany",      champ: 4.03, final: 14.18, grp: 72.2 },
-    { rank: 8, team: "🇳🇱 荷蘭",       en: "Netherlands",  champ: 3.93, final: 14.33, grp: 71.1 },
-    { rank: 9, team: "🇺🇾 烏拉圭",     en: "Uruguay",      champ: 3.85, final: 13.41, grp: 62.5 },
-    { rank: 10, team: "🇨🇴 哥倫比亞",  en: "Colombia",     champ: 3.67, final: 13.19, grp: 62.3 },
+    { rank: 1, team: "🇦🇷 阿根廷",     en: "Argentina",    champ: 6.14, final: 18.37, grp: 77.6 },
+    { rank: 2, team: "🇧🇷 巴西",       en: "Brazil",       champ: 6.01, final: 18.79, grp: 77.5 },
+    { rank: 3, team: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 英格蘭",     en: "England",      champ: 5.80, final: 18.10, grp: 76.2 },
+    { rank: 4, team: "🇫🇷 法國",       en: "France",       champ: 5.75, final: 18.59, grp: 76.8 },
+    { rank: 5, team: "🇪🇸 西班牙",     en: "Spain",        champ: 5.01, final: 16.67, grp: 76.0 },
+    { rank: 6, team: "🇧🇪 比利時",     en: "Belgium",      champ: 4.99, final: 16.35, grp: 76.5 },
+    { rank: 7, team: "🇵🇹 葡萄牙",     en: "Portugal",     champ: 4.65, final: 15.57, grp: 75.8 },
+    { rank: 8, team: "🇳🇱 荷蘭",       en: "Netherlands",  champ: 4.62, final: 15.55, grp: 72.8 },
+    { rank: 9, team: "🇩🇪 德國",       en: "Germany",      champ: 4.44, final: 15.76, grp: 76.2 },
+    { rank: 10, team: "🇨🇴 哥倫比亞",  en: "Colombia",     champ: 3.41, final: 12.22, grp: 62.4 },
   ];
 
   const table = [
@@ -1392,9 +1392,9 @@ const TOTAL = 24;
 
   const data = [{
     name: "奪冠機率 (%)",
-    labels: ["巴西", "阿根廷", "法國", "英格蘭", "西班牙", "比利時", "德國",
-             "荷蘭", "烏拉圭", "哥倫比亞", "葡萄牙", "墨西哥", "克羅埃西亞", "日本", "瑞士"],
-    values: [6.60, 6.00, 5.28, 5.08, 4.95, 4.18, 4.03, 3.93, 3.85, 3.67, 3.64, 3.05, 2.77, 2.65, 2.61],
+    labels: ["阿根廷", "巴西", "英格蘭", "法國", "西班牙", "比利時", "葡萄牙",
+             "荷蘭", "德國", "哥倫比亞", "烏拉圭", "克羅埃西亞", "摩洛哥", "墨西哥", "瑞士"],
+    values: [6.14, 6.01, 5.80, 5.75, 5.01, 4.99, 4.65, 4.62, 4.44, 3.41, 3.39, 3.30, 2.89, 2.78, 2.57],
   }];
   s.addChart(pres.charts.BAR, data, {
     x: 0.6, y: 2.0, w: 12.1, h: 4.5,
@@ -1658,12 +1658,12 @@ const TOTAL = 24;
     {
       num: "01", color: C.primary,
       title: "模型準確率顯著優於隨機",
-      detail: "Walk-Forward 平均 51.4%，比隨機 33.3% 高 18.1 個百分點。費雪檢定 + 卡方檢定都拒絕「模型在亂猜」的虛無假設。",
+      detail: "Walk-Forward 平均 52.0%，比隨機 33.3% 高 18.7 個百分點。費雪檢定 + 卡方檢定都拒絕「模型在亂猜」的虛無假設。",
     },
     {
       num: "02", color: C.gold,
       title: "Top 10 奪冠機率分散合理",
-      detail: "巴西 6.60% / 阿根廷 6.00% / 法國 5.28% — 前 10 累計約 48%。符合世界盃高度不確定性的本質，沒有出現單一球隊獨大的失真。",
+      detail: "阿根廷 6.14% / 巴西 6.01% / 英格蘭 5.80% / 法國 5.75% — 前 10 累計約 50%。符合世界盃高度不確定性的本質，沒有出現單一球隊獨大的失真。",
     },
     {
       num: "03", color: C.green,

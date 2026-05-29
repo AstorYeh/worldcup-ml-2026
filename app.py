@@ -1093,7 +1093,8 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     s1 = compute_team_strength(match_df, team1, year)
     s2 = compute_team_strength(match_df, team2, year)
     LEAGUE_AVG = 1.35
-    CONFED_SCALE = {'UEFA': 0.96, 'CONMEBOL': 1.00, 'CONCACAF': 0.88,
+    # v2: CONMEBOL 1.00→0.97（與 UEFA 0.96 拉近，避免南美 λ 被過度放大）
+    CONFED_SCALE = {'UEFA': 0.96, 'CONMEBOL': 0.97, 'CONCACAF': 0.88,
                     'AFC': 0.84, 'CAF': 0.78, 'OFC': 0.72}
     cs1 = CONFED_SCALE.get(CONFED_MAP.get(team1, 'CAF'), 0.84)
     cs2 = CONFED_SCALE.get(CONFED_MAP.get(team2, 'CAF'), 0.84)
@@ -1214,11 +1215,16 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
     win_count = {t: 0 for t in all_teams}
     champion_count = {t: 0 for t in all_teams}
 
-    # UEFA/CONMEBOL 基礎勝率加成
+    # UEFA/CONMEBOL 基礎勝率加成（v2: CONMEBOL 0.10→0.06，與 constants 一致）
     BASE_CONFED_BONUS = {
-        'UEFA': 0.08, 'CONMEBOL': 0.10, 'CONCACAF': 0.02,
+        'UEFA': 0.08, 'CONMEBOL': 0.06, 'CONCACAF': 0.02,
         'AFC': 0.01, 'CAF': 0.00, 'OFC': 0.00
     }
+
+    # 主將陣容修正：把市場最看重的陣容納入 MC（與 predict_match 同邏輯）
+    _SQUAD_POW = 0.35
+    def _squad_odds_mult(t1, t2):
+        return (squad_ovr(t1) / max(squad_ovr(t2), 1.0)) ** _SQUAD_POW
 
     def team_base_winrate(team):
         """球隊基礎勝率：FIFA排名轉換 + 足聯加成"""
@@ -1228,12 +1234,16 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
         return min(base * 0.85 + BASE_CONFED_BONUS.get(confed, 0), 0.92)
 
     def sim_group_match(t1, t2):
-        """小組賽單場模擬：動態p_draw，回傳 (t1積分, t2積分)"""
+        """小組賽單場模擬：動態p_draw + 陣容修正，回傳 (t1積分, t2積分)"""
         bw1 = team_base_winrate(t1)
         bw2 = team_base_winrate(t2)
         rank_diff = abs(team_rank(t1) - team_rank(t2))
         p_draw = max(0.15, min(0.28, 0.28 - rank_diff * 0.005))
-        p_win = bw1 / (bw1 + bw2) * (1 - p_draw)
+        ratio = bw1 / (bw1 + bw2)
+        # 陣容修正：以勝負勝率比乘上 (ovr1/ovr2)^0.35
+        sf = _squad_odds_mult(t1, t2)
+        ratio = ratio * sf / (ratio * sf + (1 - ratio))
+        p_win = ratio * (1 - p_draw)
         r = np.random.random()
         if r < p_win:
             return 3, 0   # t1勝
@@ -1243,7 +1253,7 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
             return 0, 3   # t2勝
 
     def sim_ko_match(t1, t2):
-        """淘汰賽單場模擬（使用 XGBoost 機率，無平局）"""
+        """淘汰賽單場模擬（XGBoost 機率 + 陣容修正，無平局）"""
         try:
             feat = create_features_v2(t1, t2, 2026, match_df, fifa_df)
             X = pd.DataFrame([feat])[feat_cols]
@@ -1255,6 +1265,9 @@ def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10
             p_t1_wins = pw / (pw + pl) if (pw + pl) > 0 else 0.5
         except Exception:
             p_t1_wins = 0.5
+        # 陣容修正：把勝率以 odds 形式乘上陣容比
+        sf = _squad_odds_mult(t1, t2)
+        p_t1_wins = p_t1_wins * sf / (p_t1_wins * sf + (1 - p_t1_wins)) if 0 < p_t1_wins < 1 else p_t1_wins
         return t1 if np.random.random() < p_t1_wins else t2
 
     for _ in range(n_sims):
@@ -1658,7 +1671,7 @@ if page == "📊 專題總覽":
                 <div>
                     <div class="arch-block-title">🌐 足聯係數 (cs)</div>
                     <div class="arch-block-body">
-                        CONMEBOL 1.00 · UEFA 0.96<br>
+                        CONMEBOL 0.97 · UEFA 0.96<br>
                         CONCACAF 0.88 · AFC 0.84<br>
                         CAF 0.78 · OFC 0.72<br>
                         <i style="color:#6b6760">弱聯盟攻擊打折、防守實際更弱</i>
@@ -1727,6 +1740,7 @@ if page == "📊 專題總覽":
                     <div class="arch-block-body">
                         • 10,000 次完整賽程模擬<br>
                         • 小組賽 → 32 強淘汰賽<br>
+                        • 主將陣容 OVR 修正（與單場一致）<br>
                         • 累計奪冠次數 / 10,000 = 機率<br>
                         <i style="color:#6b6760">→ 約 1,040,000 場虛擬比賽</i>
                     </div>
@@ -1755,7 +1769,7 @@ if page == "📊 專題總覽":
         ['λ 修正', 'FIFA 積分', '^0.22', '兩隊 FIFA 積分比次方'],
         ['λ 修正', '近 2 年勝率', '^0.18', '近期狀態勝率比次方'],
         ['λ 修正', '淘汰賽經驗', '^0.08', '歷屆世界盃淘汰賽場次比次方'],
-        ['足聯校正', 'atk 縮放', '× cs', '弱聯盟攻擊打折（CONMEBOL=1.0, OFC=0.72）'],
+        ['足聯校正', 'atk 縮放', '× cs', '弱聯盟攻擊打折（CONMEBOL=0.97, OFC=0.72）'],
         ['足聯校正', 'vul 縮放', '÷ √cs', '弱聯盟防守上調（實際對強隊更易失球）'],
     ], columns=['類別', '因素', '權重', '說明'])
     st.dataframe(weights_summary, use_container_width=True, hide_index=True)
