@@ -45,67 +45,12 @@ os.makedirs(FIG_DIR, exist_ok=True)
 
 
 # ============================================================
-# 2026 分組（與 app.py 同步）
+# 球隊資料：全部從 constants.py 取（與 app.py 共用單一來源）
 # ============================================================
-WC_2026_GROUPS = {
-    'A': ['Mexico', 'Czechia', 'South Korea', 'South Africa'],
-    'B': ['Canada', 'Switzerland', 'Qatar', 'Bosnia and Herzegovina'],
-    'C': ['Brazil', 'Morocco', 'Scotland', 'Haiti'],
-    'D': ['USA', 'Paraguay', 'Australia', 'Turkiye'],
-    'E': ['Germany', 'Ecuador', 'Ivory Coast', 'Curacao'],
-    'F': ['Netherlands', 'Japan', 'Tunisia', 'Sweden'],
-    'G': ['Belgium', 'Iran', 'Egypt', 'New Zealand'],
-    'H': ['Spain', 'Uruguay', 'Saudi Arabia', 'Cape Verde'],
-    'I': ['France', 'Senegal', 'Norway', 'Iraq'],
-    'J': ['Argentina', 'Austria', 'Algeria', 'Jordan'],
-    'K': ['Portugal', 'Colombia', 'Uzbekistan', 'DR Congo'],
-    'L': ['England', 'Croatia', 'Panama', 'Ghana'],
-}
-
-# 簡化版 FIFA 積分（從 app.py TEAM_INFO 提取）
-TEAM_PTS = {
-    'Mexico': 1701, 'Czechia': 1402, 'South Korea': 1569, 'South Africa': 1385,
-    'Canada': 1502, 'Switzerland': 1712, 'Qatar': 1482, 'Bosnia and Herzegovina': 1402,
-    'Brazil': 1819, 'Morocco': 1735, 'Scotland': 1390, 'Haiti': 1279,
-    'USA': 1635, 'Paraguay': 1424, 'Australia': 1544, 'Turkiye': 1623,
-    'Germany': 1692, 'Ecuador': 1535, 'Ivory Coast': 1448, 'Curacao': 1293,
-    'Netherlands': 1760, 'Japan': 1640, 'Tunisia': 1505, 'Sweden': 1518,
-    'Belgium': 1768, 'Iran': 1623, 'Egypt': 1516, 'New Zealand': 1247,
-    'Spain': 1876, 'Uruguay': 1701, 'Saudi Arabia': 1433, 'Cape Verde': 1265,
-    'France': 1877, 'Senegal': 1621, 'Norway': 1472, 'Iraq': 1436,
-    'Argentina': 1874, 'Austria': 1580, 'Algeria': 1486, 'Jordan': 1378,
-    'Portugal': 1752, 'Colombia': 1739, 'Uzbekistan': 1414, 'DR Congo': 1359,
-    'England': 1825, 'Croatia': 1700, 'Panama': 1503, 'Ghana': 1360,
-}
-TEAM_RANK = {
-    'Mexico': 15, 'Czechia': 50, 'South Korea': 24, 'South Africa': 59,
-    'Canada': 38, 'Switzerland': 14, 'Qatar': 44, 'Bosnia and Herzegovina': 50,
-    'Brazil': 5, 'Morocco': 11, 'Scotland': 52, 'Haiti': 86,
-    'USA': 17, 'Paraguay': 57, 'Australia': 25, 'Turkiye': 18,
-    'Germany': 13, 'Ecuador': 27, 'Ivory Coast': 39, 'Curacao': 79,
-    'Netherlands': 7, 'Japan': 16, 'Tunisia': 36, 'Sweden': 33,
-    'Belgium': 6, 'Iran': 19, 'Egypt': 31, 'New Zealand': 95,
-    'Spain': 2, 'Uruguay': 11, 'Saudi Arabia': 56, 'Cape Verde': 88,
-    'France': 1, 'Senegal': 21, 'Norway': 47, 'Iraq': 55,
-    'Argentina': 3, 'Austria': 22, 'Algeria': 41, 'Jordan': 68,
-    'Portugal': 8, 'Colombia': 9, 'Uzbekistan': 59, 'DR Congo': 61,
-    'England': 4, 'Croatia': 12, 'Panama': 37, 'Ghana': 70,
-}
-
-CONFED_BONUS = {'UEFA': 0.08, 'CONMEBOL': 0.10, 'CONCACAF': 0.02, 'AFC': 0.01, 'CAF': 0.00, 'OFC': 0.00}
-CONFED_MAP = {
-    'France': 'UEFA','Spain': 'UEFA','England': 'UEFA','Germany': 'UEFA','Portugal': 'UEFA',
-    'Netherlands': 'UEFA','Italy': 'UEFA','Belgium': 'UEFA','Croatia': 'UEFA','Switzerland': 'UEFA',
-    'Poland': 'UEFA','Sweden': 'UEFA','Austria': 'UEFA','Czechia': 'UEFA','Scotland': 'UEFA',
-    'Norway': 'UEFA','Bosnia and Herzegovina': 'UEFA','Turkiye': 'UEFA',
-    'Brazil': 'CONMEBOL','Argentina': 'CONMEBOL','Uruguay': 'CONMEBOL','Colombia': 'CONMEBOL','Paraguay': 'CONMEBOL','Ecuador': 'CONMEBOL',
-    'USA': 'CONCACAF','Mexico': 'CONCACAF','Canada': 'CONCACAF','Panama': 'CONCACAF','Curacao': 'CONCACAF','Haiti': 'CONCACAF',
-    'Japan': 'AFC','South Korea': 'AFC','Iran': 'AFC','Australia': 'AFC','Saudi Arabia': 'AFC',
-    'Iraq': 'AFC','Jordan': 'AFC','Uzbekistan': 'AFC','Qatar': 'AFC',
-    'New Zealand': 'OFC',
-    'Morocco': 'CAF','Egypt': 'CAF','Senegal': 'CAF','Algeria': 'CAF','Ghana': 'CAF',
-    'Ivory Coast': 'CAF','Tunisia': 'CAF','Cape Verde': 'CAF','DR Congo': 'CAF','South Africa': 'CAF',
-}
+from constants import (
+    TEAM_INFO, WC_2026_GROUPS, CONFED_MAP, CONFED_BONUS,
+    TEAM_PTS, TEAM_RANK,
+)
 
 ALL_TEAMS = sorted({t for teams in WC_2026_GROUPS.values() for t in teams})
 
