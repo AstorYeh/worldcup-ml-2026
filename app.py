@@ -1369,23 +1369,41 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True,
 )
-st.sidebar.markdown("---")
-page = st.sidebar.radio("選擇頁面", [
-    "📊 專題總覽",
-    "🔮 2026 預測",
-    "📈 數據分析",
-    "🌍 各國分析",
-    "🎯 球隊風格分群",
-    "🏅 奪冠預測",
-    "📅 完整賽程",
-], label_visibility="collapsed")
+# ── 分割版面：LOGO 固定於上，導航 + 資訊放進「固定高度可捲動容器」──
+# st.container(height=N) 是原生捲動容器；用 CSS 讓它填滿 LOGO 下方剩餘高度，
+# 容器內部捲動、LOGO 永遠釘在頂端（真正的「固定不跟隨」）
+st.sidebar.markdown(
+    """
+    <style>
+    /* 側邊欄捲動容器：填滿 LOGO 下方到視窗底，去邊框 */
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {
+        height: calc(100vh - 215px) !important;
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+    }
+    /* 容器內捲軸細一點 */
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] ::-webkit-scrollbar { width: 6px; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+_nav_box = st.sidebar.container(height=600, border=False)
+with _nav_box:
+    page = st.radio("選擇頁面", [
+        "📊 專題總覽",
+        "🔮 2026 預測",
+        "📈 數據分析",
+        "🌍 各國分析",
+        "🎯 球隊風格分群",
+        "🏅 奪冠預測",
+        "📅 完整賽程",
+    ], label_visibility="collapsed")
 
-st.sidebar.markdown("---")
-# 模型/資料資訊收進收合區，縮短側邊欄高度 → LOGO 不被捲走
-with st.sidebar.expander("ℹ️ 模型與資料資訊", expanded=False):
+    st.markdown("---")
     st.markdown(
         """
-        <div style='font-size:0.78rem; color:#6b6760; line-height:1.7;'>
+        <div style='font-size:0.78rem; color:#6b6760; line-height:1.7; padding:4px;'>
             <div style='color:#1f1e1c; font-weight:600; margin-bottom:4px;'>模型架構</div>
             <div>XGBoost 20% + Dixon-Coles 80%</div>
             <div>+ Squad OVR + Monte Carlo 10k</div>
