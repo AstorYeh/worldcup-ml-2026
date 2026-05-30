@@ -9,3 +9,5 @@
 *.pptx  binary
 *.pdf   binary
 *.ico   binary
+*.mp3   binary
+*.wav   binary
