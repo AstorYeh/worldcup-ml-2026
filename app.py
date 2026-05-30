@@ -1386,25 +1386,30 @@ if os.path.exists(_theme_path):
         <script>
         (function () {
           var doc = window.parent.document;
-          function init() {
+          function setup(a) {
+            a.loop = true;                                /* 循環旗標 */
+            if (!a.dataset.wcVol) {                       /* 初始音量 30%（只設一次，之後可自由調整）*/
+              a.volume = 0.3;
+              a.dataset.wcVol = '1';
+            }
+            if (!a.dataset.wcLoop) {                      /* 後備：播完自動從頭重播（即使 loop 旗標失效也循環）*/
+              a.dataset.wcLoop = '1';
+              a.addEventListener('ended', function () {
+                try { a.currentTime = 0; a.play(); } catch (e) {}
+              });
+            }
+          }
+          function tick(autostart) {
             doc.querySelectorAll('audio').forEach(function (a) {
-              if (!a.dataset.wcInit) {
-                a.volume = 0.3;            /* 初始音量 30% */
-                a.loop = true;             /* 確保循環（不依賴 st.audio 的 loop 實作）*/
-                a.dataset.wcInit = '1';
-                a.play().catch(function () {});
-              }
+              setup(a);
+              if (autostart && a.paused) { a.play().catch(function () {}); }
             });
           }
-          init();
-          var iv = setInterval(init, 400);
-          setTimeout(function () { clearInterval(iv); }, 8000);
-          /* 自動播放被瀏覽器擋下時：使用者首次點擊頁面即以 30% 音量開始播放 */
-          doc.addEventListener('click', function () {
-            doc.querySelectorAll('audio').forEach(function (a) {
-              if (a.paused) { a.volume = 0.3; a.play().catch(function () {}); }
-            });
-          }, { once: true });
+          tick(true);                                     /* 載入即嘗試播放 */
+          var iv = setInterval(function () { tick(false); }, 1500);  /* 持續確保循環旗標 */
+          setTimeout(function () { clearInterval(iv); }, 30000);
+          /* 自動播放被瀏覽器擋下時：首次點擊頁面即以 30% 音量開始並維持循環 */
+          doc.addEventListener('click', function () { tick(true); }, { once: true });
         })();
         </script>
         """,
