@@ -21,6 +21,7 @@
 import os
 import base64
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -1370,6 +1371,46 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# ── 背景主題曲：固定於 LOGO 下方，自動播放、循環、初始音量 30% ──
+# st.audio 提供原生「播放/暫停 + 音量」控制；autoplay/loop 為原生參數。
+# st.audio 無音量參數 → 用 components.html 注入 JS 把初始音量設為 30%（僅設一次，
+# 之後使用者可自由調整）；瀏覽器阻擋自動播放時，首次點擊頁面即以 30% 音量開始。
+_theme_path = os.path.join(os.path.dirname(__file__), 'assets', 'theme.mp3')
+if os.path.exists(_theme_path):
+    with open(_theme_path, 'rb') as _af:
+        _theme_bytes = _af.read()
+    st.sidebar.audio(_theme_bytes, format='audio/mp3', autoplay=True, loop=True)
+    components.html(
+        """
+        <script>
+        (function () {
+          var doc = window.parent.document;
+          function init() {
+            doc.querySelectorAll('audio').forEach(function (a) {
+              if (!a.dataset.wcInit) {
+                a.volume = 0.3;            /* 初始音量 30% */
+                a.loop = true;             /* 確保循環（不依賴 st.audio 的 loop 實作）*/
+                a.dataset.wcInit = '1';
+                a.play().catch(function () {});
+              }
+            });
+          }
+          init();
+          var iv = setInterval(init, 400);
+          setTimeout(function () { clearInterval(iv); }, 8000);
+          /* 自動播放被瀏覽器擋下時：使用者首次點擊頁面即以 30% 音量開始播放 */
+          doc.addEventListener('click', function () {
+            doc.querySelectorAll('audio').forEach(function (a) {
+              if (a.paused) { a.volume = 0.3; a.play().catch(function () {}); }
+            });
+          }, { once: true });
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
 # ── 分割版面：LOGO 固定於上，導航 + 資訊放進「固定高度可捲動容器」──
 # st.container(height=N, key=...) 是原生捲動容器；用 key 對應的穩定 class（st-key-…）
 # 把它的高度改為「填滿 LOGO 下方剩餘空間」，使整個側邊欄不外捲、LOGO 永遠釘在頂端。
@@ -1381,15 +1422,16 @@ st.sidebar.markdown(
        導致整個側邊欄外捲、LOGO 被一起捲走。
        為相容不同 Streamlit 版本（DOM 包裝層不同），三種選擇器都寫上，
        各版本只有對應者命中、其餘為無害的 no-op： */
-    /* (a) 容器根元素：所有版本都有 st-key class */
+    /* (a) 容器根元素：所有版本都有 st-key class
+       314（header+LOGO+內距）再加約 90（主題曲播放器 42 + 上下間距）≈ 404 */
     section[data-testid="stSidebar"] .st-key-wc_navbox {
-        height: calc(100vh - 314px) !important;
-        max-height: calc(100vh - 314px) !important;
+        height: calc(100vh - 404px) !important;
+        max-height: calc(100vh - 404px) !important;
     }
     /* (b) 新版（1.5x）：st-key 即捲動層，外層 stLayoutWrapper 也要縮 */
     section[data-testid="stSidebar"] div[data-testid="stLayoutWrapper"]:has(> .st-key-wc_navbox) {
-        height: calc(100vh - 314px) !important;
-        max-height: calc(100vh - 314px) !important;
+        height: calc(100vh - 404px) !important;
+        max-height: calc(100vh - 404px) !important;
     }
     /* (c) 舊版：st-key 為外框，內層 stVerticalBlock 才是捲動層 → 撐滿外框 */
     section[data-testid="stSidebar"] .st-key-wc_navbox > div[data-testid="stVerticalBlock"] {
