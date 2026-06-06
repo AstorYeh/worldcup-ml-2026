@@ -3423,9 +3423,10 @@ elif page == "🏅 奪冠預測":
             color_continuous_scale='Reds',
             text=top20['champ_pct'].apply(lambda x: f'{x:.1f}%'),
         )
+        _mc_xmax = float(top20['champ_pct'].max()) * 1.25
         fig_mc.update_layout(
             yaxis={'categoryorder': 'total ascending'},
-            xaxis=dict(range=[0, 100], ticksuffix='%'),
+            xaxis=dict(range=[0, _mc_xmax], ticksuffix='%'),
             coloraxis_showscale=False,
             height=600,
         )
@@ -3702,3 +3703,28 @@ elif page == "📅 完整賽程":
 
     st.caption(f"賽程總寬度 {TW}px · 若未完整顯示可左右滑動")
     _c.html(full_html, height=CANVAS_H + 85, scrolling=True)
+
+
+# ════════════════════════════════════════════════════════
+# 全域頁尾：學術用途免責聲明（每頁底部顯示）
+# ════════════════════════════════════════════════════════
+st.markdown("---")
+st.caption(
+    "⚠️ **學術用途免責聲明**：本系統為逢甲大學數據科學課程期末專題，所有預測由機器學習模型依公開歷史資料"
+    "自動產生，僅供學術研究與技術展示，**不構成任何投注、博弈或財務建議**，亦不保證準確。詳見下方完整聲明。"
+)
+with st.expander("📜 完整免責聲明 / Full Disclaimer"):
+    st.markdown(
+        """
+**本專案為學術研究與教學用途，不構成任何投注或財務建議。**
+
+1. **學術用途**：本系統（2026 世界盃 ML 預測系統）係逢甲大學「數據科學（碩士班）」課程之期末專題，純為學術研究、技術學習與教學示範，屬非營利、非商業性質。
+2. **非投注／賭博建議**：所有預測（比分、勝負、奪冠／晉級機率等）皆由機器學習模型依公開歷史資料自動計算，僅供學術參考，**不構成、也不應被視為任何形式之投注、博弈、財務或投資建議**，亦非任何下注行為之推薦、邀約或保證。
+3. **不保證準確性**：足球賽事具高度不確定性，模型輸出為機率性估計，無法保證準確；歷史表現不代表未來結果。任何依本系統資訊所做之決策，須自行承擔全部風險，作者與相關單位概不負責。
+4. **市場賠率之引用**：「市場校準」僅將公開博彩賠率作為模型校準與學術比較之資料，**不代表推薦、背書或鼓勵任何博彩業者、平台或下注行為**。
+5. **合法與責任博弈**：請遵守您所在地區之法律規定。本專案不鼓勵任何賭博行為；若您或身邊的人受賭博問題困擾，請尋求專業協助（如台灣 1995 安心專線）。
+6. **資料來源**：歷史賽事 [martj42/international_results](https://github.com/martj42/international_results)、FIFA 排名 [Dato-Futbol/fifa-ranking](https://github.com/Dato-Futbol/fifa-ranking)，著作權歸原作者，本專案僅作非商業學術使用。
+
+*English — This is an academic course project for educational/research purposes only. All predictions are machine-generated probabilistic estimates and do NOT constitute betting, gambling, financial, or investment advice, nor any endorsement or solicitation to wager. No accuracy is guaranteed — use at your own risk. Please gamble responsibly and comply with local laws.*
+        """
+    )

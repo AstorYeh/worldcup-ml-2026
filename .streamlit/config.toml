@@ -9,3 +9,7 @@ font = "sans serif"
 
 [server]
 maxUploadSize = 50
+
+[client]
+# 隱藏右上開發工具列（Deploy/Stop 等），給訪客乾淨畫面、也利於錄製
+toolbarMode = "viewer"

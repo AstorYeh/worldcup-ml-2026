@@ -35,3 +35,15 @@ presentation/slide-*.jpg
 
 ## Docker updater secrets
 docker/odds-updater/.env
+
+## 影片中間檔與輸出（保留 *.py 與 *.json 可重建腳本；大檔不入庫）
+video2/takes/
+video2/vo/
+video2/cards/
+video2/work/
+video2/__pycache__/
+video2/*.mp4
+video2/cine/assets/
+video2/cine/sfx/
+video2/cine/work/
+video2/cine/__pycache__/

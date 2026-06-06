@@ -203,4 +203,24 @@ worldcup-ml-2026/
 
 - 🌐 線上 Demo：<https://worldcup-ml-2026-bzplzw7hoy7g5dcizaakvt.streamlit.app/>
 - 📦 GitHub：<https://github.com/AstorYeh/worldcup-ml-2026>
-- 📑 期末報告 PPT：`presentation/build_ppt.js`（執行 `node build_ppt.js` 即可重新生成）
+- 📑 期末報告 PPT：`presentation/build_final.js`（執行 `node build_final.js` 重新生成，再 `python presentation/add_notes.py` 補講稿）
+
+---
+
+## ⚠️ 免責聲明 (Disclaimer)
+
+> **本專案為學術研究與教學用途，不構成任何投注或財務建議。**
+
+1. **學術用途**：本專案（2026 世界盃 ML 預測系統）係逢甲大學「數據科學（碩士班）」課程之期末專題，純為學術研究、技術學習與教學示範之用，屬非營利、非商業性質。
+
+2. **非投注／賭博建議**：系統產生之所有預測結果（比分、勝負、奪冠機率、晉級機率等）皆由機器學習模型依據公開歷史資料自動計算，**僅供學術參考，不構成、也不應被視為任何形式之投注、博弈、財務或投資建議，亦非任何下注行為之推薦、邀約或保證**。
+
+3. **不保證準確性**：足球賽事結果具高度不確定性，模型輸出為「機率性估計」，無法保證準確；歷史表現不代表未來結果。任何人依據本系統之資訊所做之任何決策，須自行承擔全部風險與後果，作者、指導教師及學校概不負責。
+
+4. **市場賠率之引用**：系統中之「市場賠率校準」功能，僅將公開之博彩賠率作為模型校準與學術比較之資料來源，**不代表作者推薦、背書或鼓勵任何博彩業者、平台或下注行為**。
+
+5. **合法與責任博弈**：請務必遵守您所在地區之相關法律規定。本專案不鼓勵、不推廣任何賭博行為；賭博可能導致成癮與財務損失，若您或身邊的人受賭博問題困擾，請尋求專業協助（例如台灣「1995 安心專線」或當地相關資源）。
+
+6. **資料來源與著作權**：歷史賽事資料取自公開資料集 [martj42/international_results](https://github.com/martj42/international_results)（`results.csv`），FIFA 排名取自 [Dato-Futbol/fifa-ranking](https://github.com/Dato-Futbol/fifa-ranking)（`ranking_fifa_historical.csv`），程式首次執行時自動下載、結果可重現；各資料著作權歸原作者所有，本專案僅作非商業之學術使用。
+
+> **English summary** — This is an academic course project for **educational and research purposes only**. All predictions are machine-generated probabilistic estimates and **do NOT constitute betting, gambling, financial, or investment advice**, nor any endorsement or solicitation to wager. No accuracy is guaranteed — use at your own risk. Market odds are referenced solely for model calibration and academic comparison, not as an endorsement of any betting operator or activity. Please **gamble responsibly** and comply with the laws of your jurisdiction.

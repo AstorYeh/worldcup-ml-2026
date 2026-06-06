@@ -508,7 +508,7 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
 # 3) 球隊風格分群（KMeans + PCA）
 # ============================================================
 def run_clustering(match_df):
-    print("\n[3/4] 球隊風格分群（KMeans, k=4）")
+    print("\n[3/4] 球隊風格分群（KMeans, k=3）")
     # 每隊統計：近 8 年平均進攻、防守、勝率、實力、競賽量
     features = []
     for t in ALL_TEAMS:
