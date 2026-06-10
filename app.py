@@ -1295,6 +1295,161 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     }
 
 # ============================================================
+# 小組賽：模型預測比分 ＋ ESPN 即時實際比分
+# ============================================================
+@st.cache_data(show_spinner="計算 72 場小組賽預測比分中…")
+def get_group_stage_predictions() -> dict:
+    """回傳 {(home_en, away_en): {'g1','g2','win','draw','loss'}}；模型不可用時回傳空 dict。"""
+    md = load_match_data()
+    fd = load_fifa_ranking()
+    pre = load_pretrained()
+    out: dict = {}
+    if pre is None:
+        return out
+    clf, p1, p2, fc = pre['clf'], pre['poisson1'], pre['poisson2'], pre['feat_cols']
+    for _d, _t, _g, home, away in WC_2026_GROUP_FIXTURES:
+        try:
+            pr = predict_match(home, away, 2026, md, fd, clf, p1, p2, fc)
+            out[(home, away)] = {'g1': pr['goal1'], 'g2': pr['goal2'],
+                                 'win': pr['win_prob'], 'draw': pr['draw_prob'], 'loss': pr['loss_prob']}
+        except Exception:
+            out[(home, away)] = None
+    return out
+
+
+# ESPN 公開 API 隊名 → 本 app 內部鍵值（僅列與內部不同者）
+_ESPN_NAME_MAP = {
+    'Bosnia-Herzegovina': 'Bosnia and Herzegovina',
+    'Congo DR': 'DR Congo',
+    'Curaçao': 'Curacao',
+    'Türkiye': 'Turkiye',
+    'United States': 'USA',
+}
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def fetch_wc_live_scores() -> dict:
+    """從 ESPN 公開 API 抓 2026 世界盃即時/實際比分。
+    回傳 {frozenset({home_en, away_en}): {'state','detail','scores':{team:int|None}}}；失敗回傳空 dict。"""
+    import urllib.request
+    import json as _json
+    url = ('https://site.api.espn.com/apis/site/v2/sports/soccer/'
+           'fifa.world/scoreboard?dates=20260611-20260629')
+    out: dict = {}
+    try:
+        op = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        data = _json.load(op.open(req, timeout=8))
+    except Exception:
+        return out
+    for e in data.get('events', []):
+        comp = (e.get('competitions') or [{}])[0]
+        cs = comp.get('competitors', [])
+        if len(cs) != 2:
+            continue
+        teams = []
+        scores = {}
+        for c in cs:
+            raw = (c.get('team') or {}).get('displayName', '')
+            nm = _ESPN_NAME_MAP.get(raw, raw)
+            teams.append(nm)
+            try:
+                scores[nm] = int(c.get('score'))
+            except (TypeError, ValueError):
+                scores[nm] = None
+        stt = ((e.get('status') or {}).get('type') or {})
+        out[frozenset(teams)] = {
+            'state': stt.get('state', 'pre'),
+            'detail': stt.get('shortDetail') or stt.get('description') or '',
+            'scores': scores,
+        }
+    return out
+
+
+def render_group_stage_schedule() -> None:
+    """渲染小組賽賽程（依日期）＋ 模型預測比分 ＋ ESPN 即時實際比分。"""
+    from itertools import groupby as _groupby
+    preds = get_group_stage_predictions()
+    live = fetch_wc_live_scores()
+    grp_color = {
+        'A': '#e94560', 'B': '#f7943e', 'C': '#f7c948', 'D': '#7bd88f',
+        'E': '#3fb6b2', 'F': '#4aa3ff', 'G': '#6c8cff', 'H': '#a06cff',
+        'I': '#e066c4', 'J': '#ff6b9d', 'K': '#c0a35e', 'L': '#5ec6c0',
+    }
+    day_blocks = ""
+    for date, items in _groupby(WC_2026_GROUP_FIXTURES, key=lambda m: m[0]):
+        rows = ""
+        for (_d, _t, g, home, away) in items:
+            i1 = TEAM_INFO.get(home, {}); i2 = TEAM_INFO.get(away, {})
+            iso1 = i1.get('iso', 'un'); iso2 = i2.get('iso', 'un')
+            cn1 = i1.get('cn', home); cn2 = i2.get('cn', away)
+            gc = grp_color.get(g, '#4a7ea8')
+
+            # 〔預〕模型預測比分
+            pr = preds.get((home, away))
+            if pr:
+                pg1, pg2 = pr['g1'], pr['g2']
+                if pg1 > pg2:
+                    pc1, pc2 = '#00d4ff', '#7fa6b5'
+                elif pg1 < pg2:
+                    pc1, pc2 = '#7fa6b5', '#00d4ff'
+                else:
+                    pc1 = pc2 = '#cbb46b'
+                pred_html = (f'<span style="color:#5b7a8a;font-size:0.6rem;margin-right:2px;">預</span>'
+                             f'<span style="color:{pc1};font-weight:800;">{pg1}</span>'
+                             f'<span style="color:#5b7a8a;">-</span>'
+                             f'<span style="color:{pc2};font-weight:800;">{pg2}</span>')
+            else:
+                pred_html = '<span style="color:#5b7a8a;font-size:0.62rem;">預 –</span>'
+
+            # 〔實〕ESPN 實際/即時比分
+            lv = live.get(frozenset((home, away)))
+            if lv and lv.get('state') in ('in', 'post'):
+                sa = lv['scores'].get(home); sb = lv['scores'].get(away)
+                sa = '?' if sa is None else sa
+                sb = '?' if sb is None else sb
+                if lv['state'] == 'in':
+                    act_html = (f'<span style="color:#ff4d4f;font-weight:800;">● {sa}-{sb}</span>'
+                                f'<span style="color:#ff8f8f;font-size:0.58rem;margin-left:3px;">LIVE</span>')
+                else:
+                    act_html = (f'<span style="color:#5b7a8a;font-size:0.6rem;margin-right:2px;">實</span>'
+                                f'<span style="color:#f7c948;font-weight:800;">{sa}-{sb}</span>'
+                                f'<span style="color:#7d8a55;font-size:0.58rem;margin-left:2px;">完</span>')
+            else:
+                act_html = '<span style="color:#46566a;font-size:0.64rem;">未開賽</span>'
+
+            rows += (
+                f'<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;'
+                f'border-bottom:1px solid rgba(100,150,200,0.12);">'
+                f'<span style="color:#00d4ff;font-weight:700;min-width:50px;'
+                f'font-variant-numeric:tabular-nums;font-size:0.9rem;">{_t}</span>'
+                f'<span style="background:{gc};color:#0b1220;font-weight:800;border-radius:4px;'
+                f'padding:1px 8px;font-size:0.78rem;min-width:24px;text-align:center;">{g}</span>'
+                f'<span style="flex:1;text-align:right;color:#e8eef6;font-weight:600;font-size:0.93rem;">{cn1}</span>'
+                f'<img src="https://flagcdn.com/40x30/{iso1}.png" style="height:18px;border-radius:2px;">'
+                f'<span style="display:inline-flex;flex-direction:column;align-items:center;'
+                f'min-width:104px;line-height:1.25;gap:1px;font-variant-numeric:tabular-nums;">'
+                f'<span style="font-size:0.95rem;letter-spacing:0.5px;">{pred_html}</span>'
+                f'<span style="font-size:0.8rem;">{act_html}</span>'
+                f'</span>'
+                f'<img src="https://flagcdn.com/40x30/{iso2}.png" style="height:18px;border-radius:2px;">'
+                f'<span style="flex:1;text-align:left;color:#e8eef6;font-weight:600;font-size:0.93rem;">{cn2}</span>'
+                f'</div>'
+            )
+        wd = WC_2026_WEEKDAY.get(date, "")
+        day_blocks += (
+            f'<div style="margin:10px 0 0;padding:5px 12px;background:rgba(73,124,160,0.20);'
+            f'border-left:3px solid #4a7ea8;border-radius:5px;color:#cfe3f5;font-weight:800;'
+            f'font-size:0.95rem;">{date}（{wd}）</div>{rows}'
+        )
+    st.markdown(
+        f'<div style="background:#091525;border-radius:12px;padding:8px 14px 14px;'
+        f'font-family:\'Noto Sans TC\',sans-serif;">{day_blocks}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+# ============================================================
 # MONTE CARLO SIMULATION
 # ============================================================
 def monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sims=10000):
@@ -3641,49 +3796,19 @@ elif page == "📅 完整賽程":
     st.caption("全程台灣時間（UTC+8）· 小組賽 6/12–6/28（72 場，依日期排列）· 淘汰賽 6/29–7/20 · 資料依 FIFA 2026 官方賽程")
 
     import streamlit.components.v1 as _c
-    from itertools import groupby as _groupby
-
-    # ════════════════ 小組賽：依日期（時間順序）排列，不分組 ════════════════
-    st.subheader("🗓️ 小組賽賽程（依日期）")
-    st.caption("全 72 場依台灣時間先後排列；每列為 開球時間 · 組別 · 對戰雙方")
-    _grp_color = {
-        'A': '#e94560', 'B': '#f7943e', 'C': '#f7c948', 'D': '#7bd88f',
-        'E': '#3fb6b2', 'F': '#4aa3ff', 'G': '#6c8cff', 'H': '#a06cff',
-        'I': '#e066c4', 'J': '#ff6b9d', 'K': '#c0a35e', 'L': '#5ec6c0',
-    }
-    _day_blocks = ""
-    for _date, _items in _groupby(WC_2026_GROUP_FIXTURES, key=lambda m: m[0]):
-        _rows = ""
-        for (_d, _t, _g, _home, _away) in _items:
-            _i1 = TEAM_INFO.get(_home, {}); _i2 = TEAM_INFO.get(_away, {})
-            _iso1 = _i1.get('iso', 'un'); _iso2 = _i2.get('iso', 'un')
-            _cn1 = _i1.get('cn', _home); _cn2 = _i2.get('cn', _away)
-            _gc = _grp_color.get(_g, '#4a7ea8')
-            _rows += (
-                f'<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;'
-                f'border-bottom:1px solid rgba(100,150,200,0.12);">'
-                f'<span style="color:#00d4ff;font-weight:700;min-width:50px;'
-                f'font-variant-numeric:tabular-nums;font-size:0.92rem;">{_t}</span>'
-                f'<span style="background:{_gc};color:#0b1220;font-weight:800;border-radius:4px;'
-                f'padding:1px 8px;font-size:0.78rem;min-width:24px;text-align:center;">{_g}</span>'
-                f'<span style="flex:1;text-align:right;color:#e8eef6;font-weight:600;font-size:0.95rem;">{_cn1}</span>'
-                f'<img src="https://flagcdn.com/40x30/{_iso1}.png" style="height:19px;border-radius:2px;">'
-                f'<span style="color:#e94560;font-weight:800;font-size:0.78rem;padding:0 3px;">VS</span>'
-                f'<img src="https://flagcdn.com/40x30/{_iso2}.png" style="height:19px;border-radius:2px;">'
-                f'<span style="flex:1;text-align:left;color:#e8eef6;font-weight:600;font-size:0.95rem;">{_cn2}</span>'
-                f'</div>'
-            )
-        _wd = WC_2026_WEEKDAY.get(_date, "")
-        _day_blocks += (
-            f'<div style="margin:10px 0 0;padding:5px 12px;background:rgba(73,124,160,0.20);'
-            f'border-left:3px solid #4a7ea8;border-radius:5px;color:#cfe3f5;font-weight:800;'
-            f'font-size:0.95rem;">{_date}（{_wd}）</div>{_rows}'
-        )
-    st.markdown(
-        f'<div style="background:#091525;border-radius:12px;padding:8px 14px 14px;'
-        f'font-family:\'Noto Sans TC\',sans-serif;">{_day_blocks}</div>',
-        unsafe_allow_html=True,
-    )
+    # ════════ 小組賽：依日期排列 ＋ 模型預測比分 ＋ ESPN 即時實際比分 ════════
+    _sc_l, _sc_r = st.columns([3, 1])
+    with _sc_l:
+        st.subheader("🗓️ 小組賽賽程（依日期）")
+    with _sc_r:
+        if st.button("🔄 立即更新比分", use_container_width=True):
+            fetch_wc_live_scores.clear()
+    st.caption("每列：開球時間 · 組別 · 對戰 ·〔預〕模型預測比分（藍）·〔實〕實際比分（金；開賽後自動更新）。"
+               "未開賽顯示「未開賽」、進行中顯示 🔴 LIVE。資料來源：ESPN，每 45 秒自動刷新。")
+    if hasattr(st, "fragment"):
+        st.fragment(render_group_stage_schedule, run_every=45)()
+    else:
+        render_group_stage_schedule()
 
     st.markdown("---")
     st.subheader("🏆 淘汰賽對陣圖")
