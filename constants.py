@@ -86,19 +86,19 @@ TEAM_INFO = {
 # ============================================================
 WC_2026_GROUPS = {
     # 2026 FIFA 世界盃正式分組（2025/12/5 抽籤 + 2026年3-4月附加賽確認）
-    # 資料來源：NBC Sports / FOX Sports / FIFA 官方（April 2026）
-    'A': ['Mexico', 'Czechia', 'South Korea', 'South Africa'],
-    'B': ['Canada', 'Switzerland', 'Qatar', 'Bosnia and Herzegovina'],
-    'C': ['Brazil', 'Morocco', 'Scotland', 'Haiti'],
+    # 隊伍順序＝官方 A1–A4 位置序（決定賽程對陣），對齊 EBC 2026 賽程
+    'A': ['Mexico', 'South Africa', 'South Korea', 'Czechia'],
+    'B': ['Canada', 'Bosnia and Herzegovina', 'Qatar', 'Switzerland'],
+    'C': ['Brazil', 'Morocco', 'Haiti', 'Scotland'],
     'D': ['USA', 'Paraguay', 'Australia', 'Turkiye'],
-    'E': ['Germany', 'Ecuador', 'Ivory Coast', 'Curacao'],
-    'F': ['Netherlands', 'Japan', 'Tunisia', 'Sweden'],
-    'G': ['Belgium', 'Iran', 'Egypt', 'New Zealand'],
-    'H': ['Spain', 'Uruguay', 'Saudi Arabia', 'Cape Verde'],
-    'I': ['France', 'Senegal', 'Norway', 'Iraq'],
-    'J': ['Argentina', 'Austria', 'Algeria', 'Jordan'],
-    'K': ['Portugal', 'Colombia', 'Uzbekistan', 'DR Congo'],
-    'L': ['England', 'Croatia', 'Panama', 'Ghana'],
+    'E': ['Germany', 'Curacao', 'Ivory Coast', 'Ecuador'],
+    'F': ['Netherlands', 'Japan', 'Sweden', 'Tunisia'],
+    'G': ['Belgium', 'Egypt', 'Iran', 'New Zealand'],
+    'H': ['Spain', 'Cape Verde', 'Saudi Arabia', 'Uruguay'],
+    'I': ['France', 'Senegal', 'Iraq', 'Norway'],
+    'J': ['Argentina', 'Algeria', 'Austria', 'Jordan'],
+    'K': ['Portugal', 'DR Congo', 'Uzbekistan', 'Colombia'],
+    'L': ['England', 'Croatia', 'Ghana', 'Panama'],
 }
 
 # ============================================================
