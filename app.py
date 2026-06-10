@@ -631,28 +631,105 @@ def squad_ovr(team: str) -> float:
 
 # WC_2026_GROUPS 已移至 constants.py（單一資料來源），於檔案頂部 import
 
-# 小組賽賽程（台灣時間 UTC+8）
-# 各組隊伍索引對應 WC_2026_GROUPS 中的順序 0-3
-# 每組三輪：MD1 (0v1, 2v3)、MD2 (0v2, 1v3)、MD3 (0v3, 1v2，最後一輪同時開踢)
+# 小組賽完整賽程（台灣時間 UTC+8）— FIFA 2026 官方賽程，全 72 場
+# 每筆：(日期 "M/D", 開球時間 "H:MM", 組別, 主隊, 客隊)；隊名為 constants.WC_2026_GROUPS 內部鍵值
+# 已依台灣時間先後排序；此為唯一資料來源，「完整賽程」頁與「預測」頁開球時間皆由此推導
+WC_2026_GROUP_FIXTURES = [
+    # ── 第 1 輪 (MD1) 6/12–6/18 ──
+    ("6/12", "3:00",  "A", "Mexico", "South Africa"),
+    ("6/12", "10:00", "A", "South Korea", "Czechia"),
+    ("6/13", "3:00",  "B", "Canada", "Bosnia and Herzegovina"),
+    ("6/13", "9:00",  "D", "USA", "Paraguay"),
+    ("6/14", "3:00",  "B", "Qatar", "Switzerland"),
+    ("6/14", "6:00",  "C", "Brazil", "Morocco"),
+    ("6/14", "9:00",  "C", "Haiti", "Scotland"),
+    ("6/14", "12:00", "D", "Australia", "Turkiye"),
+    ("6/15", "1:00",  "E", "Germany", "Curacao"),
+    ("6/15", "4:00",  "F", "Netherlands", "Japan"),
+    ("6/15", "7:00",  "E", "Ivory Coast", "Ecuador"),
+    ("6/15", "10:00", "F", "Sweden", "Tunisia"),
+    ("6/16", "0:00",  "H", "Spain", "Cape Verde"),
+    ("6/16", "3:00",  "G", "Belgium", "Egypt"),
+    ("6/16", "6:00",  "H", "Saudi Arabia", "Uruguay"),
+    ("6/16", "9:00",  "G", "Iran", "New Zealand"),
+    ("6/17", "3:00",  "I", "France", "Senegal"),
+    ("6/17", "6:00",  "I", "Iraq", "Norway"),
+    ("6/17", "9:00",  "J", "Argentina", "Algeria"),
+    ("6/17", "12:00", "J", "Austria", "Jordan"),
+    ("6/18", "1:00",  "K", "Portugal", "DR Congo"),
+    ("6/18", "4:00",  "L", "England", "Croatia"),
+    ("6/18", "7:00",  "L", "Ghana", "Panama"),
+    ("6/18", "10:00", "K", "Uzbekistan", "Colombia"),
+    # ── 第 2 輪 (MD2) 6/19–6/24 ──
+    ("6/19", "0:00",  "A", "Czechia", "South Africa"),
+    ("6/19", "3:00",  "B", "Switzerland", "Bosnia and Herzegovina"),
+    ("6/19", "6:00",  "B", "Canada", "Qatar"),
+    ("6/19", "9:00",  "A", "Mexico", "South Korea"),
+    ("6/20", "3:00",  "D", "USA", "Australia"),
+    ("6/20", "6:00",  "C", "Scotland", "Morocco"),
+    ("6/20", "8:30",  "C", "Brazil", "Haiti"),
+    ("6/20", "11:00", "D", "Turkiye", "Paraguay"),
+    ("6/21", "1:00",  "F", "Netherlands", "Sweden"),
+    ("6/21", "4:00",  "E", "Germany", "Ivory Coast"),
+    ("6/21", "8:00",  "E", "Ecuador", "Curacao"),
+    ("6/21", "12:00", "F", "Tunisia", "Japan"),
+    ("6/22", "0:00",  "H", "Spain", "Saudi Arabia"),
+    ("6/22", "3:00",  "G", "Belgium", "Iran"),
+    ("6/22", "6:00",  "H", "Uruguay", "Cape Verde"),
+    ("6/22", "9:00",  "G", "New Zealand", "Egypt"),
+    ("6/23", "1:00",  "J", "Argentina", "Austria"),
+    ("6/23", "5:00",  "I", "France", "Iraq"),
+    ("6/23", "8:00",  "I", "Norway", "Senegal"),
+    ("6/23", "11:00", "J", "Jordan", "Algeria"),
+    ("6/24", "1:00",  "K", "Portugal", "Uzbekistan"),
+    ("6/24", "4:00",  "L", "England", "Ghana"),
+    ("6/24", "7:00",  "L", "Panama", "Croatia"),
+    ("6/24", "10:00", "K", "Colombia", "DR Congo"),
+    # ── 第 3 輪 (MD3，同組同時開踢) 6/25–6/28 ──
+    ("6/25", "3:00",  "B", "Switzerland", "Canada"),
+    ("6/25", "3:00",  "B", "Bosnia and Herzegovina", "Qatar"),
+    ("6/25", "6:00",  "C", "Scotland", "Brazil"),
+    ("6/25", "6:00",  "C", "Morocco", "Haiti"),
+    ("6/25", "9:00",  "A", "Czechia", "Mexico"),
+    ("6/25", "9:00",  "A", "South Africa", "South Korea"),
+    ("6/26", "4:00",  "E", "Ecuador", "Germany"),
+    ("6/26", "4:00",  "E", "Curacao", "Ivory Coast"),
+    ("6/26", "7:00",  "F", "Japan", "Sweden"),
+    ("6/26", "7:00",  "F", "Tunisia", "Netherlands"),
+    ("6/26", "10:00", "D", "Turkiye", "USA"),
+    ("6/26", "10:00", "D", "Paraguay", "Australia"),
+    ("6/27", "3:00",  "I", "Norway", "France"),
+    ("6/27", "3:00",  "I", "Senegal", "Iraq"),
+    ("6/27", "8:00",  "H", "Cape Verde", "Saudi Arabia"),
+    ("6/27", "8:00",  "H", "Uruguay", "Spain"),
+    ("6/27", "11:00", "G", "Egypt", "Iran"),
+    ("6/27", "11:00", "G", "New Zealand", "Belgium"),
+    ("6/28", "5:00",  "L", "Panama", "England"),
+    ("6/28", "5:00",  "L", "Croatia", "Ghana"),
+    ("6/28", "7:30",  "K", "Colombia", "Portugal"),
+    ("6/28", "7:30",  "K", "DR Congo", "Uzbekistan"),
+    ("6/28", "10:00", "J", "Algeria", "Austria"),
+    ("6/28", "10:00", "J", "Jordan", "Argentina"),
+]
+
+# 星期對照（台灣時間）
+WC_2026_WEEKDAY = {
+    "6/12": "五", "6/13": "六", "6/14": "日", "6/15": "一", "6/16": "二",
+    "6/17": "三", "6/18": "四", "6/19": "五", "6/20": "六", "6/21": "日",
+    "6/22": "一", "6/23": "二", "6/24": "三", "6/25": "四", "6/26": "五",
+    "6/27": "六", "6/28": "日",
+}
+
+# 由賽程表推導 (組, 隊index i, 隊index j) -> "M/D H:MM"，供「2026 預測」頁查詢開球時間
 def _build_group_schedule() -> dict:
-    md1 = {'A':'6/12','B':'6/13','C':'6/14','D':'6/14',
-            'E':'6/15','F':'6/15','G':'6/16','H':'6/16',
-            'I':'6/17','J':'6/17','K':'6/18','L':'6/18'}
-    md2 = {'A':'6/19','B':'6/19','C':'6/20','D':'6/20',
-            'E':'6/21','F':'6/21','G':'6/22','H':'6/22',
-            'I':'6/23','J':'6/23','K':'6/24','L':'6/24'}
-    md3 = {'A':'6/25','B':'6/25','C':'6/26','D':'6/26',
-            'E':'6/26','F':'6/27','G':'6/27','H':'6/27',
-            'I':'6/28','J':'6/28','K':'6/28','L':'6/28'}
-    # 對陣＝官方位置序（已對齊 EBC）；日期為示意，實際開球時間以 FIFA 官方為準
     s = {}
-    for g in 'ABCDEFGHIJKL':
-        s[(g,0,1)] = md1[g]
-        s[(g,2,3)] = md1[g]
-        s[(g,0,2)] = md2[g]
-        s[(g,1,3)] = md2[g]
-        s[(g,0,3)] = md3[g]
-        s[(g,1,2)] = md3[g]
+    for date, t, g, home, away in WC_2026_GROUP_FIXTURES:
+        roster = WC_2026_GROUPS.get(g, [])
+        try:
+            i, j = sorted((roster.index(home), roster.index(away)))
+        except ValueError:
+            continue  # 隊名與分組不符時略過，避免整頁崩潰
+        s[(g, i, j)] = f"{date} {t}"
     return s
 
 _GROUP_SCHEDULE = _build_group_schedule()
@@ -1969,7 +2046,7 @@ elif page == "🔮 2026 預測":
                     f'<span style="color:#cbd5e1;font-size:0.82rem;margin-left:10px;font-weight:600">'
                     f'<span style="color:#f7c948">📅 {round_label}</span>'
                     f'{" · " if match_time else ""}<span style="color:#00d4ff">{match_time}</span>'
-                    f'<span style="color:#94a3b8">（賽程示意，以官方為準）</span></span>'
+                    f'<span style="color:#94a3b8">（台灣時間）</span></span>'
                     f'</div>', unsafe_allow_html=True)
             with col_draw:
                 st.markdown(
@@ -3560,10 +3637,57 @@ elif page == "🏅 奪冠預測":
 # PAGE 6: 完整賽程
 # ============================================================
 elif page == "📅 完整賽程":
-    st.title("📅 2026 世界盃淘汰賽對陣圖")
-    st.caption("48 隊 · 🏆決賽（頂端）向下展開至32強 · 日期依 FIFA 2026 官方賽程（R32 6/29 → 決賽 7/20，台灣時間）· ⚠️ 對陣組合為示意，以官方抽籤為準")
+    st.title("📅 2026 世界盃完整賽程")
+    st.caption("全程台灣時間（UTC+8）· 小組賽 6/12–6/28（72 場，依日期排列）· 淘汰賽 6/29–7/20 · 資料依 FIFA 2026 官方賽程")
 
     import streamlit.components.v1 as _c
+    from itertools import groupby as _groupby
+
+    # ════════════════ 小組賽：依日期（時間順序）排列，不分組 ════════════════
+    st.subheader("🗓️ 小組賽賽程（依日期）")
+    st.caption("全 72 場依台灣時間先後排列；每列為 開球時間 · 組別 · 對戰雙方")
+    _grp_color = {
+        'A': '#e94560', 'B': '#f7943e', 'C': '#f7c948', 'D': '#7bd88f',
+        'E': '#3fb6b2', 'F': '#4aa3ff', 'G': '#6c8cff', 'H': '#a06cff',
+        'I': '#e066c4', 'J': '#ff6b9d', 'K': '#c0a35e', 'L': '#5ec6c0',
+    }
+    _day_blocks = ""
+    for _date, _items in _groupby(WC_2026_GROUP_FIXTURES, key=lambda m: m[0]):
+        _rows = ""
+        for (_d, _t, _g, _home, _away) in _items:
+            _i1 = TEAM_INFO.get(_home, {}); _i2 = TEAM_INFO.get(_away, {})
+            _iso1 = _i1.get('iso', 'un'); _iso2 = _i2.get('iso', 'un')
+            _cn1 = _i1.get('cn', _home); _cn2 = _i2.get('cn', _away)
+            _gc = _grp_color.get(_g, '#4a7ea8')
+            _rows += (
+                f'<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;'
+                f'border-bottom:1px solid rgba(100,150,200,0.12);">'
+                f'<span style="color:#00d4ff;font-weight:700;min-width:50px;'
+                f'font-variant-numeric:tabular-nums;font-size:0.92rem;">{_t}</span>'
+                f'<span style="background:{_gc};color:#0b1220;font-weight:800;border-radius:4px;'
+                f'padding:1px 8px;font-size:0.78rem;min-width:24px;text-align:center;">{_g}</span>'
+                f'<span style="flex:1;text-align:right;color:#e8eef6;font-weight:600;font-size:0.95rem;">{_cn1}</span>'
+                f'<img src="https://flagcdn.com/40x30/{_iso1}.png" style="height:19px;border-radius:2px;">'
+                f'<span style="color:#e94560;font-weight:800;font-size:0.78rem;padding:0 3px;">VS</span>'
+                f'<img src="https://flagcdn.com/40x30/{_iso2}.png" style="height:19px;border-radius:2px;">'
+                f'<span style="flex:1;text-align:left;color:#e8eef6;font-weight:600;font-size:0.95rem;">{_cn2}</span>'
+                f'</div>'
+            )
+        _wd = WC_2026_WEEKDAY.get(_date, "")
+        _day_blocks += (
+            f'<div style="margin:10px 0 0;padding:5px 12px;background:rgba(73,124,160,0.20);'
+            f'border-left:3px solid #4a7ea8;border-radius:5px;color:#cfe3f5;font-weight:800;'
+            f'font-size:0.95rem;">{_date}（{_wd}）</div>{_rows}'
+        )
+    st.markdown(
+        f'<div style="background:#091525;border-radius:12px;padding:8px 14px 14px;'
+        f'font-family:\'Noto Sans TC\',sans-serif;">{_day_blocks}</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("---")
+    st.subheader("🏆 淘汰賽對陣圖")
+    st.caption("🏆決賽（頂端）向下展開至 32 強 · 日期依 FIFA 官方賽程（R32 6/29 → 決賽 7/20，台灣時間）· ⚠️ 對陣組合為示意，以官方抽籤後實際晉級為準")
 
     # ── 版面參數（由上而下樹狀圖：決賽在頂，32強在底）──
     BW    = 54     # match box 寬度
