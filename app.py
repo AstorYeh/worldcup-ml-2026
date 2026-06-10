@@ -1380,40 +1380,41 @@ def render_group_stage_schedule() -> None:
     for date, items in _groupby(WC_2026_GROUP_FIXTURES, key=lambda m: m[0]):
         rows = ""
         for (_d, _t, g, home, away) in items:
-            i1 = TEAM_INFO.get(home, {}); i2 = TEAM_INFO.get(away, {})
-            iso1 = i1.get('iso', 'un'); iso2 = i2.get('iso', 'un')
-            cn1 = i1.get('cn', home); cn2 = i2.get('cn', away)
+            ih = TEAM_INFO.get(home, {}); ia = TEAM_INFO.get(away, {})
             gc = grp_color.get(g, '#4a7ea8')
+            # 主場放右邊：左＝客隊(away)、右＝主隊(home)
+            iso_L = ia.get('iso', 'un'); cn_L = ia.get('cn', away)
+            iso_R = ih.get('iso', 'un'); cn_R = ih.get('cn', home)
 
-            # 〔預〕模型預測比分
+            # 〔預〕模型預測比分（顯示為 客-主，對齊左右視覺）
             pr = preds.get((home, away))
             if pr:
-                pg1, pg2 = pr['g1'], pr['g2']
-                if pg1 > pg2:
-                    pc1, pc2 = '#00d4ff', '#7fa6b5'
-                elif pg1 < pg2:
-                    pc1, pc2 = '#7fa6b5', '#00d4ff'
+                gh, ga = pr['g1'], pr['g2']            # gh=主隊, ga=客隊
+                if gh > ga:                             # 主勝 → 右側（主隊）亮
+                    cL, cR = '#7fa6b5', '#00d4ff'
+                elif gh < ga:                           # 客勝 → 左側（客隊）亮
+                    cL, cR = '#00d4ff', '#7fa6b5'
                 else:
-                    pc1 = pc2 = '#cbb46b'
+                    cL = cR = '#cbb46b'
                 pred_html = (f'<span style="color:#5b7a8a;font-size:0.6rem;margin-right:2px;">預</span>'
-                             f'<span style="color:{pc1};font-weight:800;">{pg1}</span>'
+                             f'<span style="color:{cL};font-weight:800;">{ga}</span>'
                              f'<span style="color:#5b7a8a;">-</span>'
-                             f'<span style="color:{pc2};font-weight:800;">{pg2}</span>')
+                             f'<span style="color:{cR};font-weight:800;">{gh}</span>')
             else:
                 pred_html = '<span style="color:#5b7a8a;font-size:0.62rem;">預 –</span>'
 
-            # 〔實〕ESPN 實際/即時比分
+            # 〔實〕ESPN 實際/即時比分（顯示為 客-主）
             lv = live.get(frozenset((home, away)))
             if lv and lv.get('state') in ('in', 'post'):
-                sa = lv['scores'].get(home); sb = lv['scores'].get(away)
-                sa = '?' if sa is None else sa
-                sb = '?' if sb is None else sb
+                s_home = lv['scores'].get(home); s_away = lv['scores'].get(away)
+                s_home = '?' if s_home is None else s_home
+                s_away = '?' if s_away is None else s_away
                 if lv['state'] == 'in':
-                    act_html = (f'<span style="color:#ff4d4f;font-weight:800;">● {sa}-{sb}</span>'
+                    act_html = (f'<span style="color:#ff4d4f;font-weight:800;">● {s_away}-{s_home}</span>'
                                 f'<span style="color:#ff8f8f;font-size:0.58rem;margin-left:3px;">LIVE</span>')
                 else:
                     act_html = (f'<span style="color:#5b7a8a;font-size:0.6rem;margin-right:2px;">實</span>'
-                                f'<span style="color:#f7c948;font-weight:800;">{sa}-{sb}</span>'
+                                f'<span style="color:#f7c948;font-weight:800;">{s_away}-{s_home}</span>'
                                 f'<span style="color:#7d8a55;font-size:0.58rem;margin-left:2px;">完</span>')
             else:
                 act_html = '<span style="color:#46566a;font-size:0.64rem;">未開賽</span>'
@@ -1425,15 +1426,17 @@ def render_group_stage_schedule() -> None:
                 f'font-variant-numeric:tabular-nums;font-size:0.9rem;">{_t}</span>'
                 f'<span style="background:{gc};color:#0b1220;font-weight:800;border-radius:4px;'
                 f'padding:1px 8px;font-size:0.78rem;min-width:24px;text-align:center;">{g}</span>'
-                f'<span style="flex:1;text-align:right;color:#e8eef6;font-weight:600;font-size:0.93rem;">{cn1}</span>'
-                f'<img src="https://flagcdn.com/40x30/{iso1}.png" style="height:18px;border-radius:2px;">'
+                f'<span style="flex:1;text-align:right;color:#e8eef6;font-weight:600;font-size:0.93rem;">{cn_L}</span>'
+                f'<img src="https://flagcdn.com/40x30/{iso_L}.png" style="height:18px;border-radius:2px;">'
                 f'<span style="display:inline-flex;flex-direction:column;align-items:center;'
                 f'min-width:104px;line-height:1.25;gap:1px;font-variant-numeric:tabular-nums;">'
                 f'<span style="font-size:0.95rem;letter-spacing:0.5px;">{pred_html}</span>'
                 f'<span style="font-size:0.8rem;">{act_html}</span>'
                 f'</span>'
-                f'<img src="https://flagcdn.com/40x30/{iso2}.png" style="height:18px;border-radius:2px;">'
-                f'<span style="flex:1;text-align:left;color:#e8eef6;font-weight:600;font-size:0.93rem;">{cn2}</span>'
+                f'<img src="https://flagcdn.com/40x30/{iso_R}.png" style="height:18px;border-radius:2px;">'
+                f'<span style="flex:1;text-align:left;color:#e8eef6;font-weight:600;font-size:0.93rem;">{cn_R}'
+                f'<span style="color:#f7943e;font-size:0.6rem;margin-left:3px;vertical-align:super;">主</span>'
+                f'</span>'
                 f'</div>'
             )
         wd = WC_2026_WEEKDAY.get(date, "")
@@ -3803,8 +3806,8 @@ elif page == "📅 完整賽程":
     with _sc_r:
         if st.button("🔄 立即更新比分", use_container_width=True):
             fetch_wc_live_scores.clear()
-    st.caption("每列：開球時間 · 組別 · 對戰 ·〔預〕模型預測比分（藍）·〔實〕實際比分（金；開賽後自動更新）。"
-               "未開賽顯示「未開賽」、進行中顯示 🔴 LIVE。資料來源：ESPN，每 45 秒自動刷新。")
+    st.caption("每列：開球時間 · 組別 · 客隊 vs 主隊（主隊置右）·〔預〕模型預測比分（藍）·〔實〕實際比分（金；開賽後自動更新）。"
+               "未開賽顯示「未開賽」、進行中顯示 🔴 LIVE。比分格式為「客-主」。資料來源：ESPN，每 45 秒自動刷新。")
     if hasattr(st, "fragment"):
         st.fragment(render_group_stage_schedule, run_every=45)()
     else:
