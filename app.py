@@ -1575,6 +1575,27 @@ if os.path.exists(_logo_path):
     with open(_logo_path, 'rb') as _lf:
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
+# ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
+APP_VERSION = "v2.6"
+APP_BUILD_DATE = "2026-06-11"
+
+
+@st.cache_data(show_spinner=False)
+def _git_short_rev() -> str:
+    import subprocess
+    try:
+        return subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            cwd=os.path.dirname(__file__),
+            stderr=subprocess.DEVNULL, timeout=3,
+        ).decode().strip()
+    except Exception:
+        return ''
+
+
+_rev = _git_short_rev()
+_app_build = f"{APP_VERSION} · {APP_BUILD_DATE}" + (f" · build {_rev}" if _rev else "")
+
 st.sidebar.markdown(
     f"""
     <style>
@@ -1602,7 +1623,7 @@ st.sidebar.markdown(
     <div class="wc-side-head">
         {'<img src="data:image/png;base64,' + _logo_b64 + '" alt="logo">' if _logo_b64 else ''}
         <div class="wc-side-title">World Cup 2026</div>
-        <div class="wc-side-sub">ML 勝率分析 · v2.3</div>
+        <div class="wc-side-sub">ML 勝率分析 · {_app_build}</div>
     </div>
     """,
     unsafe_allow_html=True,
