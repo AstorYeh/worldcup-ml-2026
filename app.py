@@ -1302,11 +1302,16 @@ def get_group_stage_predictions() -> dict:
     """回傳 {(home_en, away_en): {'g1','g2','win','draw','loss'}}；模型不可用時回傳空 dict。"""
     md = load_match_data()
     fd = load_fifa_ranking()
-    pre = load_pretrained()
     out: dict = {}
-    if pre is None:
-        return out
-    clf, p1, p2, fc = pre['clf'], pre['poisson1'], pre['poisson2'], pre['feat_cols']
+    pre = load_pretrained()
+    if pre is not None:
+        clf, p1, p2, fc = pre['clf'], pre['poisson1'], pre['poisson2'], pre['feat_cols']
+    else:
+        # 線上若無 pkl 或反序列化失敗，與「2026 預測」頁一致 → 即時訓練（結果有快取）
+        res = train_models_walkforward(md, fd)
+        if not res or res[0] is None:
+            return out
+        clf, p1, p2, fc = res[0], res[3], res[4], res[5]
     for _d, _t, _g, home, away in WC_2026_GROUP_FIXTURES:
         try:
             pr = predict_match(home, away, 2026, md, fd, clf, p1, p2, fc)
@@ -1576,7 +1581,7 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v2.6"
+APP_VERSION = "v2.7"
 APP_BUILD_DATE = "2026-06-11"
 
 
