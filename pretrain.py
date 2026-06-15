@@ -111,6 +111,17 @@ def load_data():
         with open(cache_fifa, 'wb') as f:
             pickle.dump(fifa_df, f)
 
+    # 注入 2026 世界盃已完成賽果（供 2026 強度微調；訓練集排除 WC 故不受影響）
+    try:
+        from wc_2026_results import fetch_2026_wc_results
+        wc26 = fetch_2026_wc_results()
+        if len(wc26) > 0:
+            wc26 = wc26.reindex(columns=match_df.columns)
+            match_df = pd.concat([match_df, wc26], ignore_index=True)
+            print(f"[2026] 已注入 {len(wc26)} 場世界盃實戰賽果（微調用）")
+    except Exception as _e:
+        print(f"[2026] 注入賽果失敗（略過，用純歷史）：{_e}")
+
     print(f"[Data] match_df = {len(match_df):,} 場；fifa_df = {len(fifa_df):,} 筆排名")
     return match_df, fifa_df
 
@@ -118,10 +129,11 @@ def load_data():
 # ============================================================
 # FEATURE ENGINEERING（與 app.py 一致）
 # ============================================================
-def compute_team_strength(df, team, year, years_back=8):
+def compute_team_strength(df, team, year, years_back=8, include_current=False):
     start_year = year - years_back
+    upper = (df['year'] <= year) if include_current else (df['year'] < year)
     tm = df[((df['home_team'] == team) | (df['away_team'] == team)) &
-            (df['year'] >= start_year) & (df['year'] < year)].copy()
+            (df['year'] >= start_year) & upper].copy()
     if len(tm) == 0:
         return {'win_rate': 0.35, 'draw_rate': 0.25, 'avg_goals': 1.2, 'avg_conceded': 1.3, 'matches': 0}
     home_mask = tm['home_team'] == team
@@ -140,9 +152,10 @@ def compute_team_strength(df, team, year, years_back=8):
     }
 
 
-def compute_recent_form(df, team, year):
+def compute_recent_form(df, team, year, include_current=False):
+    upper = (df['year'] <= year) if include_current else (df['year'] < year)
     recent = df[((df['home_team'] == team) | (df['away_team'] == team)) &
-                (df['year'] >= year - 2) & (df['year'] < year)]
+                (df['year'] >= year - 2) & upper]
     if len(recent) == 0:
         return 0.35
     home_mask = recent['home_team'] == team
@@ -166,17 +179,18 @@ def get_historical_ranking(fifa_df, team, date):
 
 
 def create_features_v2(team1, team2, year, match_df, fifa_df,
-                       strength_cache=None, form_cache=None, ko_cache=None):
-    """支援快取版本，加速大量訓練"""
+                       strength_cache=None, form_cache=None, ko_cache=None,
+                       include_current=False):
+    """支援快取版本，加速大量訓練。include_current=True 時把當年(2026)實戰也算進強度。"""
     if strength_cache is None or (team1, year) not in strength_cache:
-        s1 = compute_team_strength(match_df, team1, year)
+        s1 = compute_team_strength(match_df, team1, year, include_current=include_current)
         if strength_cache is not None:
             strength_cache[(team1, year)] = s1
     else:
         s1 = strength_cache[(team1, year)]
 
     if strength_cache is None or (team2, year) not in strength_cache:
-        s2 = compute_team_strength(match_df, team2, year)
+        s2 = compute_team_strength(match_df, team2, year, include_current=include_current)
         if strength_cache is not None:
             strength_cache[(team2, year)] = s2
     else:
@@ -192,12 +206,12 @@ def create_features_v2(team1, team2, year, match_df, fifa_df,
     confed2 = CONFED_MAP.get(team2, 'CAF')
 
     if form_cache is None or (team1, year) not in form_cache:
-        f1 = compute_recent_form(match_df, team1, year)
+        f1 = compute_recent_form(match_df, team1, year, include_current=include_current)
         if form_cache is not None: form_cache[(team1, year)] = f1
     else:
         f1 = form_cache[(team1, year)]
     if form_cache is None or (team2, year) not in form_cache:
-        f2 = compute_recent_form(match_df, team2, year)
+        f2 = compute_recent_form(match_df, team2, year, include_current=include_current)
         if form_cache is not None: form_cache[(team2, year)] = f2
     else:
         f2 = form_cache[(team2, year)]
@@ -364,7 +378,8 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
         for i, t1 in enumerate(teams):
             for t2 in teams[i+1:]:
                 feat = create_features_v2(t1, t2, 2026, match_df, fifa_df,
-                                          strength_cache, form_cache, ko_cache)
+                                          strength_cache, form_cache, ko_cache,
+                                          include_current=True)
                 X = pd.DataFrame([feat])[feat_cols]
                 prob = clf.predict_proba(X)[0]  # [L, D, W from team1]
                 lam1 = max(0.1, float(poisson1.predict(X)[0]))
@@ -380,7 +395,8 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
                 continue
             try:
                 feat = create_features_v2(ta, tb, 2026, match_df, fifa_df,
-                                          strength_cache, form_cache, ko_cache)
+                                          strength_cache, form_cache, ko_cache,
+                                          include_current=True)
                 X = pd.DataFrame([feat])[feat_cols]
                 prob = clf.predict_proba(X)[0]
                 lam1 = max(0.1, float(poisson1.predict(X)[0]))

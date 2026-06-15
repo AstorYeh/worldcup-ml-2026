@@ -3,8 +3,8 @@
 ============================================================
 
 五層架構（四層預測管線 + 市場校準）：
-    L1  XGBoost 分類器        (外層權重 20%)
-    L2  Dixon-Coles Poisson  (外層權重 80%)
+    L1  XGBoost 分類器        (外層權重 60%)
+    L2  Dixon-Coles Poisson  (外層權重 40%)
     L3  λ 多因素複合修正     (主將/FIFA/狀態/經驗)
     L4  融合機率 + MC 10,000 次（MC 含主將 OVR 修正）
     L5  市場校準（奪冠頁）   最終=(1−α)模型+α市場，α 隨開賽浮動
@@ -1239,10 +1239,12 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     _t2 = poi_win + poi_draw + poi_loss
     poi_win /= _t2; poi_draw /= _t2; poi_loss /= _t2
 
-    # ── 第三層：加權融合（XGBoost 20% + Poisson 80%）──
-    # Poisson 直接由 λ（球隊攻防強度）推導，與顯示的 λ₁/λ₂ 內部一致
-    # XGBoost 權重降低，避免在強弱明顯時被分類器誤導反向
-    W_CLF, W_POI = 0.20, 0.80
+    # ── 第三層：加權融合（XGBoost 60% + Poisson 40%）──
+    # XGBoost clf 是 Walk-Forward 實際驗證(52%)的模型，主導勝負「方向」；
+    # Poisson 由 λ（攻防強度）推導，輔助比分形狀。
+    # v3.1：clf 權重 0.2→0.6——2026 實戰顯示原 0.2/0.8 讓 Poisson composite
+    #       偶爾蓋過 clf 正確判斷（如海地-蘇格蘭判反）；提高 clf 權重對齊已驗證模型。
+    W_CLF, W_POI = 0.60, 0.40
     prob_win  = W_CLF * clf_win  + W_POI * poi_win
     prob_draw = W_CLF * clf_draw + W_POI * poi_draw
     prob_loss = W_CLF * clf_loss + W_POI * poi_loss
@@ -1617,7 +1619,7 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v3.0"
+APP_VERSION = "v3.1"
 APP_BUILD_DATE = "2026-06-15"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
@@ -1751,7 +1753,7 @@ with _nav_box:
         """
         <div style='font-size:0.78rem; color:#6b6760; line-height:1.7; padding:4px;'>
             <div style='color:#1f1e1c; font-weight:600; margin-bottom:4px;'>模型架構</div>
-            <div>XGBoost 20% + Dixon-Coles 80%</div>
+            <div>XGBoost 60% + Dixon-Coles 40%</div>
             <div>+ Squad OVR + Monte Carlo 10k</div>
             <div style='height:12px;'></div>
             <div style='color:#1f1e1c; font-weight:600; margin-bottom:4px;'>訓練資料</div>
@@ -1984,7 +1986,7 @@ if page == "📊 專題總覽":
                     <div class="arch-title">🤖 XGBoost 分類器</div>
                     <div class="arch-subtitle">直接輸出 P(勝 / 平 / 負) 三向機率分布</div>
                 </div>
-                <span class="arch-weight-chip">外層權重 20%</span>
+                <span class="arch-weight-chip">外層權重 60%</span>
             </div>
             <div class="arch-content">
                 <div>
@@ -2022,7 +2024,7 @@ if page == "📊 專題總覽":
                     <div class="arch-title">📊 Dixon-Coles Poisson</div>
                     <div class="arch-subtitle">從球隊攻防強度推導期望進球 λ</div>
                 </div>
-                <span class="arch-weight-chip">外層權重 80%</span>
+                <span class="arch-weight-chip">外層權重 40%</span>
             </div>
             <div class="arch-formula">λ_A = atk_A × vul_B / μ</div>
             <div class="arch-content">
@@ -2118,7 +2120,7 @@ if page == "📊 專題總覽":
         <div class="arch-output">
             <div class="arch-output-label">FINAL OUTPUT · 最終預測</div>
             <div class="arch-output-content">
-                <code>P(勝/平/負) = 0.20 × XGB + 0.80 × Poisson(λ)</code><br>
+                <code>P(勝/平/負) = 0.60 × XGB + 0.40 × Poisson(λ)</code><br>
                 <span style="font-size:13px;color:#fff;opacity:0.9">＋ 預測比分　＋　奪冠機率</span>
             </div>
         </div>
@@ -2130,8 +2132,8 @@ if page == "📊 專題總覽":
     st.markdown("")
     st.markdown("##### 📐 完整權重結構速查")
     weights_summary = pd.DataFrame([
-        ['外層融合', 'XGBoost 分類器', '20%', 'P(W/D/L) 加權平均的權重'],
-        ['外層融合', 'Dixon-Coles Poisson', '80%', 'P(W/D/L) 加權平均的權重'],
+        ['外層融合', 'XGBoost 分類器', '60%', 'P(W/D/L) 加權平均的權重'],
+        ['外層融合', 'Dixon-Coles Poisson', '40%', 'P(W/D/L) 加權平均的權重'],
         ['λ 修正', '主將 OVR', '^0.35', '5 名主將綜合能力比次方'],
         ['λ 修正', 'FIFA 積分', '^0.22', '兩隊 FIFA 積分比次方'],
         ['λ 修正', '近 2 年勝率', '^0.18', '近期狀態勝率比次方'],
@@ -2150,7 +2152,7 @@ if page == "📊 專題總覽":
 # ============================================================
 elif page == "🔮 2026 預測":
     st.title("🔮 2026 世界盃比分預測")
-    st.markdown("**XGBoost(20%) + Dixon-Coles(80%) · λ 加權：主將 OVR · FIFA 積分 · 近期狀態 · 淘汰賽經驗 · Walk-Forward 驗證**")
+    st.markdown("**XGBoost(60%) + Dixon-Coles(40%) · λ 加權：主將 OVR · FIFA 積分 · 近期狀態 · 淘汰賽經驗 · Walk-Forward 驗證**")
     st.markdown("---")
 
     match_df = load_match_data()
