@@ -1381,6 +1381,9 @@ def render_group_stage_schedule() -> None:
         'E': '#3fb6b2', 'F': '#4aa3ff', 'G': '#6c8cff', 'H': '#a06cff',
         'I': '#e066c4', 'J': '#ff6b9d', 'K': '#c0a35e', 'L': '#5ec6c0',
     }
+    # 賽果統計（完賽場次）：勝負命中、平局命中、進球偏差
+    n_done = hit = draw_act = draw_hit = 0
+    pred_goal_sum = act_goal_sum = 0
     day_blocks = ""
     for date, items in _groupby(WC_2026_GROUP_FIXTURES, key=lambda m: m[0]):
         rows = ""
@@ -1423,6 +1426,13 @@ def render_group_stage_schedule() -> None:
                     hit_html = ''
                     if pred_dir is not None and isinstance(sh, int) and isinstance(sa, int):
                         act_dir = 1 if sh > sa else (-1 if sh < sa else 0)
+                        n_done += 1
+                        hit += int(act_dir == pred_dir)
+                        if act_dir == 0:
+                            draw_act += 1
+                            draw_hit += int(pred_dir == 0)
+                        pred_goal_sum += gh + ga
+                        act_goal_sum += sh + sa
                         if act_dir == pred_dir:
                             hit_html = ('<span style="color:#36c275;font-weight:800;'
                                         'font-size:0.62rem;margin-left:5px;">✓命中</span>')
@@ -1461,9 +1471,24 @@ def render_group_stage_schedule() -> None:
             f'border-left:3px solid #4a7ea8;border-radius:5px;color:#cfe3f5;font-weight:800;'
             f'font-size:0.95rem;">{date}（{wd}）</div>{rows}'
         )
+    if n_done > 0:
+        acc = hit / n_done
+        bias = (act_goal_sum - pred_goal_sum) / n_done
+        summary_html = (
+            f'<div style="margin:0 0 10px;padding:10px 14px;background:rgba(54,194,117,0.10);'
+            f'border:1px solid rgba(54,194,117,0.35);border-radius:8px;line-height:1.8;">'
+            f'<span style="color:#cfe3f5;font-weight:800;font-size:0.95rem;">📊 賽果校準（已完賽 {n_done} 場）</span>'
+            f'<span style="color:#36c275;font-weight:800;margin-left:12px;">勝負命中 {hit}/{n_done}（{acc:.0%}）</span>'
+            f'<span style="color:#f7c948;margin-left:12px;font-size:0.88rem;">平局 {draw_act} 場 · 命中 {draw_hit}</span>'
+            f'<span style="color:#8aa0ae;margin-left:12px;font-size:0.88rem;">進球偏差 {"+" if bias >= 0 else ""}{bias:.1f} 球/場（實際−預測）</span>'
+            f'</div>'
+        )
+    else:
+        summary_html = ('<div style="margin:0 0 10px;color:#8aa0ae;font-size:0.85rem;">'
+                        '📊 賽果校準：尚無完賽場次，開賽後自動統計勝負命中率與進球偏差。</div>')
     st.markdown(
         f'<div style="background:#091525;border-radius:12px;padding:8px 14px 14px;'
-        f'font-family:\'Noto Sans TC\',sans-serif;">{day_blocks}</div>',
+        f'font-family:\'Noto Sans TC\',sans-serif;">{summary_html}{day_blocks}</div>',
         unsafe_allow_html=True,
     )
 
@@ -1592,8 +1617,8 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v2.9"
-APP_BUILD_DATE = "2026-06-11"
+APP_VERSION = "v3.0"
+APP_BUILD_DATE = "2026-06-15"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
 st.sidebar.markdown(
