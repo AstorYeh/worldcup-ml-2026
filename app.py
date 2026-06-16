@@ -1629,7 +1629,7 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v3.3"
+APP_VERSION = "v3.4"
 APP_BUILD_DATE = "2026-06-16"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
@@ -1666,49 +1666,7 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-# ── 背景主題曲：固定於 LOGO 下方，自動播放、循環、初始音量 30% ──
-# st.audio 提供原生「播放/暫停 + 音量」控制；autoplay/loop 為原生參數。
-# st.audio 無音量參數 → 用 components.html 注入 JS 把初始音量設為 30%（僅設一次，
-# 之後使用者可自由調整）；瀏覽器阻擋自動播放時，首次點擊頁面即以 30% 音量開始。
-_theme_path = os.path.join(os.path.dirname(__file__), 'assets', 'theme.mp3')
-if os.path.exists(_theme_path):
-    with open(_theme_path, 'rb') as _af:
-        _theme_bytes = _af.read()
-    st.sidebar.audio(_theme_bytes, format='audio/mp3', autoplay=True, loop=True)
-    components.html(
-        """
-        <script>
-        (function () {
-          var doc = window.parent.document;
-          function setup(a) {
-            a.loop = true;                                /* 循環旗標 */
-            if (!a.dataset.wcVol) {                       /* 初始音量 30%（只設一次，之後可自由調整）*/
-              a.volume = 0.3;
-              a.dataset.wcVol = '1';
-            }
-            if (!a.dataset.wcLoop) {                      /* 後備：播完自動從頭重播（即使 loop 旗標失效也循環）*/
-              a.dataset.wcLoop = '1';
-              a.addEventListener('ended', function () {
-                try { a.currentTime = 0; a.play(); } catch (e) {}
-              });
-            }
-          }
-          function tick(autostart) {
-            doc.querySelectorAll('audio').forEach(function (a) {
-              setup(a);
-              if (autostart && a.paused) { a.play().catch(function () {}); }
-            });
-          }
-          tick(true);                                     /* 載入即嘗試播放 */
-          var iv = setInterval(function () { tick(false); }, 1500);  /* 持續確保循環旗標 */
-          setTimeout(function () { clearInterval(iv); }, 30000);
-          /* 自動播放被瀏覽器擋下時：首次點擊頁面即以 30% 音量開始並維持循環 */
-          doc.addEventListener('click', function () { tick(true); }, { once: true });
-        })();
-        </script>
-        """,
-        height=0,
-    )
+# ── 背景主題曲已移除（不再自動播放音樂）──
 
 # ── 分割版面：LOGO 固定於上，導航 + 資訊放進「固定高度可捲動容器」──
 # st.container(height=N, key=...) 是原生捲動容器；用 key 對應的穩定 class（st-key-…）
@@ -1722,15 +1680,15 @@ st.sidebar.markdown(
        為相容不同 Streamlit 版本（DOM 包裝層不同），三種選擇器都寫上，
        各版本只有對應者命中、其餘為無害的 no-op： */
     /* (a) 容器根元素：所有版本都有 st-key class
-       314（header+LOGO+內距）再加約 90（主題曲播放器 42 + 上下間距）≈ 404 */
+       314（header+LOGO+內距）；主題曲播放器已移除，不再額外扣高度 */
     section[data-testid="stSidebar"] .st-key-wc_navbox {
-        height: calc(100vh - 404px) !important;
-        max-height: calc(100vh - 404px) !important;
+        height: calc(100vh - 314px) !important;
+        max-height: calc(100vh - 314px) !important;
     }
     /* (b) 新版（1.5x）：st-key 即捲動層，外層 stLayoutWrapper 也要縮 */
     section[data-testid="stSidebar"] div[data-testid="stLayoutWrapper"]:has(> .st-key-wc_navbox) {
-        height: calc(100vh - 404px) !important;
-        max-height: calc(100vh - 404px) !important;
+        height: calc(100vh - 314px) !important;
+        max-height: calc(100vh - 314px) !important;
     }
     /* (c) 舊版：st-key 為外框，內層 stVerticalBlock 才是捲動層 → 撐滿外框 */
     section[data-testid="stSidebar"] .st-key-wc_navbox > div[data-testid="stVerticalBlock"] {
