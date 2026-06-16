@@ -1411,7 +1411,8 @@ def render_group_stage_schedule() -> None:
                              f'<span style="color:{cL};font-weight:800;">{ga}</span>'
                              f'<span style="color:#5b7a8a;">-</span>'
                              f'<span style="color:{cR};font-weight:800;">{gh}</span>'
-                             f'<span style="color:#8aa0ae;font-size:0.62rem;margin-left:5px;">{pick_prob:.0%}</span>')
+                             f'<span style="color:#8aa0ae;font-size:0.6rem;margin-left:5px;">勝{pick_prob:.0%}</span>'
+                             f'<span style="color:#cbb46b;font-size:0.6rem;margin-left:3px;">和{pr.get("draw", 0.0):.0%}</span>')
             else:
                 pred_html = '<span style="color:#5b7a8a;font-size:0.62rem;">預 –</span>'
 
@@ -1457,7 +1458,7 @@ def render_group_stage_schedule() -> None:
                 f'<span style="flex:1;text-align:right;color:#e8eef6;font-weight:600;font-size:0.93rem;">{cn_L}</span>'
                 f'<img src="https://flagcdn.com/40x30/{iso_L}.png" style="height:18px;border-radius:2px;">'
                 f'<span style="display:inline-flex;flex-direction:column;align-items:center;'
-                f'min-width:140px;line-height:1.25;gap:1px;font-variant-numeric:tabular-nums;">'
+                f'min-width:188px;line-height:1.25;gap:1px;font-variant-numeric:tabular-nums;">'
                 f'<span style="font-size:0.95rem;letter-spacing:0.5px;">{pred_html}</span>'
                 f'<span style="font-size:0.8rem;">{act_html}</span>'
                 f'</span>'
@@ -1619,8 +1620,8 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v3.1"
-APP_BUILD_DATE = "2026-06-15"
+APP_VERSION = "v3.2"
+APP_BUILD_DATE = "2026-06-16"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
 st.sidebar.markdown(
@@ -3855,7 +3856,7 @@ elif page == "📅 完整賽程":
         if st.button("🔄 立即更新比分", use_container_width=True):
             fetch_wc_live_scores.clear()
     st.caption("每列：開球時間 · 組別 · 客隊 vs 主隊（主隊置右）·〔預〕最可能比分＋預測勝率"
-               "（藍；模型針對勝負最佳化，精確比分僅示意）·〔實〕實際比分（金；完賽後比對「✓命中＝勝負方向正確」）。"
+               "＋和局率（藍＝勝率、金＝和局率；模型針對勝負最佳化，精確比分僅示意）·〔實〕實際比分（金；完賽後比對「✓命中＝勝負方向正確」）。"
                "進行中顯示 🔴 LIVE，比分格式為「客-主」。資料來源：ESPN，每 45 秒自動刷新。")
     if hasattr(st, "fragment"):
         st.fragment(render_group_stage_schedule, run_every=45)()
