@@ -1258,6 +1258,15 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     outcome = ('win' if prob_win >= prob_draw and prob_win >= prob_loss
                else 'draw' if prob_draw >= prob_loss else 'loss')
 
+    # 高和局率規則（Hermes 校準：T=0.28、margin=0.05、AND 邏輯）：
+    # 當「和局率夠高」且「與最高勝率夠接近」(真．平局訊號) 時，直接預測和局。
+    # ⚠️ 經 16 場實戰回測：今年和局多為「熱門掉分」型(模型 P_draw 僅 0.18–0.32、
+    #    仍偏向贏家)，此門檻目前幾乎不觸發、也不傷決勝命中；主要為日後真正勢均
+    #    力敵的對戰武裝。要真正多預測和局需做類別權重校準(會犧牲部分總準確率)。
+    _DRAW_T, _DRAW_MARGIN = 0.28, 0.05
+    if prob_draw >= _DRAW_T and (max(prob_win, prob_loss) - prob_draw) <= _DRAW_MARGIN:
+        outcome = 'draw'
+
     # 規範化到字母序，確保同場比賽比分不因呼叫順序而改變
     t_can1, t_can2 = sorted([team1, team2])
     is_canonical = (team1 == t_can1)
@@ -1620,7 +1629,7 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v3.2"
+APP_VERSION = "v3.3"
 APP_BUILD_DATE = "2026-06-16"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
