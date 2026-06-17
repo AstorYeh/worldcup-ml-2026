@@ -423,6 +423,24 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
         winner = rng.choice([ta, tb], p=[pw/s, pl/s])
         return winner, ga, gb
 
+    # 已完賽結果（從 match_df 的 2026 WC 列取出）→ 小組賽鎖定真實結果，只模擬未賽場次
+    _t2g = {t: g for g, ts in WC_2026_GROUPS.items() for t in ts}
+    played = {}
+    _wc26 = match_df[(match_df['year'] == 2026) &
+                     (match_df['tournament'].astype(str).str.contains('World Cup', na=False))]
+    for _, _r in _wc26.iterrows():
+        _h, _a = _r['home_team'], _r['away_team']
+        if _t2g.get(_h) and _t2g.get(_h) == _t2g.get(_a):
+            played[frozenset((_h, _a))] = {_h: int(_r['home_score']), _a: int(_r['away_score'])}
+    if played:
+        print(f"  [MC] 鎖定 {len(played)} 場已完賽結果（條件化模擬），未賽才模擬")
+
+    # 各組名次分布 / 期望積分 / 最佳第3晉級 統計（供「各組排名預測」頁）
+    group_rank_count = {g: {t: [0, 0, 0, 0] for t in ts} for g, ts in WC_2026_GROUPS.items()}
+    group_pts_sum = {g: {t: 0 for t in ts} for g, ts in WC_2026_GROUPS.items()}
+    group_gd_sum = {g: {t: 0 for t in ts} for g, ts in WC_2026_GROUPS.items()}
+    third_adv_count = {t: 0 for t in ALL_TEAMS}
+
     champion_count = {t: 0 for t in ALL_TEAMS}
     final_count    = {t: 0 for t in ALL_TEAMS}
     semi_count     = {t: 0 for t in ALL_TEAMS}
@@ -433,15 +451,21 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
     for sim in range(n_sims):
         if sim % 1000 == 0:
             print(f"  sim {sim}/{n_sims}")
-        # 小組賽
+        # 小組賽（已賽鎖定真實結果、未賽才模擬）
         group_results = {}
+        sim_thirds = []
         for g, teams in WC_2026_GROUPS.items():
             pts = {t: 0 for t in teams}
             gd = {t: 0 for t in teams}
             gf = {t: 0 for t in teams}
             for i, t1 in enumerate(teams):
                 for t2 in teams[i+1:]:
-                    w, g1, g2 = sim_match(t1, t2)
+                    _pl = played.get(frozenset((t1, t2)))
+                    if _pl is not None:                       # 已賽 → 鎖定真實比分
+                        g1, g2 = _pl[t1], _pl[t2]
+                        w = t1 if g1 > g2 else (t2 if g2 > g1 else None)
+                    else:
+                        w, g1, g2 = sim_match(t1, t2)
                     gf[t1] += g1; gf[t2] += g2
                     gd[t1] += g1-g2; gd[t2] += g2-g1
                     if w == t1: pts[t1] += 3
@@ -450,18 +474,20 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
             # 排序
             standing = sorted(teams, key=lambda t: (-pts[t], -gd[t], -gf[t], rng.random()))
             group_results[g] = standing
+            for r_idx, t in enumerate(standing):
+                group_rank_count[g][t][r_idx] += 1
+                group_pts_sum[g][t] += pts[t]
+                group_gd_sum[g][t] += gd[t]
             for t in standing[:2]:
                 advance_count[t] += 1
-
-        # 取前 2 + 最佳 8 個第 3 名 = 32 隊
-        thirds = []
-        for g, standing in group_results.items():
             t3 = standing[2]
-            # 用點數做排序代理
-            score = TEAM_PTS.get(t3, 1500)
-            thirds.append((t3, score))
-        thirds.sort(key=lambda x: -x[1])
-        best_thirds = [t for t, _ in thirds[:8]]
+            sim_thirds.append((t3, pts[t3], gd[t3], gf[t3]))
+
+        # 最佳 8 個第 3 名：依模擬小組積分/淨勝/進球（與真實規則一致）
+        sim_thirds.sort(key=lambda x: (x[1], x[2], x[3]), reverse=True)
+        best_thirds = [x[0] for x in sim_thirds[:8]]
+        for t in best_thirds:
+            third_adv_count[t] += 1
 
         bracket = []  # 32 teams
         # 1st 12 + 2nd 12 + best thirds 8
@@ -508,7 +534,20 @@ def run_monte_carlo(match_df, fifa_df, clf, poisson1, poisson2, feat_cols, n_sim
             'r16_pct': r16_count[t] / n_sims * 100,
             'win_pct': advance_count[t] / n_sims * 100,
           } for t in ALL_TEAMS}
-    mc = {'n_sims': n_sims, 'results': mc_teams}
+    group_standings = {}
+    for g, ts in WC_2026_GROUPS.items():
+        group_standings[g] = {}
+        for t in ts:
+            rc = group_rank_count[g][t]
+            group_standings[g][t] = {
+                'p1': rc[0] / n_sims * 100, 'p2': rc[1] / n_sims * 100,
+                'p3': rc[2] / n_sims * 100, 'p4': rc[3] / n_sims * 100,
+                'exp_pts': group_pts_sum[g][t] / n_sims,
+                'exp_gd': group_gd_sum[g][t] / n_sims,
+                'advance_pct': advance_count[t] / n_sims * 100,      # 前2直接晉級
+                'third_adv_pct': third_adv_count[t] / n_sims * 100,  # 以最佳第3晉級
+            }
+    mc = {'n_sims': n_sims, 'results': mc_teams, 'group_standings': group_standings}
 
     with open(os.path.join(MODEL_DIR, 'mc_results.pkl'), 'wb') as f:
         pickle.dump(mc, f)

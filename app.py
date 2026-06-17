@@ -1638,7 +1638,7 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v3.5"
+APP_VERSION = "v3.6"
 APP_BUILD_DATE = "2026-06-16"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
@@ -1722,6 +1722,7 @@ with _nav_box:
         "🌍 各國分析",
         "🎯 球隊風格分群",
         "🏅 奪冠預測",
+        "📊 各組排名預測",
         "📅 完整賽程",
     ], label_visibility="collapsed")
 
@@ -3819,6 +3820,126 @@ elif page == "🏅 奪冠預測":
 # ============================================================
 # PAGE 6: 完整賽程
 # ============================================================
+elif page == "📊 各組排名預測":
+    st.title("📊 預賽各組排名預測")
+    _mc = load_mc_results()
+    _gs = (_mc or {}).get('group_standings')
+    if not _gs:
+        st.warning("⚠️ 尚無排名模擬資料（models/mc_results.pkl 缺 group_standings）。請執行 `python retune.py` 重新產生。")
+    else:
+        _nsims = (_mc or {}).get('n_sims', 10000)
+        st.markdown(
+            f'<div style="margin:2px 0 12px;padding:9px 13px;background:rgba(247,201,72,0.10);'
+            f'border:1px solid rgba(247,201,72,0.4);border-radius:8px;color:#e9d8a6;'
+            f'font-size:0.86rem;line-height:1.6;">⚠️ 本表為 <b>{_nsims:,} 次 Monte Carlo 模擬</b>的機率投影：'
+            f'<b>已完賽鎖定真實比分、未賽才模擬</b>，並以三向機率（非單一最可能比分）計算期望積分。'
+            f'今年小組賽實際平局率偏高（約 40–50%）、模型對平局仍偏低估，故<b>平局密集組的名次不確定性較大</b>，'
+            f'請以「晉級機率／名次分布」解讀，而非視為確定排名。</div>',
+            unsafe_allow_html=True,
+        )
+        # 目前實際積分（僅計已完賽場次）
+        _live = fetch_wc_live_scores()
+        _actual = {t: {'pld': 0, 'pts': 0} for ts in WC_2026_GROUPS.values() for t in ts}
+        for (_d, _t, _g, _home, _away) in WC_2026_GROUP_FIXTURES:
+            _lv = _live.get(frozenset((_home, _away)))
+            if _lv and _lv.get('state') == 'post':
+                _sh = _lv['scores'].get(_home); _sa = _lv['scores'].get(_away)
+                if isinstance(_sh, int) and isinstance(_sa, int):
+                    _actual[_home]['pld'] += 1; _actual[_away]['pld'] += 1
+                    if _sh > _sa: _actual[_home]['pts'] += 3
+                    elif _sa > _sh: _actual[_away]['pts'] += 3
+                    else: _actual[_home]['pts'] += 1; _actual[_away]['pts'] += 1
+
+        _grp_color = {'A': '#e94560', 'B': '#f7943e', 'C': '#f7c948', 'D': '#7bd88f',
+                      'E': '#3fb6b2', 'F': '#4aa3ff', 'G': '#6c8cff', 'H': '#a06cff',
+                      'I': '#e066c4', 'J': '#ff6b9d', 'K': '#c0a35e', 'L': '#5ec6c0'}
+
+        def _rankbar(d):
+            segs = [(d.get('p1', 0), '#36c275'), (d.get('p2', 0), '#3fb6b2'),
+                    (d.get('p3', 0), '#f7c948'), (d.get('p4', 0), '#6b7682')]
+            inner = ''.join(
+                f'<span style="display:inline-block;height:8px;width:{max(0, p):.1f}%;background:{c};"></span>'
+                for p, c in segs)
+            return (f'<span title="名次分布 第1/2/3/4" style="display:inline-flex;width:80px;'
+                    f'border-radius:4px;overflow:hidden;background:#0b1220;vertical-align:middle;">{inner}</span>')
+
+        cards = ''
+        for g, teams in WC_2026_GROUPS.items():
+            gsg = _gs.get(g, {})
+            order = sorted(teams, key=lambda t: -gsg.get(t, {}).get('exp_pts', 0))
+            gc = _grp_color.get(g, '#4a7ea8')
+            rows = ''
+            for idx, t in enumerate(order):
+                d = gsg.get(t, {})
+                info = TEAM_INFO.get(t, {}); cn = info.get('cn', t); iso = info.get('iso', 'un')
+                tq = d.get('advance_pct', 0) + d.get('third_adv_pct', 0)
+                bdr = '#36c275' if idx < 2 else ('#f7c948' if idx == 2 else '#46566a')
+                ap = _actual.get(t, {})
+                rows += (
+                    f'<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;'
+                    f'border-left:3px solid {bdr};border-bottom:1px solid rgba(100,150,200,0.1);">'
+                    f'<span style="color:#8aa0ae;font-weight:700;min-width:14px;">{idx+1}</span>'
+                    f'<img src="https://flagcdn.com/40x30/{iso}.png" style="height:15px;border-radius:2px;">'
+                    f'<span style="flex:1;color:#e8eef6;font-weight:600;font-size:0.9rem;white-space:nowrap;'
+                    f'overflow:hidden;text-overflow:ellipsis;">{cn}</span>'
+                    f'<span style="color:#9fb0bf;font-size:0.72rem;min-width:64px;text-align:right;">'
+                    f'實{ap.get("pts", 0)} · 投{d.get("exp_pts", 0):.1f}</span>'
+                    f'<span style="color:#36c275;font-weight:800;font-size:0.8rem;min-width:38px;text-align:right;">{tq:.0f}%</span>'
+                    f'{_rankbar(d)}'
+                    f'</div>'
+                )
+            cards += (
+                f'<div style="background:#0c1c30;border:1px solid rgba(100,150,200,0.2);'
+                f'border-radius:10px;padding:6px 8px 8px;">'
+                f'<div style="font-weight:800;color:#0b1220;background:{gc};border-radius:5px;'
+                f'padding:2px 9px;display:inline-block;font-size:0.85rem;margin-bottom:4px;">{g} 組</div>'
+                f'{rows}</div>'
+            )
+        st.markdown(
+            f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(335px,1fr));'
+            f'gap:10px;font-family:\'Noto Sans TC\',sans-serif;">{cards}</div>',
+            unsafe_allow_html=True,
+        )
+        st.caption("名次依「投影期望積分」排序。左色條：🟩 前2 ／ 🟨 第3 ／ ⬜ 第4；右側堆疊條＝該隊落在第 1／2／3／4 名的機率分布。"
+                   "「晉級%」＝前2 ＋ 最佳第3名晉級機率合計。實＝目前實際積分、投＝模擬期望最終積分。")
+
+        # ── 最佳第 3 名競爭榜 ──
+        st.markdown("---")
+        st.subheader("🥉 最佳第 3 名競爭榜")
+        st.caption("各組第 3 名跨組爭奪 8 個晉級名額；依模擬「以最佳第 3 名晉級機率」排序。規則：先比積分、再淨勝球、再進球數（模擬已採此規則）。")
+        thirds = []
+        for g, teams in WC_2026_GROUPS.items():
+            gsg = _gs.get(g, {})
+            t3 = max(teams, key=lambda t: gsg.get(t, {}).get('p3', 0))
+            d = gsg.get(t3, {})
+            thirds.append((g, t3, d.get('p3', 0), d.get('third_adv_pct', 0)))
+        thirds.sort(key=lambda x: -x[3])
+        trows = ''
+        for rk, (g, t, p3, tap) in enumerate(thirds):
+            info = TEAM_INFO.get(t, {}); cn = info.get('cn', t); iso = info.get('iso', 'un')
+            qual = rk < 8
+            bg = 'rgba(54,194,117,0.12)' if qual else 'rgba(150,60,60,0.10)'
+            tag = ('<span style="color:#36c275;font-weight:800;">晉級區</span>' if qual
+                   else '<span style="color:#c97a7a;">淘汰區</span>')
+            trows += (
+                f'<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:{bg};'
+                f'border-bottom:1px solid rgba(100,150,200,0.1);">'
+                f'<span style="color:#8aa0ae;min-width:18px;">{rk+1}</span>'
+                f'<span style="background:{_grp_color.get(g, "#4a7ea8")};color:#0b1220;font-weight:800;'
+                f'border-radius:3px;padding:0 6px;font-size:0.72rem;">{g}</span>'
+                f'<img src="https://flagcdn.com/40x30/{iso}.png" style="height:15px;border-radius:2px;">'
+                f'<span style="flex:1;color:#e8eef6;font-weight:600;font-size:0.9rem;">{cn}</span>'
+                f'<span style="color:#9fb0bf;font-size:0.75rem;">P(第3) {p3:.0f}%</span>'
+                f'<span style="color:#36c275;font-weight:800;min-width:96px;text-align:right;">以第3晉級 {tap:.0f}%</span>'
+                f'<span style="min-width:50px;text-align:right;font-size:0.78rem;">{tag}</span>'
+                f'</div>'
+            )
+        st.markdown(
+            f'<div style="background:#091525;border-radius:10px;padding:6px 10px;'
+            f'font-family:\'Noto Sans TC\',sans-serif;">{trows}</div>',
+            unsafe_allow_html=True,
+        )
+
 elif page == "📅 完整賽程":
     st.title("📅 2026 世界盃完整賽程")
     st.caption("全程台灣時間（UTC+8）· 小組賽 6/12–6/28（72 場，依日期排列）· 淘汰賽 6/29–7/20 · 資料依 FIFA 2026 官方賽程")
