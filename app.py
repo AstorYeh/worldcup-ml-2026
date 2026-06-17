@@ -1484,20 +1484,29 @@ def render_group_stage_schedule() -> None:
             f'font-size:0.95rem;">{date}（{wd}）</div>{rows}'
         )
     if n_done > 0:
-        acc = hit / n_done
+        # 三種準確率：勝負（只算非平局場）、平局、整體
+        decisive_total = n_done - draw_act          # 非平局場數
+        decisive_hit = hit - draw_hit               # 非平局命中數
+        wl_acc = (decisive_hit / decisive_total) if decisive_total else 0.0
+        draw_acc = (draw_hit / draw_act) if draw_act else 0.0
+        overall_acc = hit / n_done
         bias = (act_goal_sum - pred_goal_sum) / n_done
+        wl_str = f'{decisive_hit}/{decisive_total}（{wl_acc:.0%}）' if decisive_total else '—'
+        draw_str = f'{draw_hit}/{draw_act}（{draw_acc:.0%}）' if draw_act else '—'
         summary_html = (
             f'<div style="margin:0 0 10px;padding:10px 14px;background:rgba(54,194,117,0.10);'
-            f'border:1px solid rgba(54,194,117,0.35);border-radius:8px;line-height:1.8;">'
-            f'<span style="color:#cfe3f5;font-weight:800;font-size:0.95rem;">📊 賽果校準（已完賽 {n_done} 場）</span>'
-            f'<span style="color:#36c275;font-weight:800;margin-left:12px;">勝負命中 {hit}/{n_done}（{acc:.0%}）</span>'
-            f'<span style="color:#f7c948;margin-left:12px;font-size:0.88rem;">平局 {draw_act} 場 · 命中 {draw_hit}</span>'
-            f'<span style="color:#8aa0ae;margin-left:12px;font-size:0.88rem;">進球偏差 {"+" if bias >= 0 else ""}{bias:.1f} 球/場（實際−預測）</span>'
+            f'border:1px solid rgba(54,194,117,0.35);border-radius:8px;line-height:1.9;">'
+            f'<span style="color:#cfe3f5;font-weight:800;font-size:0.95rem;">📊 賽果校準（已完賽 {n_done} 場）</span><br>'
+            f'<span style="color:#36c275;font-weight:800;">勝負準確率 {wl_str}</span>'
+            f'<span style="color:#7d8a96;font-size:0.76rem;">（不含平局）</span>'
+            f'<span style="color:#f7c948;font-weight:800;margin-left:14px;">平局準確率 {draw_str}</span>'
+            f'<span style="color:#00d4ff;font-weight:800;margin-left:14px;">整體準確率 {hit}/{n_done}（{overall_acc:.0%}）</span>'
+            f'<span style="color:#8aa0ae;margin-left:14px;font-size:0.85rem;">進球偏差 {"+" if bias >= 0 else ""}{bias:.1f} 球/場</span>'
             f'</div>'
         )
     else:
         summary_html = ('<div style="margin:0 0 10px;color:#8aa0ae;font-size:0.85rem;">'
-                        '📊 賽果校準：尚無完賽場次，開賽後自動統計勝負命中率與進球偏差。</div>')
+                        '📊 賽果校準：尚無完賽場次，開賽後自動統計勝負／平局／整體準確率與進球偏差。</div>')
     st.markdown(
         f'<div style="background:#091525;border-radius:12px;padding:8px 14px 14px;'
         f'font-family:\'Noto Sans TC\',sans-serif;">{summary_html}{day_blocks}</div>',
@@ -1629,7 +1638,7 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v3.4"
+APP_VERSION = "v3.5"
 APP_BUILD_DATE = "2026-06-16"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
