@@ -1028,16 +1028,23 @@ def load_pretrained():
     except Exception:
         return None
 
-@st.cache_resource(ttl=600)
-def load_mc_results():
-    """嘗試從 models/mc_results.pkl 載入；找不到回 None。"""
+@st.cache_data(ttl=300, show_spinner=False)
+def _load_mc_cached(_mtime: float):
+    """以檔案 mtime 為快取鍵載入 mc_results.pkl；mtime 變動（新部署/每日微調）即自動重載，避免快取舊檔。"""
     import os as _os, pickle as _pickle
+    p = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'models', 'mc_results.pkl')
+    with open(p, 'rb') as _f:
+        return _pickle.load(_f)
+
+
+def load_mc_results():
+    """從 models/mc_results.pkl 載入；找不到或讀取失敗回 None。"""
+    import os as _os
     p = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'models', 'mc_results.pkl')
     if not _os.path.exists(p):
         return None
     try:
-        with open(p, 'rb') as _f:
-            return _pickle.load(_f)
+        return _load_mc_cached(_os.path.getmtime(p))
     except Exception:
         return None
 
@@ -1638,7 +1645,7 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v3.6"
+APP_VERSION = "v3.7"
 APP_BUILD_DATE = "2026-06-16"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
