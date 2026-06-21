@@ -1399,9 +1399,10 @@ def render_group_stage_schedule() -> None:
         'E': '#3fb6b2', 'F': '#4aa3ff', 'G': '#6c8cff', 'H': '#a06cff',
         'I': '#e066c4', 'J': '#ff6b9d', 'K': '#c0a35e', 'L': '#5ec6c0',
     }
-    # 賽果統計（完賽場次）：勝負命中、平局命中、進球偏差
+    # 賽果統計（完賽場次）：勝負命中、平局命中、進球偏差、信心校準分桶
     n_done = hit = draw_act = draw_hit = 0
     pred_goal_sum = act_goal_sum = 0
+    calib = [[0, 0, 0.0], [0, 0, 0.0], [0, 0, 0.0], [0, 0, 0.0]]   # [命中, 總數, 信心和] @ 33-45/45-55/55-70/70+
     day_blocks = ""
     for date, items in _groupby(WC_2026_GROUP_FIXTURES, key=lambda m: m[0]):
         rows = ""
@@ -1452,6 +1453,10 @@ def render_group_stage_schedule() -> None:
                             draw_hit += int(pred_dir == 0)
                         pred_goal_sum += gh + ga
                         act_goal_sum += sh + sa
+                        _cb = 0 if pick_prob < 0.45 else (1 if pick_prob < 0.55 else (2 if pick_prob < 0.70 else 3))
+                        calib[_cb][1] += 1
+                        calib[_cb][0] += int(act_dir == pred_dir)
+                        calib[_cb][2] += pick_prob
                         if act_dir == pred_dir:
                             hit_html = ('<span style="color:#36c275;font-weight:800;'
                                         'font-size:0.62rem;margin-left:5px;">✓命中</span>')
@@ -1511,12 +1516,52 @@ def render_group_stage_schedule() -> None:
             f'<span style="color:#8aa0ae;margin-left:14px;font-size:0.85rem;">進球偏差 {"+" if bias >= 0 else ""}{bias:.1f} 球/場</span>'
             f'</div>'
         )
+        # 🎯 預測校準（可靠度圖）：每個信心分桶內，模型平均宣稱信心 vs 實際命中率
+        _lab = ['33–45%', '45–55%', '55–70%', '70%+']
+        _cbars = ''
+        _ece = 0.0          # Expected Calibration Error（加權平均 |信心−命中|）
+        _n_cal = sum(c[1] for c in calib)
+        for _i in range(4):
+            _h, _tt, _ps = calib[_i]
+            if not _tt:
+                continue
+            _rate = _h / _tt                    # 實際命中率
+            _conf = _ps / _tt                   # 桶內平均宣稱信心
+            _gap = abs(_rate - _conf)
+            _ece += (_tt / _n_cal) * _gap
+            _col = '#36c275' if _gap <= 0.08 else '#f7943e'
+            _cbars += (
+                f'<div style="display:flex;align-items:center;gap:8px;padding:1px 0;font-size:0.78rem;">'
+                f'<span style="color:#9fb0bf;min-width:74px;">信心 {_lab[_i]}</span>'
+                f'<span style="flex:1;max-width:240px;height:12px;background:#0b1220;border-radius:3px;'
+                f'position:relative;overflow:hidden;display:inline-block;">'
+                f'<span style="position:absolute;left:0;width:{_rate * 100:.0f}%;height:100%;background:{_col};"></span>'
+                f'<span style="position:absolute;left:{_conf * 100:.0f}%;top:0;width:2px;height:100%;'
+                f'background:#cfe3f5;"></span>'
+                f'</span>'
+                f'<span style="color:{_col};font-weight:800;min-width:36px;text-align:right;">{_rate:.0%}</span>'
+                f'<span style="color:#9fb0bf;font-size:0.7rem;min-width:54px;">宣稱{_conf:.0%}</span>'
+                f'<span style="color:#6b7682;font-size:0.7rem;">n={_tt}</span></div>'
+            )
+        _verdict, _vcol = (('校準良好', '#36c275') if _ece <= 0.06
+                           else (('尚可', '#f7c948') if _ece <= 0.10 else ('偏差較大', '#f7943e')))
+        calib_html = (
+            f'<div style="margin:0 0 10px;padding:8px 14px;background:rgba(0,212,255,0.06);'
+            f'border:1px solid rgba(0,212,255,0.25);border-radius:8px;">'
+            f'<div style="color:#cfe3f5;font-weight:800;font-size:0.9rem;">🎯 預測校準（可靠度圖）'
+            f'<span style="color:{_vcol};font-size:0.78rem;margin-left:8px;">'
+            f'ECE {_ece * 100:.1f} 個百分點 · {_verdict}</span></div>'
+            f'<div style="color:#7d8a96;font-size:0.72rem;margin:2px 0 5px;">'
+            f'實心條＝實際命中率、白線＝模型宣稱信心；兩者越接近＝校準越好（綠：誤差≤8pp）。</div>'
+            f'{_cbars}</div>'
+        ) if _cbars else ''
     else:
         summary_html = ('<div style="margin:0 0 10px;color:#8aa0ae;font-size:0.85rem;">'
                         '📊 賽果校準：尚無完賽場次，開賽後自動統計勝負／平局／整體準確率與進球偏差。</div>')
+        calib_html = ''
     st.markdown(
         f'<div style="background:#091525;border-radius:12px;padding:8px 14px 14px;'
-        f'font-family:\'Noto Sans TC\',sans-serif;">{summary_html}{day_blocks}</div>',
+        f'font-family:\'Noto Sans TC\',sans-serif;">{summary_html}{calib_html}{day_blocks}</div>',
         unsafe_allow_html=True,
     )
 
@@ -1645,8 +1690,8 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v3.7"
-APP_BUILD_DATE = "2026-06-16"
+APP_VERSION = "v3.8"
+APP_BUILD_DATE = "2026-06-21"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
 st.sidebar.markdown(
