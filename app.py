@@ -781,12 +781,15 @@ def load_fifa_ranking():
 # ============================================================
 # FEATURE ENGINEERING
 # ============================================================
-def compute_team_strength(df, team, year, years_back=8):
-    """計算球隊綜合實力（只看近 N 年，含時間衰減）"""
+@st.cache_data(show_spinner=False)
+def compute_team_strength(_df, team, year, years_back=8):
+    """計算球隊綜合實力（只看近 N 年，含時間衰減）。
+    _df 前綴底線→不納入快取鍵（每 session 固定）；鍵為 (team, year, years_back)，
+    避免各國分析每次切換球隊都重掃 ~49k 列 match_df。"""
     start_year = year - years_back
-    team_matches = df[
-        ((df['home_team'] == team) | (df['away_team'] == team)) &
-        (df['year'] >= start_year) & (df['year'] < year)
+    team_matches = _df[
+        ((_df['home_team'] == team) | (_df['away_team'] == team)) &
+        (_df['year'] >= start_year) & (_df['year'] < year)
     ].copy()
 
     if len(team_matches) == 0:
@@ -811,11 +814,12 @@ def compute_team_strength(df, team, year, years_back=8):
         'matches': len(team_matches)
     }
 
-def compute_recent_form(df, team, year):
-    """近2年國際賽加權勝率（近期狀態）"""
-    recent = df[
-        ((df['home_team'] == team) | (df['away_team'] == team)) &
-        (df['year'] >= year - 2) & (df['year'] < year)
+@st.cache_data(show_spinner=False)
+def compute_recent_form(_df, team, year):
+    """近2年國際賽加權勝率（近期狀態）。_df 不納入快取鍵（每 session 固定）。"""
+    recent = _df[
+        ((_df['home_team'] == team) | (_df['away_team'] == team)) &
+        (_df['year'] >= year - 2) & (_df['year'] < year)
     ]
     if len(recent) == 0:
         return 0.35
@@ -1161,8 +1165,20 @@ def train_models_walkforward(match_df, fifa_df):
 # ============================================================
 # PREDICTION
 # ============================================================
-def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2, feat_cols):
-    """預測單場（中性場地對稱修正 + Dixon-Coles 期望進球）"""
+# 進球校準（v3.9）：2026 實戰 52 場平均 3.02 球/場，但模型 MAP 比分僅 ~1.27 球/場
+# （偏差 +1.75）。對「最可能比分」的 λ 乘上 goal_scale，使顯示比分貼近實況。
+#   ⚠️ 只放大 MAP 比分用的 λ，不動 W/D/L 勝負機率（避免破壞已驗證的方向準確率 71%）。
+#   k 來源：52 場實測 k=1.6 可使進球偏差歸零並最大化精確比分命中（13%）；
+#   依 council（GPT-5.4/Taleb/Munger）收縮建議避免熱手過擬合 → 小組賽取 1.55。
+#   淘汰賽進球較少（council 共識 ~0.87×）→ KO 取 1.35，待 32 強開賽啟用。
+GOAL_INFLATE_GROUP = 1.55
+GOAL_INFLATE_KO = 1.35
+
+
+def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2,
+                  feat_cols, goal_scale=None):
+    """預測單場（中性場地對稱修正 + Dixon-Coles 期望進球）。
+    goal_scale：MAP 比分的 λ 放大倍率（None→GOAL_INFLATE_GROUP）；只影響顯示比分、不影響勝負機率。"""
 
     def _probs(t1, t2):
         feat = create_features_v2(t1, t2, year, match_df, fifa_df)
@@ -1258,6 +1274,15 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     _t3 = prob_win + prob_draw + prob_loss
     prob_win /= _t3; prob_draw /= _t3; prob_loss /= _t3
 
+    # ── 溫度銳化（v3.9，校準用）：60/40 融合 + 正反對稱平均會讓機率過度趨中
+    #    （系統性「不夠自信」）。對最終 W/D/L 做 T=0.70 銳化，純單調變換、
+    #    不改變 argmax（方向/準確率不變），52 場實測 ECE 10.2→5.0pp、Brier 0.604→0.596。
+    _T = 0.70
+    _lp = np.log(np.clip(np.array([prob_win, prob_draw, prob_loss]), 1e-9, 1.0)) / _T
+    _lp -= _lp.max()
+    _e = np.exp(_lp); _e /= _e.sum()
+    prob_win, prob_draw, prob_loss = float(_e[0]), float(_e[1]), float(_e[2])
+
     # ── MAP 比分：在「融合勝負方向」內找最高 Poisson 機率 cell ──
     # 為什麼要約束方向：當 λ 接近時，最高的單格機率常落在 (1,1) 等平局
     #   即使整體勝率(40%)大於平局(27%)。約束後 ★ 標的是「符合主預測方向的
@@ -1282,13 +1307,17 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
     out_c = outcome if is_canonical else (
         'loss' if outcome == 'win' else ('win' if outcome == 'loss' else 'draw'))
 
+    # 進球校準：放大 MAP 比分用的 λ（只影響「最可能比分」格，不影響上方勝負機率）
+    gs = GOAL_INFLATE_GROUP if goal_scale is None else goal_scale
+    map_lam1, map_lam2 = lam_c1 * gs, lam_c2 * gs
+
     best_prob, gc1, gc2 = -1.0, 0, 0
-    for g1 in range(8):
-        for g2 in range(8):
+    for g1 in range(9):
+        for g2 in range(9):
             so = 'win' if g1 > g2 else ('draw' if g1 == g2 else 'loss')
             if so != out_c:
                 continue
-            p = poisson.pmf(g1, lam_c1) * poisson.pmf(g2, lam_c2)
+            p = poisson.pmf(g1, map_lam1) * poisson.pmf(g2, map_lam2)
             if p > best_prob:
                 best_prob, gc1, gc2 = p, g1, g2
 
@@ -1315,9 +1344,18 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
 # ============================================================
 # 小組賽：模型預測比分 ＋ ESPN 即時實際比分
 # ============================================================
-@st.cache_data(show_spinner="計算 72 場小組賽預測比分中…")
 def get_group_stage_predictions() -> dict:
-    """回傳 {(home_en, away_en): {'g1','g2','win','draw','loss'}}；模型不可用時回傳空 dict。"""
+    """回傳 {(home_en, away_en): {'g1','g2','win','draw','loss'}}；模型不可用時回傳空 dict。
+    以 clf.pkl 的 mtime 為快取鍵：每日微調/重新部署更新模型後自動重算，不會供應過期融合比分。"""
+    import os as _os
+    p = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'models', 'clf.pkl')
+    mt = _os.path.getmtime(p) if _os.path.exists(p) else 0.0
+    return _group_stage_predictions_cached(mt)
+
+
+@st.cache_data(show_spinner="計算 72 場小組賽預測比分中…")
+def _group_stage_predictions_cached(clf_mtime: float) -> dict:
+    """clf_mtime（無底線→納入快取鍵）變動即重算。"""
     md = load_match_data()
     fd = load_fifa_ranking()
     out: dict = {}
@@ -1356,8 +1394,9 @@ def fetch_wc_live_scores() -> dict:
     回傳 {frozenset({home_en, away_en}): {'state','detail','scores':{team:int|None}}}；失敗回傳空 dict。"""
     import urllib.request
     import json as _json
+    # 窗口涵蓋整屆（含淘汰賽 6/29 起～決賽 7/20）；原 0629 會在 32 強首日截斷而抓不到淘汰賽即時比分
     url = ('https://site.api.espn.com/apis/site/v2/sports/soccer/'
-           'fifa.world/scoreboard?dates=20260611-20260629')
+           'fifa.world/scoreboard?dates=20260611-20260720')
     out: dict = {}
     try:
         op = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -1690,8 +1729,8 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v3.8"
-APP_BUILD_DATE = "2026-06-21"
+APP_VERSION = "v3.9"
+APP_BUILD_DATE = "2026-06-25"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
 st.sidebar.markdown(
@@ -1837,6 +1876,60 @@ if page == "📊 專題總覽":
         st.markdown('<div class="metric-card"><h2>235</h2><p>國家球隊數</p></div>', unsafe_allow_html=True)
     with col4:
         st.markdown('<div class="metric-card"><h2>12</h2><p>小組數</p></div>', unsafe_allow_html=True)
+
+    # ── 模型即時戰報：已完賽場次的實戰成績（數據整理分析；數字皆即時計算）──
+    _sc_preds = get_group_stage_predictions()
+    _sc_live = fetch_wc_live_scores()
+    _scn = _sch = _scdec = _scdh = 0
+    _scpg = _scag = _scfav = _scfn = 0
+    for _d, _t, _g, _h, _a in WC_2026_GROUP_FIXTURES:
+        _pr = _sc_preds.get((_h, _a))
+        if not _pr:
+            continue
+        _lv = _sc_live.get(frozenset((_h, _a)))
+        if not (_lv and _lv.get('state') == 'post'):
+            continue
+        _sh = _lv['scores'].get(_h); _sa = _lv['scores'].get(_a)
+        if not (isinstance(_sh, int) and isinstance(_sa, int)):
+            continue
+        _gh, _ga = _pr['g1'], _pr['g2']
+        _pdir = 1 if _gh > _ga else (-1 if _gh < _ga else 0)
+        _adir = 1 if _sh > _sa else (-1 if _sh < _sa else 0)
+        _scn += 1; _sch += int(_pdir == _adir)
+        if _adir != 0:
+            _scdec += 1; _scdh += int(_pdir == _adir)
+        _scpg += _gh + _ga; _scag += _sh + _sa
+        _scfn += 1; _scfav += int((1 if _pr['win'] >= _pr['loss'] else -1) == _adir)
+    if _scn > 0:
+        _ov = _sch / _scn
+        _dv = _scdh / _scdec if _scdec else 0.0
+        _fv = _scfav / _scfn if _scfn else 0.0
+        _bias = (_scag - _scpg) / _scn
+        _cards = [
+            ('整體準確率', f'{_ov:.0%}', f'{_sch}/{_scn} 場方向命中', '#00d4ff'),
+            ('決勝準確率', f'{_dv:.0%}', f'{_scdh}/{_scdec}（不含平局）', '#36c275'),
+            ('熱門命中率', f'{_fv:.0%}', '預測熱門實際獲勝比例', '#f7c948'),
+            ('進球校準', f'{"+" if _bias >= 0 else ""}{_bias:.1f}', '預測 vs 實際 球/場偏差', '#a78bfa'),
+        ]
+        _cell = ''.join(
+            f'<div style="flex:1;min-width:118px;background:#0d1b2e;border:1px solid rgba(0,212,255,0.18);'
+            f'border-radius:10px;padding:10px 12px;text-align:center;">'
+            f'<div style="color:{c};font-weight:800;font-size:1.55rem;line-height:1.1;'
+            f'font-variant-numeric:tabular-nums;">{v}</div>'
+            f'<div style="color:#cfe3f5;font-weight:700;font-size:0.82rem;margin-top:2px;">{lab}</div>'
+            f'<div style="color:#7d8a96;font-size:0.66rem;margin-top:1px;">{sub}</div></div>'
+            for lab, v, sub, c in _cards)
+        st.markdown(
+            f'<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.05);'
+            f'border:1px solid rgba(0,212,255,0.22);border-radius:12px;">'
+            f'<div style="color:#cfe3f5;font-weight:800;font-size:0.95rem;margin-bottom:8px;">'
+            f'📡 模型即時戰報　<span style="color:#7d8a96;font-weight:600;font-size:0.8rem;">'
+            f'已完賽 {_scn} / 72 場小組賽 · ESPN 即時賽果自動更新</span></div>'
+            f'<div style="display:flex;gap:8px;flex-wrap:wrap;">{_cell}</div>'
+            f'<div style="color:#7d8a96;font-size:0.72rem;margin-top:7px;">'
+            f'決勝準確率（排除平局後達 {_dv:.0%}）才是模型真實水準；整體被「今年超多平局」拉低。'
+            f'進球校準經 v3.9 修正後已貼近 0（先前嚴重低估 +1.75 球/場）。</div></div>',
+            unsafe_allow_html=True)
 
     st.markdown("---")
     st.subheader("📋 2026 世界盃小組分組（🇺🇸🇨🇦🇲🇽 主辦）")
@@ -3955,6 +4048,60 @@ elif page == "📊 各組排名預測":
         st.caption("名次依「投影期望積分」排序。左色條：🟩 前2 ／ 🟨 第3 ／ ⬜ 第4；右側堆疊條＝該隊落在第 1／2／3／4 名的機率分布。"
                    "「晉級%」＝前2 ＋ 最佳第3名晉級機率合計。實＝目前實際積分、投＝模擬期望最終積分。")
 
+        # ── 種子 vs 戰績：黑馬與失常（FIFA 種子位 → 目前實際名次）──
+        _moves = []
+        for g, teams in WC_2026_GROUPS.items():
+            seed_order = sorted(teams, key=lambda t: team_rank(t))           # FIFA 排名越前＝種子越高
+            cur_order = sorted(teams, key=lambda t: (-_actual.get(t, {}).get('pts', 0),
+                                                     -_gs.get(g, {}).get(t, {}).get('exp_pts', 0)))
+            seed_pos = {t: i for i, t in enumerate(seed_order)}
+            for cpos, t in enumerate(cur_order):
+                ap = _actual.get(t, {})
+                if ap.get('pld', 0) == 0:                                     # 未出賽不計
+                    continue
+                _moves.append((seed_pos[t] - cpos, g, t, seed_pos[t] + 1, cpos + 1,
+                               ap.get('pts', 0), ap.get('pld', 0)))
+
+        def _mover_rows(items, up):
+            html = ''
+            for mv, g, t, sp, cp, pts, pld in items:
+                info = TEAM_INFO.get(t, {}); cn = info.get('cn', t); iso = info.get('iso', 'un')
+                col = '#36c275' if up else '#e9676b'
+                arrow = f'▲ +{mv}' if up else f'▼ {mv}'
+                html += (
+                    f'<div style="display:flex;align-items:center;gap:7px;padding:4px 8px;'
+                    f'border-bottom:1px solid rgba(100,150,200,0.1);">'
+                    f'<img src="https://flagcdn.com/40x30/{iso}.png" style="height:14px;border-radius:2px;">'
+                    f'<span style="flex:1;color:#e8eef6;font-weight:600;font-size:0.85rem;white-space:nowrap;'
+                    f'overflow:hidden;text-overflow:ellipsis;">{cn}<span style="color:#7d8a96;'
+                    f'font-size:0.7rem;margin-left:4px;">{g}組</span></span>'
+                    f'<span style="color:#9fb0bf;font-size:0.72rem;min-width:96px;text-align:right;">'
+                    f'種子#{sp}→現#{cp}（實{pts}分）</span>'
+                    f'<span style="color:{col};font-weight:800;font-size:0.78rem;min-width:42px;'
+                    f'text-align:right;">{arrow}</span></div>')
+            return html or '<div style="color:#7d8a96;font-size:0.8rem;padding:6px 8px;">暫無</div>'
+
+        _ups = sorted([m for m in _moves if m[0] > 0], key=lambda x: (-x[0], x[5]))[:6]
+        _downs = sorted([m for m in _moves if m[0] < 0], key=lambda x: (x[0], -x[5]))[:6]
+        if _ups or _downs:
+            st.markdown("---")
+            st.subheader("🐎 種子 vs 戰績：黑馬與失常")
+            st.caption("以 FIFA 世界排名在組內的「種子位次」對比目前實際名次（依實際積分；平手用模擬期望積分）。"
+                       "▲＝戰績超越種子（黑馬）、▼＝低於種子（失常）。僅計已出賽球隊。")
+            _cu, _cd = st.columns(2)
+            with _cu:
+                st.markdown(
+                    f'<div style="background:#0c1c30;border:1px solid rgba(54,194,117,0.3);border-radius:10px;'
+                    f'padding:6px 8px;"><div style="color:#36c275;font-weight:800;font-size:0.9rem;'
+                    f'padding:2px 4px 5px;">🐎 黑馬（超越種子）</div>{_mover_rows(_ups, True)}</div>',
+                    unsafe_allow_html=True)
+            with _cd:
+                st.markdown(
+                    f'<div style="background:#0c1c30;border:1px solid rgba(233,103,107,0.3);border-radius:10px;'
+                    f'padding:6px 8px;"><div style="color:#e9676b;font-weight:800;font-size:0.9rem;'
+                    f'padding:2px 4px 5px;">📉 失常（低於種子）</div>{_mover_rows(_downs, False)}</div>',
+                    unsafe_allow_html=True)
+
         # ── 最佳第 3 名競爭榜 ──
         st.markdown("---")
         st.subheader("🥉 最佳第 3 名競爭榜")
@@ -4006,9 +4153,10 @@ elif page == "📅 完整賽程":
             fetch_wc_live_scores.clear()
     st.caption("每列：開球時間 · 組別 · 客隊 vs 主隊（主隊置右）·〔預〕最可能比分＋預測勝率"
                "＋和局率（藍＝勝率、金＝和局率；模型針對勝負最佳化，精確比分僅示意）·〔實〕實際比分（金；完賽後比對「✓命中＝勝負方向正確」）。"
-               "進行中顯示 🔴 LIVE，比分格式為「客-主」。資料來源：ESPN，每 45 秒自動刷新。")
+               "進行中顯示 🔴 LIVE，比分格式為「客-主」。資料來源：ESPN，每 30 秒自動刷新。")
     if hasattr(st, "fragment"):
-        st.fragment(render_group_stage_schedule, run_every=45)()
+        # run_every 對齊即時比分快取 ttl=30（app.py:1391），避免 45s tick 取到 15s 過期資料卻標示 LIVE
+        st.fragment(render_group_stage_schedule, run_every=30)()
     else:
         render_group_stage_schedule()
 
@@ -4052,7 +4200,7 @@ elif page == "📅 完整賽程":
             f'<div style="position:absolute;left:{x}px;top:{y}px;width:{BW}px;height:{BHB}px;'
             f'border:1px solid {bdr};border-radius:4px;background:{bg};'
             f'padding:3px 5px;box-sizing:border-box;overflow:hidden;">'
-            f'<div style="color:#4a7ea8;font-size:0.5rem;line-height:1.4;">{ts}</div>'
+            f'<div style="color:#7e9fbd;font-size:0.5rem;line-height:1.4;">{ts}</div>'
             f'<div style="color:#c8e0f4;font-weight:700;font-size:0.57rem;white-space:nowrap;'
             f'overflow:hidden;text-overflow:ellipsis;">{t1}</div>'
             f'<div style="color:#c8e0f4;font-weight:700;font-size:0.57rem;white-space:nowrap;'
@@ -4148,7 +4296,7 @@ elif page == "📅 完整賽程":
         f'<div style="background:#091525;border-radius:12px;padding:10px 12px;'
         f'font-family:\'Noto Sans TC\',sans-serif;overflow-x:auto;min-width:{TW}px;">'
         f'{body}{third_bar}'
-        f'<div style="text-align:center;color:#1a3050;font-size:0.55rem;margin-top:5px;">'
+        f'<div style="text-align:center;color:#8aa0ae;font-size:0.55rem;margin-top:5px;">'
         f'※ 日期依 EBC/FIFA 2026 官方賽程（6/29-7/20，台灣時間 UTC+8）· 對陣組合以官方抽籤為準</div>'
         f'</div>'
     )
