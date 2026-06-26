@@ -1341,6 +1341,133 @@ def predict_match(team1, team2, year, match_df, fifa_df, clf, poisson1, poisson2
         's1': s1, 's2': s2,
     }
 
+
+def predict_ko_match(t1, t2, match_df, fifa_df, clf, poisson1, poisson2, feat_cols):
+    """淘汰賽單場預測：用淘汰賽進球倍率（較低分），且不允許平局——
+    將平局機率依雙方相對強度分攤為「延長賽/PK 晉級機率」，回傳晉級方與比分。"""
+    r = predict_match(t1, t2, 2026, match_df, fifa_df, clf, poisson1, poisson2,
+                      feat_cols, goal_scale=GOAL_INFLATE_KO)
+    pw, pdr, pl = r['win_prob'], r['draw_prob'], r['loss_prob']
+    # 90 分鐘平局 → 進入延長賽/PK：平局機率依 90 分鐘勝負傾向分攤
+    base = pw + pl
+    adv1 = pw + pdr * (pw / base if base > 1e-9 else 0.5)
+    adv2 = 1.0 - adv1
+    g1, g2 = r['goal1'], r['goal2']
+    # 顯示比分方向需與晉級方一致；若 MAP 比分為平手則標記 PK
+    level = (g1 == g2)
+    if adv1 >= adv2:
+        winner, w_adv = t1, adv1
+        if g1 < g2:
+            g1, g2 = g2, g1
+    else:
+        winner, w_adv = t2, adv2
+        if g2 < g1:
+            g1, g2 = g2, g1
+    et = abs(adv1 - adv2) < 0.10        # 接近五五波 → 很可能延長賽/PK
+    return {'t1': t1, 't2': t2, 'goal1': g1, 'goal2': g2,
+            'winner': winner, 'adv1': adv1, 'adv2': adv2, 'w_adv': w_adv,
+            'level': level, 'et': et}
+
+
+def resolve_knockout_bracket(live, gs):
+    """從即時賽果＋Monte Carlo 各組排名，解析 32 強席位。
+    已踢完的組→真實最終排名（confirmed=True）；未踢完→以期望積分投影（confirmed=False）。
+    回傳 (positions{組:[1st,2nd,3rd,4th]}, confirmed{組:bool}, all_complete, qual_thirds[8 隊], thirds_ranked)。"""
+    stat = {t: {'pts': 0, 'gd': 0, 'gf': 0} for ts in WC_2026_GROUPS.values() for t in ts}
+    rem = {g: 0 for g in WC_2026_GROUPS}
+    for (_d, _t, g, h, a) in WC_2026_GROUP_FIXTURES:
+        lv = live.get(frozenset((h, a)))
+        sh = lv['scores'].get(h) if lv else None
+        sa = lv['scores'].get(a) if lv else None
+        if lv and lv.get('state') == 'post' and isinstance(sh, int) and isinstance(sa, int):
+            for x, gf, ga in ((h, sh, sa), (a, sa, sh)):
+                stat[x]['gf'] += gf; stat[x]['gd'] += gf - ga
+            if sh > sa: stat[h]['pts'] += 3
+            elif sa > sh: stat[a]['pts'] += 3
+            else: stat[h]['pts'] += 1; stat[a]['pts'] += 1
+        else:
+            rem[g] += 1
+    positions, confirmed = {}, {}
+    for g, teams in WC_2026_GROUPS.items():
+        if rem[g] == 0:        # 已踢完 → 真實排名
+            order = sorted(teams, key=lambda t: (-stat[t]['pts'], -stat[t]['gd'], -stat[t]['gf']))
+            confirmed[g] = True
+        else:                  # 未踢完 → 期望積分投影
+            gg = gs.get(g, {})
+            order = sorted(teams, key=lambda t: (-gg.get(t, {}).get('exp_pts', 0),
+                                                 -gg.get(t, {}).get('exp_gd', 0)))
+            confirmed[g] = False
+        positions[g] = order
+    all_complete = all(confirmed.values())
+    # 最佳第 3 名：各組第 3 名跨組依「以第3晉級機率(third_adv_pct)」排序，取前 8
+    thirds = [(g, positions[g][2], gs.get(g, {}).get(positions[g][2], {}).get('third_adv_pct', 0))
+              for g in WC_2026_GROUPS]
+    thirds.sort(key=lambda x: -x[2])
+    qual_thirds = [t for (_g, t, _p) in thirds[:8]]
+    return positions, confirmed, all_complete, qual_thirds, thirds
+
+
+# 32 強席位配對（沿用對陣圖結構：左 8 + 右 8）。(slot1, slot2)；'A1'=A 組第1、'T1'=最佳第3名①
+_R32_SLOTS = [
+    ('A1', 'B2'), ('C1', 'D2'), ('E1', 'F2'), ('G1', 'H2'),
+    ('I1', 'J2'), ('K1', 'L2'), ('T1', 'T2'), ('T3', 'T4'),
+    ('B1', 'A2'), ('D1', 'C2'), ('F1', 'E2'), ('H1', 'G2'),
+    ('J1', 'I2'), ('L1', 'K2'), ('T5', 'T6'), ('T7', 'T8'),
+]
+
+
+def _resolve_slot(slot, positions, confirmed, qual_thirds, all_complete):
+    """slot 例：'A1'→A組第1、'T3'→最佳第3名第3。回傳 (team_or_None, confirmed_bool)。"""
+    if slot[0] == 'T':
+        idx = int(slot[1:]) - 1
+        team = qual_thirds[idx] if idx < len(qual_thirds) else None
+        return team, all_complete
+    g, pos = slot[0], int(slot[1:]) - 1
+    return positions[g][pos], confirmed.get(g, False)
+
+
+@st.cache_data(show_spinner="預測 32 強淘汰賽中…")
+def compute_ko_bracket(clf_mtime: float, live_sig: int):
+    """解析席位→逐場淘汰賽預測→由 32 強推進到冠軍。快取鍵=(模型 mtime, 已完賽數)。
+    live_sig 變動（有新賽果）即重算。回傳 None 表模型/排名資料未就緒。"""
+    pre = load_pretrained()
+    mc = load_mc_results()
+    gs = (mc or {}).get('group_standings')
+    if pre is None or not gs:
+        return None
+    md = load_match_data(); fd = load_fifa_ranking()
+    clf, p1, p2, fc = pre['clf'], pre['poisson1'], pre['poisson2'], pre['feat_cols']
+    live = fetch_wc_live_scores()
+    positions, confirmed, all_complete, qual_thirds, thirds = resolve_knockout_bracket(live, gs)
+
+    def _tie(t1, t2, c1=False, c2=False, s1='', s2=''):
+        r = predict_ko_match(t1, t2, md, fd, clf, p1, p2, fc)
+        r.update({'c1': c1, 'c2': c2, 's1': s1, 's2': s2})
+        return r
+
+    r32 = []
+    for s1, s2 in _R32_SLOTS:
+        t1, c1 = _resolve_slot(s1, positions, confirmed, qual_thirds, all_complete)
+        t2, c2 = _resolve_slot(s2, positions, confirmed, qual_thirds, all_complete)
+        r32.append(_tie(t1, t2, c1, c2, s1, s2))
+
+    def _next(prev):
+        ws = [r['winner'] for r in prev]
+        return [_tie(ws[i], ws[i + 1]) for i in range(0, len(ws), 2)]
+
+    r16 = _next(r32); qf = _next(r16); sf = _next(qf); fin = _next(sf)
+    return {'positions': positions, 'confirmed': confirmed, 'all_complete': all_complete,
+            'qual_thirds': qual_thirds, 'thirds': thirds,
+            'n_groups_done': sum(1 for v in confirmed.values() if v),
+            'r32': r32, 'r16': r16, 'qf': qf, 'sf': sf,
+            'final': fin[0], 'champ': fin[0]['winner']}
+
+
+# ============================================================
+# 小組賽：模型預測比分 ＋ ESPN 即時實際比分
+# ============================================================
+
+
 # ============================================================
 # 小組賽：模型預測比分 ＋ ESPN 即時實際比分
 # ============================================================
@@ -1729,8 +1856,8 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v3.9"
-APP_BUILD_DATE = "2026-06-25"
+APP_VERSION = "v4.0"
+APP_BUILD_DATE = "2026-06-26"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
 st.sidebar.markdown(
@@ -1814,6 +1941,7 @@ with _nav_box:
         "🎯 球隊風格分群",
         "🏅 奪冠預測",
         "📊 各組排名預測",
+        "🏆 32強淘汰賽預測",
         "📅 完整賽程",
     ], label_visibility="collapsed")
 
@@ -4138,6 +4266,103 @@ elif page == "📊 各組排名預測":
             f'font-family:\'Noto Sans TC\',sans-serif;">{trows}</div>',
             unsafe_allow_html=True,
         )
+
+elif page == "🏆 32強淘汰賽預測":
+    st.title("🏆 32 強淘汰賽預測")
+    _ko_p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'clf.pkl')
+    _clf_mt = os.path.getmtime(_ko_p) if os.path.exists(_ko_p) else 0.0
+    _live0 = fetch_wc_live_scores()
+    _live_sig = sum(1 for v in _live0.values() if v.get('state') == 'post')
+    _bk = compute_ko_bracket(_clf_mt, _live_sig)
+    if not _bk:
+        st.warning("⚠️ 模型或各組排名模擬資料尚未就緒（models/clf.pkl 或 mc_results.pkl）。"
+                   "請稍後再試，或執行 `python retune.py` 重新產生。")
+    else:
+        _ngd = _bk['n_groups_done']
+        st.markdown(
+            f'<div style="margin:2px 0 10px;padding:9px 13px;background:rgba(0,212,255,0.06);'
+            f'border:1px solid rgba(0,212,255,0.25);border-radius:8px;color:#cfe3f5;font-size:0.85rem;'
+            f'line-height:1.65;">🏆 <b>32 強對陣預測</b>：12 組已踢完 <b>{_ngd}/12</b> 組。'
+            f'<span style="color:#36c275;font-weight:700;">✓ 綠勾＝已確定的真實晉級隊伍</span>、'
+            f'<span style="color:#c9a24a;font-weight:700;">~ 黃＝模型投影</span>（該組小組賽未完，以期望積分推估名次）。'
+            f'淘汰賽採較低進球倍率、不計平局（90 分鐘平手→以強度分攤為延長賽/PK 晉級機率）。'
+            f'對陣位置沿用官方對陣圖結構，實際以 FIFA 抽籤＋最終晉級為準。</div>',
+            unsafe_allow_html=True)
+
+        _champ = _bk['champ']; _ci = TEAM_INFO.get(_champ, {})
+        st.markdown(
+            f'<div style="text-align:center;margin:6px 0 14px;padding:14px;background:'
+            f'linear-gradient(135deg,rgba(247,201,72,0.16),rgba(247,201,72,0.03));'
+            f'border:1px solid rgba(247,201,72,0.45);border-radius:12px;">'
+            f'<div style="color:#c9a24a;font-size:0.8rem;font-weight:700;letter-spacing:1px;">'
+            f'模型預測冠軍（完整推進 · 純投影）</div>'
+            f'<div style="font-size:1.7rem;font-weight:800;color:#f7c948;margin-top:5px;">'
+            f'<img src="https://flagcdn.com/40x30/{_ci.get("iso","un")}.png" '
+            f'style="height:28px;border-radius:3px;vertical-align:middle;margin-right:8px;">'
+            f'{_ci.get("cn", _champ)}</div></div>',
+            unsafe_allow_html=True)
+
+        def _ko_card(r):
+            i1 = TEAM_INFO.get(r['t1'], {}); i2 = TEAM_INFO.get(r['t2'], {})
+            cn1, iso1 = i1.get('cn', r['t1']), i1.get('iso', 'un')
+            cn2, iso2 = i2.get('cn', r['t2']), i2.get('iso', 'un')
+            win1 = (r['winner'] == r['t1'])
+            conf = r['c1'] and r['c2']
+            badge = ('<span style="color:#36c275;font-weight:700;">✓ 已確定</span>' if conf
+                     else '<span style="color:#c9a24a;font-weight:700;">~ 預測</span>')
+
+            def _line(cn, iso, goal, win):
+                col = '#36c275' if win else '#9aa6b2'; fw = 800 if win else 600
+                return (f'<div style="display:flex;align-items:center;gap:6px;padding:1px 0;">'
+                        f'<img src="https://flagcdn.com/40x30/{iso}.png" style="height:15px;border-radius:2px;">'
+                        f'<span style="flex:1;color:{col};font-weight:{fw};font-size:0.9rem;white-space:nowrap;'
+                        f'overflow:hidden;text-overflow:ellipsis;">{cn}</span>'
+                        f'<span style="color:{col};font-weight:800;font-size:1rem;'
+                        f'font-variant-numeric:tabular-nums;">{goal}</span></div>')
+            et = ' · 延長賽/PK' if r['et'] else ''
+            return (
+                f'<div style="background:#0c1c30;border:1px solid rgba(100,150,200,0.22);border-radius:9px;'
+                f'padding:7px 10px;">'
+                f'<div style="display:flex;justify-content:space-between;font-size:0.66rem;'
+                f'color:#7d8a96;margin-bottom:3px;"><span>{r["s1"]} ─ {r["s2"]}</span>{badge}</div>'
+                f'{_line(cn1, iso1, r["goal1"], win1)}'
+                f'{_line(cn2, iso2, r["goal2"], not win1)}'
+                f'<div style="color:#8aa0ae;font-size:0.7rem;margin-top:4px;text-align:right;">'
+                f'→ {TEAM_INFO.get(r["winner"], {}).get("cn", r["winner"])} 晉級 {r["w_adv"]:.0%}{et}</div></div>')
+
+        st.subheader("🎯 32 強對陣（16 場）")
+        for _half_lbl, _half in [("上半區", _bk['r32'][:8]), ("下半區", _bk['r32'][8:])]:
+            st.markdown(f'**{_half_lbl}**')
+            _cards = ''.join(_ko_card(r) for r in _half)
+            st.markdown(
+                f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));'
+                f'gap:8px;font-family:\'Noto Sans TC\',sans-serif;">{_cards}</div>',
+                unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.subheader("🧭 模型預測晉級之路")
+        st.caption("以 32 強預測勝方逐輪往上推進（單一最可能路徑的「純投影」；越往後不確定性越高）。"
+                   "註：此為單路徑推進，常因賽程強弱而選出冷門冠軍；綜合所有路徑的機率式奪冠機率請見「🏅 奪冠預測」頁。")
+
+        def _round_chips(title, results):
+            chips = ''.join(
+                f'<span style="display:inline-flex;align-items:center;gap:4px;background:#0c1c30;'
+                f'border:1px solid rgba(100,150,200,0.22);border-radius:20px;padding:3px 10px;margin:2px;'
+                f'font-size:0.82rem;color:#e8eef6;">'
+                f'<img src="https://flagcdn.com/40x30/{TEAM_INFO.get(r["winner"], {}).get("iso", "un")}.png" '
+                f'style="height:12px;border-radius:2px;">'
+                f'{TEAM_INFO.get(r["winner"], {}).get("cn", r["winner"])}</span>'
+                for r in results)
+            return (f'<div style="margin-bottom:8px;"><span style="color:#9fb0bf;font-weight:700;'
+                    f'font-size:0.82rem;margin-right:6px;display:inline-block;min-width:72px;">{title}</span>{chips}</div>')
+
+        st.markdown(
+            _round_chips("晉級 16 強", _bk['r32']) +
+            _round_chips("晉級 8 強", _bk['r16']) +
+            _round_chips("晉級 4 強", _bk['qf']) +
+            _round_chips("晉級決賽", _bk['sf']) +
+            _round_chips("🏆 冠軍", [_bk['final']]),
+            unsafe_allow_html=True)
 
 elif page == "📅 完整賽程":
     st.title("📅 2026 世界盃完整賽程")
