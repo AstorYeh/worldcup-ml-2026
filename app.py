@@ -1399,37 +1399,55 @@ def resolve_knockout_bracket(live, gs):
             confirmed[g] = False
         positions[g] = order
     all_complete = all(confirmed.values())
-    # 最佳第 3 名：各組第 3 名跨組依「以第3晉級機率(third_adv_pct)」排序，取前 8
-    thirds = [(g, positions[g][2], gs.get(g, {}).get(positions[g][2], {}).get('third_adv_pct', 0))
-              for g in WC_2026_GROUPS]
-    thirds.sort(key=lambda x: -x[2])
-    qual_thirds = [t for (_g, t, _p) in thirds[:8]]
-    return positions, confirmed, all_complete, qual_thirds, thirds
+    # 最佳第 3 名：12 組第 3 名跨組依官方規則（積分→淨勝球→進球）排序，取前 8 晉級。
+    # 已踢完組用真實成績、未完組用期望投影。
+    def _third_key(g):
+        t3 = positions[g][2]
+        if confirmed[g]:
+            s = stat[t3]; return (s['pts'], s['gd'], s['gf'])
+        gg = gs.get(g, {}).get(t3, {})
+        return (gg.get('exp_pts', 0), gg.get('exp_gd', 0), 0.0)
+    thirds_ranked = sorted(WC_2026_GROUPS.keys(), key=_third_key, reverse=True)
+    qual_groups = sorted(thirds_ranked[:8])               # 晉級的 8 個「第3名來源組」
+    return positions, confirmed, all_complete, qual_groups, thirds_ranked
 
 
-# 32 強席位配對（沿用對陣圖結構：左 8 + 右 8）。(slot1, slot2)；'A1'=A 組第1、'T1'=最佳第3名①
-_R32_SLOTS = [
-    ('A1', 'B2'), ('C1', 'D2'), ('E1', 'F2'), ('G1', 'H2'),
-    ('I1', 'J2'), ('K1', 'L2'), ('T1', 'T2'), ('T3', 'T4'),
-    ('B1', 'A2'), ('D1', 'C2'), ('F1', 'E2'), ('H1', 'G2'),
-    ('J1', 'I2'), ('L1', 'K2'), ('T5', 'T6'), ('T7', 'T8'),
+# ── 2026 官方 32 強固定對陣（match 73-88，FIFA 預定、不重抽）──
+# 'A2'=A組亞軍、'C1'=C組冠軍；'T:E'=E組冠軍的第3名對手（依 Annex C 指派）。
+# 規則：冠軍不對冠軍、第3名一律對冠軍、亞軍互打、不同組不重逢。
+_R32_FIXED = [
+    ('A2', 'B2'),  ('E1', 'T:E'), ('F1', 'C2'),  ('C1', 'F2'),
+    ('I1', 'T:I'), ('E2', 'I2'),  ('A1', 'T:A'),  ('L1', 'T:L'),
+    ('D1', 'T:D'), ('G1', 'T:G'), ('K2', 'L2'),  ('H1', 'J2'),
+    ('B1', 'T:B'), ('J1', 'H2'),  ('K1', 'T:K'),  ('D2', 'G2'),
 ]
+# R32→R16 官方配對樹（match 89-96；值為 r32 索引 0-15）。R16 之後為標準相鄰配對。
+_R16_PAIRS = [(0, 2), (1, 4), (3, 5), (6, 7), (10, 11), (8, 9), (13, 15), (12, 14)]
+# 「冠軍 vs 第3名」8 場的冠軍組順序（match 74,77,79,80,81,82,85,87）
+_THIRD_WINNER_GROUPS = ['E', 'I', 'A', 'L', 'D', 'G', 'B', 'K']
+# Annex C：已知資格組合 → {冠軍組: 第3名來源組}（目前實際組合，FIFA 官方賽程驗證）。
+_ANNEX_C = {
+    frozenset(['B', 'D', 'E', 'F', 'I', 'J', 'K', 'L']):
+        {'E': 'D', 'I': 'F', 'A': 'E', 'L': 'K', 'D': 'B', 'G': 'I', 'B': 'J', 'K': 'L'},
+}
 
 
-def _resolve_slot(slot, positions, confirmed, qual_thirds, all_complete):
-    """slot 例：'A1'→A組第1、'T3'→最佳第3名第3。回傳 (team_or_None, confirmed_bool)。"""
-    if slot[0] == 'T':
-        idx = int(slot[1:]) - 1
-        team = qual_thirds[idx] if idx < len(qual_thirds) else None
-        return team, all_complete
-    g, pos = slot[0], int(slot[1:]) - 1
-    return positions[g][pos], confirmed.get(g, False)
+def _assign_thirds(qual_groups):
+    """回傳 ({冠軍組:第3名來源組}, annex_exact)。優先用 Annex C 官方表；否則貪婪指派（避開同組）。"""
+    key = frozenset(qual_groups)
+    if key in _ANNEX_C:
+        return dict(_ANNEX_C[key]), True
+    avail, assign, used = sorted(qual_groups), {}, set()
+    for wg in _THIRD_WINNER_GROUPS:
+        for tg in avail:
+            if tg != wg and tg not in used:
+                assign[wg] = tg; used.add(tg); break
+    return assign, False
 
 
 @st.cache_data(show_spinner="預測 32 強淘汰賽中…")
 def compute_ko_bracket(clf_mtime: float, live_sig: int):
-    """解析席位→逐場淘汰賽預測→由 32 強推進到冠軍。快取鍵=(模型 mtime, 已完賽數)。
-    live_sig 變動（有新賽果）即重算。回傳 None 表模型/排名資料未就緒。"""
+    """官方固定結構解析席位→逐場淘汰賽預測→推進到冠軍。快取鍵=(模型 mtime, 已完賽數)。"""
     pre = load_pretrained()
     mc = load_mc_results()
     gs = (mc or {}).get('group_standings')
@@ -1438,7 +1456,17 @@ def compute_ko_bracket(clf_mtime: float, live_sig: int):
     md = load_match_data(); fd = load_fifa_ranking()
     clf, p1, p2, fc = pre['clf'], pre['poisson1'], pre['poisson2'], pre['feat_cols']
     live = fetch_wc_live_scores()
-    positions, confirmed, all_complete, qual_thirds, thirds = resolve_knockout_bracket(live, gs)
+    positions, confirmed, all_complete, qual_groups, thirds_ranked = resolve_knockout_bracket(live, gs)
+    third_assign, annex_exact = _assign_thirds(qual_groups)
+
+    def _slot(spec):
+        """回傳 (team, confirmed_bool, label)。"""
+        if spec.startswith('T:'):
+            tg = third_assign.get(spec[2:])
+            team = positions[tg][2] if tg else None
+            return team, all_complete, (f'3{tg}' if tg else '3rd')
+        g, pos = spec[0], int(spec[1]) - 1
+        return positions[g][pos], confirmed.get(g, False), spec
 
     def _tie(t1, t2, c1=False, c2=False, s1='', s2=''):
         r = predict_ko_match(t1, t2, md, fd, clf, p1, p2, fc)
@@ -1446,18 +1474,20 @@ def compute_ko_bracket(clf_mtime: float, live_sig: int):
         return r
 
     r32 = []
-    for s1, s2 in _R32_SLOTS:
-        t1, c1 = _resolve_slot(s1, positions, confirmed, qual_thirds, all_complete)
-        t2, c2 = _resolve_slot(s2, positions, confirmed, qual_thirds, all_complete)
-        r32.append(_tie(t1, t2, c1, c2, s1, s2))
+    for a, b in _R32_FIXED:
+        t1, c1, l1 = _slot(a)
+        t2, c2, l2 = _slot(b)
+        r32.append(_tie(t1, t2, c1, c2, l1, l2))
+
+    r16 = [_tie(r32[i]['winner'], r32[j]['winner']) for i, j in _R16_PAIRS]
 
     def _next(prev):
         ws = [r['winner'] for r in prev]
         return [_tie(ws[i], ws[i + 1]) for i in range(0, len(ws), 2)]
 
-    r16 = _next(r32); qf = _next(r16); sf = _next(qf); fin = _next(sf)
+    qf = _next(r16); sf = _next(qf); fin = _next(sf)
     return {'positions': positions, 'confirmed': confirmed, 'all_complete': all_complete,
-            'qual_thirds': qual_thirds, 'thirds': thirds,
+            'qual_groups': qual_groups, 'thirds_ranked': thirds_ranked, 'annex_exact': annex_exact,
             'n_groups_done': sum(1 for v in confirmed.values() if v),
             'r32': r32, 'r16': r16, 'qf': qf, 'sf': sf,
             'final': fin[0], 'champ': fin[0]['winner']}
@@ -1856,8 +1886,8 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v4.0"
-APP_BUILD_DATE = "2026-06-26"
+APP_VERSION = "v4.1"
+APP_BUILD_DATE = "2026-06-29"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
 st.sidebar.markdown(
@@ -4279,14 +4309,22 @@ elif page == "🏆 32強淘汰賽預測":
                    "請稍後再試，或執行 `python retune.py` 重新產生。")
     else:
         _ngd = _bk['n_groups_done']
+        if _bk['all_complete']:
+            _hdr = ('🏆 <b>32 強對戰組合已全部確定</b>（12 組小組賽踢完）。'
+                    '採 <b>FIFA 官方固定對陣</b>（match 73–88）'
+                    + ('、第 3 名席位依官方 Annex C 指派' if _bk['annex_exact'] else '') +
+                    '，全部為真實晉級隊伍；比分／晉級為模型預測。')
+        else:
+            _hdr = (f'🏆 <b>32 強對陣預測</b>：12 組已踢完 <b>{_ngd}/12</b> 組。'
+                    '<span style="color:#36c275;font-weight:700;">✓＝已確定真實晉級隊</span>、'
+                    '<span style="color:#c9a24a;font-weight:700;">~＝模型投影</span>'
+                    '（未完組以期望積分推估名次、第 3 名席位暫定）。')
         st.markdown(
             f'<div style="margin:2px 0 10px;padding:9px 13px;background:rgba(0,212,255,0.06);'
             f'border:1px solid rgba(0,212,255,0.25);border-radius:8px;color:#cfe3f5;font-size:0.85rem;'
-            f'line-height:1.65;">🏆 <b>32 強對陣預測</b>：12 組已踢完 <b>{_ngd}/12</b> 組。'
-            f'<span style="color:#36c275;font-weight:700;">✓ 綠勾＝已確定的真實晉級隊伍</span>、'
-            f'<span style="color:#c9a24a;font-weight:700;">~ 黃＝模型投影</span>（該組小組賽未完，以期望積分推估名次）。'
-            f'淘汰賽採較低進球倍率、不計平局（90 分鐘平手→以強度分攤為延長賽/PK 晉級機率）。'
-            f'對陣位置沿用官方對陣圖結構，實際以 FIFA 抽籤＋最終晉級為準。</div>',
+            f'line-height:1.65;">{_hdr} '
+            f'對陣規則：冠軍對最佳第 3 名、亞軍互打、同組不重逢、不重抽。'
+            f'淘汰賽採較低進球倍率、不計平局（90 分鐘平手→依強度分攤為延長賽/PK 晉級機率）。</div>',
             unsafe_allow_html=True)
 
         _champ = _bk['champ']; _ci = TEAM_INFO.get(_champ, {})
