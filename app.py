@@ -1503,21 +1503,26 @@ def compute_ko_bracket(clf_mtime: float, live_sig: int):
                 for i in range(0, len(prev), 2)]
 
     qf = _next(r16); sf = _next(qf); fin = _next(sf)
-    # ── R32 重審計分（僅已完賽場次）──
-    played = [r for r in r32 if r['actual']]
-    sc = {
-        'n': len(played),
-        'hit': sum(1 for r in played if r['actual']['hit']),
-        'exact': sum(1 for r in played
-                     if (r['actual']['g1'], r['actual']['g2']) == (r['goal1'], r['goal2'])),
-        'pk': sum(1 for r in played if r['actual']['pk']),
-        'act_goals': sum(r['actual']['g1'] + r['actual']['g2'] for r in played),
-        'pred_goals': sum(r['goal1'] + r['goal2'] for r in played),
-    }
+
+    # ── 各輪重審計分（僅已完賽場次）──
+    def _score(ties):
+        played = [r for r in ties if r['actual']]
+        return {
+            'n': len(played),
+            'hit': sum(1 for r in played if r['actual']['hit']),
+            'exact': sum(1 for r in played
+                         if (r['actual']['g1'], r['actual']['g2']) == (r['goal1'], r['goal2'])),
+            'pk': sum(1 for r in played if r['actual']['pk']),
+            'act_goals': sum(r['actual']['g1'] + r['actual']['g2'] for r in played),
+            'pred_goals': sum(r['goal1'] + r['goal2'] for r in played),
+        }
+    sc = _score(r32)
+    sc_later = _score(r16 + qf + sf + fin)     # R16 之後合併計分
     return {'positions': positions, 'confirmed': confirmed, 'all_complete': all_complete,
             'qual_groups': qual_groups, 'thirds_ranked': thirds_ranked, 'annex_exact': annex_exact,
             'n_groups_done': sum(1 for v in confirmed.values() if v),
-            'r32': r32, 'r16': r16, 'qf': qf, 'sf': sf, 'scorecard': sc,
+            'r32': r32, 'r16': r16, 'qf': qf, 'sf': sf,
+            'scorecard': sc, 'scorecard_later': sc_later,
             'final': fin[0], 'champ': fin[0]['adv_team']}
 
 
@@ -1965,8 +1970,8 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v4.2"
-APP_BUILD_DATE = "2026-07-03"
+APP_VERSION = "v4.3"
+APP_BUILD_DATE = "2026-07-07"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
 st.sidebar.markdown(
@@ -4424,24 +4429,35 @@ elif page == "🏆 32強淘汰賽預測":
             f'{_ci.get("cn", _champ)}</div></div>',
             unsafe_allow_html=True)
 
-        # ── R32 重審計分卡（有完賽場次才顯示）──
+        # ── 淘汰賽重審計分卡（有完賽場次才顯示）──
         _sc = _bk.get('scorecard') or {}
+        _sc2 = _bk.get('scorecard_later') or {}
         if _sc.get('n'):
             _scn = _sc['n']
             _bias = (_sc['act_goals'] - _sc['pred_goals']) / _scn
+            _later_html = ''
+            if _sc2.get('n'):
+                _n2 = _sc2['n']
+                _later_html = (
+                    f'<br><span style="color:#a78bfa;font-weight:800;">16 強起命中 '
+                    f'{_sc2["hit"]}/{_n2}（{_sc2["hit"] / _n2:.0%}）</span>'
+                    f'<span style="color:#00d4ff;font-weight:800;margin-left:14px;">'
+                    f'精確比分 {_sc2["exact"]} 場</span>'
+                    f'<span style="color:#8aa0ae;margin-left:14px;font-size:0.85rem;">'
+                    f'實際 {_sc2["act_goals"] / _n2:.2f} 球/場</span>')
             st.markdown(
                 f'<div style="margin:0 0 12px;padding:9px 13px;background:rgba(54,194,117,0.08);'
                 f'border:1px solid rgba(54,194,117,0.35);border-radius:8px;line-height:1.8;">'
-                f'<span style="color:#cfe3f5;font-weight:800;font-size:0.92rem;">📊 32 強預測重審'
-                f'（已完賽 {_scn}/16 場）</span><br>'
-                f'<span style="color:#36c275;font-weight:800;">晉級命中 {_sc["hit"]}/{_scn}'
+                f'<span style="color:#cfe3f5;font-weight:800;font-size:0.92rem;">📊 淘汰賽預測重審</span><br>'
+                f'<span style="color:#36c275;font-weight:800;">32 強命中 {_sc["hit"]}/{_scn}'
                 f'（{_sc["hit"] / _scn:.0%}）</span>'
                 f'<span style="color:#00d4ff;font-weight:800;margin-left:14px;">'
                 f'精確比分 {_sc["exact"]} 場</span>'
                 f'<span style="color:#f7c948;font-weight:800;margin-left:14px;">PK 大戰 {_sc["pk"]} 場</span>'
                 f'<span style="color:#8aa0ae;margin-left:14px;font-size:0.85rem;">'
                 f'實際 {_sc["act_goals"] / _scn:.2f} 球/場（小組賽 3.02 → 淘汰賽確實變低分）'
-                f'· 進球偏差 {"+" if _bias >= 0 else ""}{_bias:.2f}</span></div>',
+                f'· 進球偏差 {"+" if _bias >= 0 else ""}{_bias:.2f}</span>'
+                f'{_later_html}</div>',
                 unsafe_allow_html=True)
 
         def _ko_card(r):
@@ -4504,6 +4520,19 @@ elif page == "🏆 32強淘汰賽預測":
         st.subheader("🎯 16 強對陣預測（8 場）")
         st.caption("對陣組合由 32 強「實際晉級者」帶入（未賽場次以模型預測晉級者暫代，該卡標 ~）；比分／晉級率為模型預測。")
         _card_grid(_bk['r16'])
+
+        st.markdown("---")
+        st.subheader("🎯 8 強對陣預測（4 場）")
+        st.caption("由 16 強晉級者帶入（✓＝雙方皆為真實晉級、~＝含模型暫代）；已完賽自動鎖入實際結果。")
+        _card_grid(_bk['qf'])
+
+        st.markdown("---")
+        st.subheader("🎯 4 強對陣預測（2 場）")
+        _card_grid(_bk['sf'])
+
+        st.markdown("---")
+        st.subheader("🏆 冠軍賽預測")
+        _card_grid([_bk['final']])
 
         st.markdown("---")
         st.subheader("🧭 模型預測晉級之路")
