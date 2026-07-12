@@ -1523,11 +1523,36 @@ def compute_ko_bracket(clf_mtime: float, live_sig: int):
         }
     sc = _score(r32)
     sc_later = _score(r16 + qf + sf + fin)     # R16 之後合併計分
+
+    # ── 精確奪冠機率（4 強對陣皆為真實晉級者時，枚舉剩餘所有路徑；已賽場次鎖 1/0）──
+    # 淘汰賽後段用精確計算取代 Monte Carlo：奪冠預測頁的 MC 為賽前結構模擬、不鎖淘汰賽賽果。
+    champ_probs = None
+    if all(r['t1'] and r['t2'] and r['c1'] and r['c2'] for r in sf):
+        def _padv(r):
+            if r['actual']:
+                return (1.0, 0.0) if r['actual']['winner'] == r['t1'] else (0.0, 1.0)
+            return (r['adv1'], r['adv2'])
+        if fin[0]['actual']:
+            champ_probs = {fin[0]['actual']['winner']: 1.0}
+        else:
+            pa1, pb1 = _padv(sf[0])
+            pa2, pb2 = _padv(sf[1])
+            champ_probs = {}
+            for ta, pa in ((sf[0]['t1'], pa1), (sf[0]['t2'], pb1)):
+                for tb, pb in ((sf[1]['t1'], pa2), (sf[1]['t2'], pb2)):
+                    reach = pa * pb
+                    if reach <= 1e-9:
+                        continue
+                    fr = predict_ko_match(ta, tb, md, fd, clf, p1, p2, fc)
+                    wa = fr['adv1'] if fr['t1'] == ta else fr['adv2']
+                    champ_probs[ta] = champ_probs.get(ta, 0.0) + reach * wa
+                    champ_probs[tb] = champ_probs.get(tb, 0.0) + reach * (1.0 - wa)
+
     return {'positions': positions, 'confirmed': confirmed, 'all_complete': all_complete,
             'qual_groups': qual_groups, 'thirds_ranked': thirds_ranked, 'annex_exact': annex_exact,
             'n_groups_done': sum(1 for v in confirmed.values() if v),
             'r32': r32, 'r16': r16, 'qf': qf, 'sf': sf,
-            'scorecard': sc, 'scorecard_later': sc_later,
+            'scorecard': sc, 'scorecard_later': sc_later, 'champ_probs': champ_probs,
             'final': fin[0], 'champ': fin[0]['adv_team']}
 
 
@@ -4026,6 +4051,10 @@ elif page == "🎯 球隊風格分群":
 elif page == "🏅 奪冠預測":
     st.title("🏅 Monte Carlo 奪冠機率預測")
     st.markdown("**模擬 2026 世界盃整個賽程，含小組賽 → 32 強 → 16 強 → 8 強 → 4 強 → 決賽**")
+    if _date.today() >= _date(2026, 6, 28):
+        st.warning("⚠️ 淘汰賽已開打：本頁為「賽前結構模擬」（小組賽鎖定真實賽果、淘汰賽為模擬，"
+                   "故已淘汰球隊仍有機率值）。**目前實際存活球隊的精確奪冠機率**請見"
+                   "「🏆 32強淘汰賽預測」頁的『🎲 剩餘球隊奪冠機率』。")
     st.markdown("---")
 
     mc = load_mc_results()
@@ -4433,6 +4462,32 @@ elif page == "🏆 32強淘汰賽預測":
             f'style="height:28px;border-radius:3px;vertical-align:middle;margin-right:8px;">'
             f'{_ci.get("cn", _champ)}</div></div>',
             unsafe_allow_html=True)
+
+        # ── 剩餘球隊精確奪冠機率（4 強對陣確定後顯示；枚舉剩餘路徑、非模擬）──
+        _cp = _bk.get('champ_probs')
+        if _cp:
+            _cp_cells = ''
+            for _t, _p in sorted(_cp.items(), key=lambda x: -x[1]):
+                _ti = TEAM_INFO.get(_t, {})
+                _cp_cells += (
+                    f'<div style="flex:1;min-width:110px;background:#0d1b2e;'
+                    f'border:1px solid rgba(247,201,72,0.25);border-radius:10px;padding:8px 10px;'
+                    f'text-align:center;">'
+                    f'<img src="https://flagcdn.com/40x30/{_ti.get("iso","un")}.png" '
+                    f'style="height:16px;border-radius:2px;">'
+                    f'<div style="color:#e8eef6;font-weight:700;font-size:0.85rem;margin-top:2px;">'
+                    f'{_ti.get("cn", _t)}</div>'
+                    f'<div style="color:#f7c948;font-weight:800;font-size:1.25rem;'
+                    f'font-variant-numeric:tabular-nums;">{_p:.0%}</div></div>')
+            st.markdown(
+                f'<div style="margin:0 0 12px;padding:9px 13px;background:rgba(247,201,72,0.05);'
+                f'border:1px solid rgba(247,201,72,0.3);border-radius:10px;">'
+                f'<div style="color:#cfe3f5;font-weight:800;font-size:0.9rem;margin-bottom:7px;">'
+                f'🎲 剩餘球隊奪冠機率'
+                f'<span style="color:#7d8a96;font-weight:600;font-size:0.75rem;margin-left:8px;">'
+                f'精確枚舉剩餘所有對戰路徑（已賽鎖定實際結果），非 Monte Carlo 模擬</span></div>'
+                f'<div style="display:flex;gap:8px;flex-wrap:wrap;">{_cp_cells}</div></div>',
+                unsafe_allow_html=True)
 
         # ── 淘汰賽重審計分卡（有完賽場次才顯示）──
         _sc = _bk.get('scorecard') or {}
