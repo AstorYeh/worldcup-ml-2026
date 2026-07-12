@@ -1502,7 +1502,12 @@ def compute_ko_bracket(clf_mtime: float, live_sig: int):
                      bool(prev[i]['actual']), bool(prev[i + 1]['actual']))
                 for i in range(0, len(prev), 2)]
 
-    qf = _next(r16); sf = _next(qf); fin = _next(sf)
+    qf = _next(r16)
+    # 官方 4 強為「交叉配對」：SF1 = QF97勝 vs QF99勝、SF2 = QF98勝 vs QF100勝
+    # （2026 實際：法國–西班牙、英格蘭–阿根廷，與 ESPN 官方賽程核對）；非相鄰配對。
+    sf = [_tie(qf[0]['adv_team'], qf[2]['adv_team'], bool(qf[0]['actual']), bool(qf[2]['actual'])),
+          _tie(qf[1]['adv_team'], qf[3]['adv_team'], bool(qf[1]['actual']), bool(qf[3]['actual']))]
+    fin = _next(sf)
 
     # ── 各輪重審計分（僅已完賽場次）──
     def _score(ties):
@@ -1970,8 +1975,8 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v4.3"
-APP_BUILD_DATE = "2026-07-07"
+APP_VERSION = "v4.4"
+APP_BUILD_DATE = "2026-07-12"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
 st.sidebar.markdown(
