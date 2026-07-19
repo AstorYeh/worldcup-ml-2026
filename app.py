@@ -1366,7 +1366,9 @@ def predict_ko_match(t1, t2, match_df, fifa_df, clf, poisson1, poisson2, feat_co
     et = abs(adv1 - adv2) < 0.10        # 接近五五波 → 很可能延長賽/PK
     return {'t1': t1, 't2': t2, 'goal1': g1, 'goal2': g2,
             'winner': winner, 'adv1': adv1, 'adv2': adv2, 'w_adv': w_adv,
-            'level': level, 'et': et}
+            'level': level, 'et': et,
+            # 比分矩陣用：已含淘汰賽倍率的顯示 λ（與 MAP 比分同一套）
+            'lam1': r['lam1'] * GOAL_INFLATE_KO, 'lam2': r['lam2'] * GOAL_INFLATE_KO}
 
 
 def resolve_knockout_bracket(live, gs):
@@ -2000,8 +2002,8 @@ if os.path.exists(_logo_path):
         _logo_b64 = base64.b64encode(_lf.read()).decode()
 
 # ── 版本標記：版本號＋日期＋實際部署 commit 短雜湊（線上可直接對照 GitHub）──
-APP_VERSION = "v4.4"
-APP_BUILD_DATE = "2026-07-12"
+APP_VERSION = "v4.5"
+APP_BUILD_DATE = "2026-07-19"
 _app_build = f"{APP_VERSION} · {APP_BUILD_DATE}"
 
 st.sidebar.markdown(
@@ -4593,6 +4595,53 @@ elif page == "🏆 32強淘汰賽預測":
         st.markdown("---")
         st.subheader("🏆 冠軍賽預測")
         _card_grid([_bk['final']])
+
+        # ── 冠軍賽比分機率矩陣（雙方為真實晉級者時顯示；已完賽則保留供對照）──
+        _fr = _bk['final']
+        if _fr['c1'] and _fr['c2'] and _fr.get('lam1'):
+            _fl1, _fl2 = _fr['lam1'], _fr['lam2']
+            _fc1 = TEAM_INFO.get(_fr['t1'], {}).get('cn', _fr['t1'])
+            _fc2 = TEAM_INFO.get(_fr['t2'], {}).get('cn', _fr['t2'])
+            _g = {}
+            for _a in range(8):
+                for _b in range(8):
+                    _g[(_a, _b)] = poisson.pmf(_a, _fl1) * poisson.pmf(_b, _fl2)
+            _gt = sum(_g.values())
+            for _k in _g:
+                _g[_k] /= _gt
+            _w90 = sum(p for (a, b), p in _g.items() if a > b)
+            _d90 = sum(p for (a, b), p in _g.items() if a == b)
+            _l90 = sum(p for (a, b), p in _g.items() if a < b)
+            _o25 = sum(p for (a, b), p in _g.items() if a + b >= 3)
+            _btts = sum(p for (a, b), p in _g.items() if a > 0 and b > 0)
+            _pmax = max(_g[(a, b)] for a in range(5) for b in range(5))
+            _rows = ('<tr><td style="padding:2px 6px;"></td>' +
+                     ''.join(f'<td style="color:#7d8a96;text-align:center;font-size:0.7rem;'
+                             f'padding:2px 4px;">{_fc2} {b}</td>' for b in range(5)) + '</tr>')
+            for _a in range(5):
+                _cells = ''
+                for _b in range(5):
+                    _p = _g[(_a, _b)]
+                    _al = 0.08 + 0.72 * (_p / _pmax)
+                    _cells += (f'<td style="background:rgba(0,212,255,{_al:.2f});color:'
+                               f'{"#04222e" if _al > 0.45 else "#bfe9f7"};text-align:center;'
+                               f'padding:6px 4px;border-radius:4px;font-weight:'
+                               f'{700 if _p == _pmax else 500};font-size:0.78rem;'
+                               f'font-variant-numeric:tabular-nums;">{_p * 100:.1f}</td>')
+                _rows += (f'<tr><td style="color:#7d8a96;text-align:right;padding:2px 8px;'
+                          f'font-size:0.7rem;white-space:nowrap;">{_fc1} {_a}</td>{_cells}</tr>')
+            st.markdown(
+                f'<div style="margin:10px 0 0;padding:10px 14px;background:#091525;'
+                f'border:1px solid rgba(0,212,255,0.25);border-radius:10px;'
+                f'font-family:\'Noto Sans TC\',sans-serif;">'
+                f'<div style="color:#cfe3f5;font-weight:800;font-size:0.9rem;">🔢 比分機率矩陣'
+                f'<span style="color:#7d8a96;font-weight:600;font-size:0.72rem;margin-left:8px;">'
+                f'λ {_fc1} {_fl1:.2f}／{_fc2} {_fl2:.2f}（含淘汰賽倍率）· 格值＝該比分機率 %</span></div>'
+                f'<table style="border-collapse:separate;border-spacing:3px;margin-top:6px;">{_rows}</table>'
+                f'<div style="color:#8aa0ae;font-size:0.74rem;margin-top:6px;line-height:1.7;">'
+                f'90 分鐘：{_fc1} {_w90:.0%}／平（進延長賽）{_d90:.0%}／{_fc2} {_l90:.0%}'
+                f'　·　大 2.5 球 {_o25:.0%}　·　雙方進球 {_btts:.0%}</div></div>',
+                unsafe_allow_html=True)
 
         st.markdown("---")
         st.subheader("🧭 模型預測晉級之路")
